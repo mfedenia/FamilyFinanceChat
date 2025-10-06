@@ -7,7 +7,7 @@ Components:
 - src/vectorstore.py — Chroma helpers.
 
 Notebook:
-- notebooks/test_4_components.ipynb — Run All to install deps, generate sample PDFs, load/split/embed, persist two collections, and query.
+- Contains test notebook, neet to reassign the routine mounted if run on colab. Requires A100 runtime.
 
 Data:
 - data_txt/ includes two biography stories (life, finance, marriage, experiences).
