@@ -81,7 +81,7 @@ SCRAPED = DATA_DIR / "webscraped"
 KB = DATA_DIR / "knowledge_base"
 THUMBNAILS = DATA_DIR / "thumbnails"
 STATE_FILE = DATA_DIR / "pdf_state.json"
-INPUT_DIR = Path("/Users/mishiev/FamilyFinanceChat/backend/Webscraping/input_files")
+INPUT_DIR = Path(__file__).parent / "Webscraping" / "input_files"
 
 # Create directories
 for dir_path in [DATA_DIR, SCRAPED, KB, THUMBNAILS, INPUT_DIR]:
@@ -254,7 +254,7 @@ async def upload_and_crawl(files: List[UploadFile] = File(...)):
         raise HTTPException(400, "No PDF files uploaded")
     
     # Run the link_downloader script
-    script_path = Path("/Users/mishiev/FamilyFinanceChat/backend/Webscraping/link_downloader.py")
+    script_path = Path(__file__).parent / "Webscraping" / "link_downloader.py"
     
     # Make sure output directory exists
     SCRAPED.mkdir(parents=True, exist_ok=True)
@@ -279,7 +279,7 @@ async def upload_and_crawl(files: List[UploadFile] = File(...)):
             cmd, 
             capture_output=True, 
             text=True,
-            cwd=str(Path("/Users/mishiev/FamilyFinanceChat/backend"))
+            cwd=str(Path(__file__).parent)
         )
         
         logging.info(f"Crawler stdout: {result.stdout}")
