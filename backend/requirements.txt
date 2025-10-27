@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pdf2image
+Pillow
+pydantic
