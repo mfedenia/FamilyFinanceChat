@@ -265,7 +265,7 @@ async def upload_and_crawl(files: List[UploadFile] = File(...)):
             cmd, 
             capture_output=True, 
             text=True,
-            cwd=str(Path("/Users/mishiev/FamilyFinanceChat/backend/Webscraping"))
+            cwd=str(Path("/Users/mishiev/FamilyFinanceChat/backend"))
         )
         
         logging.info(f"Crawler stdout: {result.stdout}")
