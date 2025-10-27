@@ -1,2 +1,46 @@
+# Python
 backend/venv/
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backend specific
+backend/openwebui/data/
+backend/Webscraping/input_files/
+backend/Webscraping/outputs/
+backend/Webscraping/openwebui/
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+*.json
+
+# PDF and data files (if you don't want to track them)
+*.pdf
+!sample.pdf  # Exception for sample files if needed
+
+# RAG project
+rag_bio_project/index/
+rag_bio_project/data_pdfs/
+rag_bio_project/.env
