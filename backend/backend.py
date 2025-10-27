@@ -10,9 +10,23 @@ import sys
 import os
 import logging
 from typing import List, Optional
+from openwebui_uploader import OpenWebUIUploader
+import uvicorn
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# configs
+OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://127.0.0.1:3000")
+OPENWEBUI_API_KEY = os.getenv("OPENWEBUI_API_KEY", "")  # TODO: env var
+OPENWEBUI_KB_ID = os.getenv("OPENWEBUI_KB_ID", "d2d01280-b703-4c94-8d53-058e9b3ff3b1")
+
+# Initialize the uploader
+uploader = OpenWebUIUploader(
+    base_url=OPENWEBUI_BASE_URL,
+    api_key=OPENWEBUI_API_KEY,
+    kb_id=OPENWEBUI_KB_ID
+)
 
 def generate_thumbnail(pdf_path: Path, thumbnail_dir: Path) -> Optional[Path]:
     """Generate a thumbnail for a PDF file"""
@@ -294,35 +308,122 @@ async def upload_and_crawl(files: List[UploadFile] = File(...)):
 
 @app.post("/api/finalize")
 def finalize_upload():
-    """Move non-excluded PDFs to knowledge base"""
+    """Move non-excluded PDFs to knowledge base and upload to OpenWebUI"""
     state = load_state()
     
     # Only include PDFs that are not excluded
     include = [pdf for pdf in state if not pdf["excluded"]]
     KB.mkdir(parents=True, exist_ok=True)
     moved = []
+    uploaded_to_openwebui = []
+    upload_errors = []
     
     for pdf_data in include:
         source = SCRAPED / pdf_data["name"]
         if source.exists():
+            # Move to local KB folder
             dest = KB / pdf_data["name"]
-            shutil.move(str(source), str(dest))
+            shutil.copy2(str(source), str(dest))  # Use copy2 instead of move so we can upload it
             moved.append(pdf_data["name"])
-            logging.info(f"Moved to KB: {pdf_data['name']}")
+            logging.info(f"Copied to KB: {pdf_data['name']}")
+            
+            # Upload to OpenWebUI
+            try:
+                result = uploader.upload_and_add_to_kb(source)
+                uploaded_to_openwebui.append({
+                    "filename": pdf_data["name"],
+                    "file_id": result.get("file_id"),
+                    "status": "success"
+                })
+                logging.info(f"Uploaded to OpenWebUI: {pdf_data['name']}")
+            except Exception as e:
+                error_msg = str(e)
+                upload_errors.append({
+                    "filename": pdf_data["name"],
+                    "error": error_msg
+                })
+                logging.error(f"Failed to upload {pdf_data['name']} to OpenWebUI: {error_msg}")
     
-    # Clean up: remove excluded PDFs from scraped folder
-    for pdf_data in state:
-        if pdf_data["excluded"]:
-            source = SCRAPED / pdf_data["name"]
-            if source.exists():
-                source.unlink()
-                logging.info(f"Deleted excluded PDF: {pdf_data['name']}")
+    # Clean up: remove all PDFs from scraped folder (both excluded and included)
+    for pdf in SCRAPED.glob("*.pdf"):
+        pdf.unlink()
+        logging.info(f"Cleaned up: {pdf.name}")
     
     # Clear the state after finalizing
     if STATE_FILE.exists():
         STATE_FILE.unlink()
     
-    return {"message": f"Moved {len(moved)} PDFs to Knowledge Base", "moved": moved}
+    return {
+        "message": f"Moved {len(moved)} PDFs to Knowledge Base, uploaded {len(uploaded_to_openwebui)} to OpenWebUI",
+        "moved": moved,
+        "uploaded_to_openwebui": uploaded_to_openwebui,
+        "upload_errors": upload_errors
+    }
+
+
+# Add a new endpoint to test OpenWebUI connection
+@app.get("/api/openwebui/test")
+def test_openwebui_connection():
+    """Test connection to OpenWebUI"""
+    try:
+        response = requests.get(
+            f"{OPENWEBUI_BASE_URL}/api/v1/knowledge/{OPENWEBUI_KB_ID}",
+            headers={"Authorization": f"Bearer {OPENWEBUI_API_KEY}"},
+            timeout=10
+        )
+        
+        if response.ok:
+            kb_info = response.json()
+            return {
+                "status": "connected",
+                "kb_name": kb_info.get("name"),
+                "kb_id": OPENWEBUI_KB_ID,
+                "file_count": len((kb_info.get("data") or {}).get("file_ids", []))
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"OpenWebUI returned status {response.status_code}"
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+# Add endpoint to manually upload specific PDFs to OpenWebUI
+@app.post("/api/openwebui/upload")
+async def upload_to_openwebui(pdf_names: List[str]):
+    """Manually upload specific PDFs from KB to OpenWebUI"""
+    results = []
+    
+    for pdf_name in pdf_names:
+        pdf_path = KB / pdf_name
+        
+        if not pdf_path.exists():
+            results.append({
+                "filename": pdf_name,
+                "status": "error",
+                "message": "File not found in knowledge base"
+            })
+            continue
+        
+        try:
+            result = uploader.upload_and_add_to_kb(pdf_path)
+            results.append({
+                "filename": pdf_name,
+                "status": "success",
+                "file_id": result.get("file_id")
+            })
+        except Exception as e:
+            results.append({
+                "filename": pdf_name,
+                "status": "error",
+                "message": str(e)
+            })
+    
+    return {"results": results}
 
 @app.delete("/api/reset")
 def reset_state():
@@ -351,7 +452,6 @@ def reset_state():
     return {"message": "State reset successfully"}
 
 if __name__ == "__main__":
-    import uvicorn
     print(f"Starting server...")
     print(f"Input directory: {INPUT_DIR}")
     print(f"Output directory: {SCRAPED}")
@@ -359,6 +459,11 @@ if __name__ == "__main__":
     print(f"Knowledge Base directory: {KB}")
     print(f"State file: {STATE_FILE}")
     
+    # OpenWebUI
+    print(f"\n=== OpenWebUI Configuration ===")
+    print(f"OpenWebUI URL: {OPENWEBUI_BASE_URL}")
+    print(f"Knowledge Base ID: {OPENWEBUI_KB_ID}")
+    print(f"API Key: {'Set' if OPENWEBUI_API_KEY else 'Not set'}")
     # Check current state
     if STATE_FILE.exists():
         state = load_state()

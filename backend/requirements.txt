@@ -3,3 +3,5 @@ uvicorn
 pdf2image
 Pillow
 pydantic
+requests
+python-dotenv

@@ -1,73 +1,105 @@
-# test_upload.py — upload a file, then attach it to a Knowledge Base (KB)
 import json
 import pathlib
 import requests
+import logging
+from typing import Optional, Dict, Any
 
-BASE_URL = "http://127.0.0.1:3000"  # talk to OpenWebUI on the VM
-API_KEY  = ""
-KB_ID    = "d2d01280-b703-4c94-8d53-058e9b3ff3b1"  # your KB id
-
-FILE_PATH = pathlib.Path("/opt/openwebui-src/sample.txt")
-
-def main():
-    if not FILE_PATH.exists():
-        raise SystemExit(f"File not found: {FILE_PATH}")
-
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-
-    # 1) Upload file (multipart/form-data); let backend process it
-    url_upload = f"{BASE_URL}/api/v1/files/"
-    data = {
-        "metadata": json.dumps({"source": "test_upload.py"}),  # no collection_name here
-        "process": "true",
-        "process_in_background": "false",
-    }
-    with FILE_PATH.open("rb") as f:
-        files = {"file": (FILE_PATH.name, f, "text/plain")}
-        up = requests.post(url_upload, headers=headers, data=data, files=files, timeout=120)
-    up.raise_for_status()
-    uploaded = up.json()
-    file_id = uploaded["id"]
-    print("Uploaded file_id:", file_id)
-
-    # (optional) check processing status
-    info = requests.get(f"{BASE_URL}/api/v1/files/{file_id}", headers=headers, timeout=60).json()
-    print("File status:", info.get("data", {}).get("status"), "| path:", info.get("path"))
-
-    # 2) Attach that file to your KB (adds to vector collection AND to KB file_ids)
-    url_add = f"{BASE_URL}/api/v1/knowledge/{KB_ID}/file/add"
-    add = requests.post(url_add, headers={**headers, "Content-Type": "application/json"},
-                        data=json.dumps({"file_id": file_id}), timeout=120)
-
-    if add.ok:
-        print("KB add OK")
-        print(add.json())
-        return
-
-    # 3) Fallback if add complains about duplicates: merge file_id into KB list
-    if add.status_code == 400:
-        print("KB add reported 400; falling back to KB update merge…")
-
-        kb = requests.get(f"{BASE_URL}/api/v1/knowledge/{KB_ID}", headers=headers, timeout=60).json()
-        current_ids = (kb.get("data") or {}).get("file_ids", [])
-        if file_id not in current_ids:
-            current_ids.append(file_id)
-
-        body = {
-            "name": kb["name"],
-            "description": kb.get("description", ""),
-            "data": {"file_ids": current_ids},
-            "access_control": kb.get("access_control"),
+class OpenWebUIUploader:
+    def __init__(self, base_url: str = "http://127.0.0.1:3000", api_key: str = "", kb_id: str = ""):
+        self.base_url = base_url
+        self.api_key = api_key
+        self.kb_id = kb_id
+        self.headers = {"Authorization": f"Bearer {api_key}"}
+    
+    def upload_file(self, file_path: pathlib.Path, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """Upload a file to OpenWebUI and return its file_id"""
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        url_upload = f"{self.base_url}/api/v1/files/"
+        data = {
+            "metadata": json.dumps(metadata or {"source": "db_upload_menu"}),
+            "process": "true",
+            "process_in_background": "false",
         }
-        upd = requests.post(f"{BASE_URL}/api/v1/knowledge/{KB_ID}/update",
-                            headers={**headers, "Content-Type": "application/json"},
-                            data=json.dumps(body), timeout=120)
-        upd.raise_for_status()
-        print("KB update OK")
-        print(upd.json())
-    else:
-        # propagate unexpected errors
-        add.raise_for_status()
-
-if __name__ == "__main__":
-    main()
+        
+        with file_path.open("rb") as f:
+            files = {"file": (file_path.name, f, "application/pdf")}
+            response = requests.post(
+                url_upload, 
+                headers=self.headers, 
+                data=data, 
+                files=files, 
+                timeout=120
+            )
+        
+        response.raise_for_status()
+        uploaded = response.json()
+        file_id = uploaded["id"]
+        logging.info(f"Uploaded {file_path.name}, file_id: {file_id}")
+        return file_id
+    
+    def add_to_knowledge_base(self, file_id: str) -> Dict[str, Any]:
+        """Add an uploaded file to the knowledge base"""
+        url_add = f"{self.base_url}/api/v1/knowledge/{self.kb_id}/file/add"
+        
+        add_response = requests.post(
+            url_add,
+            headers={**self.headers, "Content-Type": "application/json"},
+            data=json.dumps({"file_id": file_id}),
+            timeout=120
+        )
+        
+        if add_response.ok:
+            logging.info(f"Successfully added file_id {file_id} to KB")
+            return add_response.json()
+        
+        # Handle duplicate files
+        if add_response.status_code == 400:
+            logging.warning(f"File might be duplicate, attempting merge for file_id {file_id}")
+            
+            # Get current KB state
+            kb = requests.get(
+                f"{self.base_url}/api/v1/knowledge/{self.kb_id}",
+                headers=self.headers,
+                timeout=60
+            ).json()
+            
+            current_ids = (kb.get("data") or {}).get("file_ids", [])
+            
+            if file_id not in current_ids:
+                current_ids.append(file_id)
+                
+                body = {
+                    "name": kb["name"],
+                    "description": kb.get("description", ""),
+                    "data": {"file_ids": current_ids},
+                    "access_control": kb.get("access_control"),
+                }
+                
+                update_response = requests.post(
+                    f"{self.base_url}/api/v1/knowledge/{self.kb_id}/update",
+                    headers={**self.headers, "Content-Type": "application/json"},
+                    data=json.dumps(body),
+                    timeout=120
+                )
+                
+                update_response.raise_for_status()
+                logging.info(f"Successfully merged file_id {file_id} into KB")
+                return update_response.json()
+            else:
+                logging.info(f"File_id {file_id} already in KB")
+                return {"status": "already_exists", "file_id": file_id}
+        else:
+            add_response.raise_for_status()
+            return add_response.json()
+    
+    def upload_and_add_to_kb(self, file_path: pathlib.Path) -> Dict[str, Any]:
+        """Upload a file and add it to the knowledge base in one go"""
+        file_id = self.upload_file(file_path)
+        result = self.add_to_knowledge_base(file_id)
+        return {
+            "file_id": file_id,
+            "filename": file_path.name,
+            "kb_result": result
+        }
