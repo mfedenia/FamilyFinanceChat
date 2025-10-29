@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Question Quality Scorer (Qwen3-14B-Instruct)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-5xl mx-auto p-6">
+    <header class="mb-6">
+      <h1 class="text-3xl font-bold">Question Quality Scorer</h1>
+      <p class="text-sm text-gray-600">Upload a JSON transcript, extract user questions, and score them with Qwen3-14B-Instruct.</p>
+    </header>
+
+    <section class="bg-white rounded-2xl shadow p-5 mb-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Upload JSON</label>
+          <input type="file" id="fileInput" accept=".json" class="block text-sm">
+          <p class="text-xs text-gray-500 mt-1">Format: similar to the screenshots (objects with <code>chat.history.messages</code> etc.).</p>
+        </div>
+        <div class="flex-1"></div>
+        <button id="btnExtract" class="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm">Extract Questions</button>
+        <button id="btnScore" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm">Score with Backend</button>
+      </div>
+      <p id="status" class="mt-4 text-sm text-gray-700"></p>
+    </section>
+
+    <section id="overview" class="bg-white rounded-2xl shadow p-5 mb-6 hidden">
+      <h2 class="text-xl font-semibold mb-3">Overview</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="rounded-xl border p-4">
+          <div class="text-sm text-gray-500">Total Questions</div>
+          <div id="qCount" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="rounded-xl border p-4">
+          <div class="text-sm text-gray-500">Average Score (0–14)</div>
+          <div id="avgScore" class="text-2xl font-bold">—</div>
+        </div>
+        <div class="rounded-xl border p-4">
+          <div class="text-sm text-gray-500">Overall (0–100)</div>
+          <div id="overallPct" class="text-2xl font-bold">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="chartSec" class="bg-white rounded-2xl shadow p-5 mb-6 hidden">
+      <h2 class="text-xl font-semibold mb-3">Score Distribution</h2>
+      <canvas id="distChart" height="100"></canvas>
+    </section>
+
+    <section id="habitSec" class="bg-white rounded-2xl shadow p-5 mb-6 hidden">
+      <h2 class="text-xl font-semibold mb-3">Habit Feedback</h2>
+      <ul id="habitList" class="list-disc pl-6 text-sm space-y-1"></ul>
+      <div class="mt-4">
+        <h3 class="font-medium mb-2">Per-Dimension Averages</h3>
+        <div id="dimAvgs" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm"></div>
+      </div>
+    </section>
+
+    <section id="tableSec" class="bg-white rounded-2xl shadow p-5 mb-8 hidden">
+      <h2 class="text-xl font-semibold mb-3">Per-Question Scores</h2>
+      <div class="overflow-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left border-b">
+              <th class="py-2 pr-4">#</th>
+              <th class="py-2 pr-4 w-[40%]">Question</th>
+              <th class="py-2 pr-4">Total</th>
+              <th class="py-2 pr-4">Verdict</th>
+              <th class="py-2 pr-4">Relevance</th>
+              <th class="py-2 pr-4">Politeness</th>
+              <th class="py-2 pr-4">On‑topic</th>
+              <th class="py-2 pr-4">Neutral</th>
+              <th class="py-2 pr-4">Non‑imperative</th>
+              <th class="py-2 pr-4">Clarity+</th>
+              <th class="py-2 pr-4">Privacy+</th>
+            </tr>
+          </thead>
+          <tbody id="resultRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="text-xs text-gray-500">
+      <p>Tip: Start the backend first (<code>npm start</code> in <code>backend/</code>). Then open this <code>index.html</code> in a browser and click "Score with Backend".</p>
+    </section>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
