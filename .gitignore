@@ -1,5 +1,5 @@
 # Python
-backend/venv/
+upload_pdf_app/backend/venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -23,10 +23,10 @@ build/
 .DS_Store
 
 # Backend specific
-backend/openwebui/data/
-backend/Webscraping/input_files/
-backend/Webscraping/outputs/
-backend/Webscraping/openwebui/
+upload_pdf_app/backend/openwebui/data/
+upload_pdf_app/backend/Webscraping/input_files/
+upload_pdf_app/backend/Webscraping/outputs/
+upload_pdf_app/backend/Webscraping/openwebui/
 
 # Logs
 *.log
@@ -34,7 +34,6 @@ backend/Webscraping/openwebui/
 # Database
 *.db
 *.sqlite
-*.json
 
 # PDF and data files (if you don't want to track them)
 *.pdf
