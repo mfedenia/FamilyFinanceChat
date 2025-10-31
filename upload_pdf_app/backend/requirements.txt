@@ -5,3 +5,5 @@ Pillow
 pydantic
 requests
 python-dotenv
+python-multipart
+fitz

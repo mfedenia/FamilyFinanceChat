@@ -27,16 +27,18 @@ else
 fi
 
 # Run FastAPI backend
-echo "Starting FastAPI backend on http://localhost:8000..."
+echo "Starting FastAPI backend on http://localhost:8001..."
 # Run in background so frontend can start too
-uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
+uvicorn backend:app --host 0.0.0.0 --port 8001 --reload &
 BACKEND_PID=$!
 
 # ---------- FRONTEND SETUP ----------
 echo ">>> Setting up React frontend..."
 
-# Go into frontend directory (adjust if folder name differs)
-cd frontend/upload/upload.app
+# Go into frontend directory 
+cd ..
+pwd
+cd frontend/upload/upload-app
 
 # Install npm packages
 if [ -f "package.json" ]; then
