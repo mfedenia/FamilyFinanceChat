@@ -10,7 +10,7 @@ import sys
 import os
 import logging
 from typing import List, Optional
-from upload import OpenWebUIUploader
+from openwebui_uploader import OpenWebUIUploader
 import uvicorn
 
 # Set up logging
