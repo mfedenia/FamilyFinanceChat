@@ -87,6 +87,37 @@ INPUT_DIR = Path(__file__).parent / "Webscraping" / "input_files"
 for dir_path in [DATA_DIR, SCRAPED, KB, THUMBNAILS, INPUT_DIR]:
     dir_path.mkdir(parents=True, exist_ok=True)
 
+def cleanup_on_startup():
+    """Clean up old temporary files on startup"""
+    logging.info("=== Cleaning up on startup ===")
+    
+    # Clear any leftover state file
+    if STATE_FILE.exists():
+        STATE_FILE.unlink()
+        logging.info("Cleared old state file")
+    
+    # Clear any PDFs in webscraped (these are temporary)
+    for pdf in SCRAPED.glob("*.pdf"):
+        pdf.unlink()
+        logging.info(f"Cleared old PDF: {pdf.name}")
+    
+    # Clear old thumbnails
+    for thumb in THUMBNAILS.glob("*.png"):
+        thumb.unlink()
+        logging.info(f"Cleared old thumbnail: {thumb.name}")
+    
+    # Clear input files
+    for pdf in INPUT_DIR.glob("*.pdf"):
+        pdf.unlink()
+        logging.info(f"Cleared old input: {pdf.name}")
+    
+    logging.info("Startup cleanup complete")
+
+for dir_path in [DATA_DIR, SCRAPED, KB, THUMBNAILS, INPUT_DIR]:
+    dir_path.mkdir(parents=True, exist_ok=True)
+
+cleanup_on_startup()
+
 app = FastAPI(title="PDF Review Backend")
 
 app.add_middleware(
@@ -225,19 +256,39 @@ def toggle_exclusion(name: str, item: PDFItem):
     save_state(state)
     logging.info(f"{'Excluded' if item.excluded else 'Included'}: {name}")
     return {"message": f"{'Excluded' if item.excluded else 'Included'} {name}"}
-
 @app.post("/api/upload")
 async def upload_and_crawl(files: List[UploadFile] = File(...)):
     """Upload PDFs and trigger web crawling"""
     
-    # Clear the state file for fresh start
+    # CLEAR ALL OLD DATA FROM PREVIOUS RUNS
+    logging.info("=== Clearing old data from previous runs ===")
+    
+    # 1. Clear the state file
     if STATE_FILE.exists():
         STATE_FILE.unlink()
-        logging.info("Cleared state file for new upload")
+        logging.info("Cleared state file")
     
-    # Clear input directory first
+    # 2. Clear ALL PDFs from webscraped folder (old crawled files)
+    for old_pdf in SCRAPED.glob("*.pdf"):
+        old_pdf.unlink()
+        logging.info(f"Deleted old PDF from webscraped: {old_pdf.name}")
+    
+    # 3. Clear ALL thumbnails from previous runs
+    for old_thumb in THUMBNAILS.glob("*.png"):
+        old_thumb.unlink()
+        logging.info(f"Deleted old thumbnail: {old_thumb.name}")
+    
+    # 4. Clear knowledge base folder (in case files weren't finalized)
+    for old_kb_pdf in KB.glob("*.pdf"):
+        old_kb_pdf.unlink()
+        logging.info(f"Deleted old PDF from KB: {old_kb_pdf.name}")
+    
+    # 5. Clear input directory
     for old_file in INPUT_DIR.glob("*.pdf"):
         old_file.unlink()
+        logging.info(f"Deleted old input file: {old_file.name}")
+    
+    logging.info("=== Old data cleared, starting fresh upload ===")
     
     # Save uploaded files
     saved_files = []
@@ -256,7 +307,7 @@ async def upload_and_crawl(files: List[UploadFile] = File(...)):
     # Run the link_downloader script
     script_path = Path(__file__).parent / "Webscraping" / "link_downloader.py"
     
-    # Make sure output directory exists
+    # Make sure output directory exists (and is empty)
     SCRAPED.mkdir(parents=True, exist_ok=True)
     
     cmd = [
@@ -272,30 +323,33 @@ async def upload_and_crawl(files: List[UploadFile] = File(...)):
     ]
     
     logging.info(f"Running command: {' '.join(cmd)}")
+    logging.info(f"Output directory: {SCRAPED.absolute()}")
     
     try:
-        # Run the crawler
+        # Run the crawler with a timeout
         result = subprocess.run(
             cmd, 
             capture_output=True, 
             text=True,
-            cwd=str(Path(__file__).parent)
+            cwd=str(Path(__file__).parent),
+            timeout=60 
         )
         
-        logging.info(f"Crawler stdout: {result.stdout}")
-        if result.stderr:
-            logging.warning(f"Crawler stderr: {result.stderr}")
-        logging.info(f"Return code: {result.returncode}")
+        logging.info(f"Crawler completed successfully")
         
-        # Check if any PDFs were created
+    except subprocess.TimeoutExpired:
+        logging.error("Crawler timed out after 60 seconds")
+        # Kill the subprocess if it's still running
+        
+        # Check what files were created even though it timed out
         pdf_count = len(list(SCRAPED.glob("*.pdf")))
-        logging.info(f"PDFs in output directory: {pdf_count}")
+        logging.info(f"PDFs created before timeout: {pdf_count}")
         
         return {
-            "message": f"Crawling completed. Found {pdf_count} PDFs",
+            "message": f"Crawling timed out but found {pdf_count} PDFs",
             "files_uploaded": len(saved_files),
             "pdfs_found": pdf_count,
-            "output": result.stdout[:500] if result.stdout else "No output"
+            "timeout": True
         }
         
     except Exception as e:

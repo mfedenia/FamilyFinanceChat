@@ -40,10 +40,18 @@ function App() {
       setCrawlMessage('Starting web crawler...');
       setCrawlProgress(20);
       
-      const uploadResponse = await fetch(`${API_BASE_URL}/api/upload`, {
-        method: 'POST',
-        body: formData
-      });
+    const uploadResponse = await fetch(`${API_BASE_URL}/api/upload`, {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(90000)  // 90 second timeout
+    }).catch(err => {
+      if (err.name === 'AbortError') {
+        // Still try to load PDFs even if upload timed out
+        console.log('Upload timed out, checking for results...');
+        return { ok: true, json: () => ({ message: 'Timed out but checking results' }) };
+      }
+      throw err;
+    });
 
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();

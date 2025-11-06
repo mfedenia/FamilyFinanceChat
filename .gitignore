@@ -1,5 +1,6 @@
 # Python
 backend/venv/
+upload_pdf_app/backend/venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,10 +10,12 @@ __pycache__/
 dist/
 build/
 
-# Environment files
+# Environment files (keep example files)
 .env
 .env.local
 *.env
+!*.env.example
+!*.env.template
 
 # IDE
 .vscode/
@@ -22,25 +25,83 @@ build/
 *~
 .DS_Store
 
-# Backend specific
-backend/openwebui/data/
-backend/Webscraping/input_files/
+# Backend specific - only ignore runtime/generated data
+backend/openwebui/data/webscraped/*.pdf
+backend/openwebui/data/thumbnails/*.png
+backend/openwebui/data/knowledge_base/*.pdf
+backend/openwebui/data/pdf_state.json
+backend/Webscraping/input_files/*.pdf
 backend/Webscraping/outputs/
-backend/Webscraping/openwebui/
+backend/Webscraping/openwebui/data/webscraped/*.pdf
+backend/Webscraping/openwebui/data/thumbnails/*.png
+backend/Webscraping/openwebui/data/knowledge_base/*.pdf
+backend/Webscraping/openwebui/data/pdf_state.json
+
+# Same for upload_pdf_app
+upload_pdf_app/backend/Webscraping/openwebui/data/webscraped/*.pdf
+upload_pdf_app/backend/Webscraping/openwebui/data/thumbnails/*.png
+upload_pdf_app/backend/Webscraping/openwebui/data/knowledge_base/*.pdf
+upload_pdf_app/backend/Webscraping/openwebui/data/pdf_state.json
+upload_pdf_app/backend/Webscraping/input_files/*.pdf
+
+# Keep directory structure by adding .gitkeep files
+!backend/openwebui/data/.gitkeep
+!backend/openwebui/data/webscraped/.gitkeep
+!backend/openwebui/data/thumbnails/.gitkeep
+!backend/openwebui/data/knowledge_base/.gitkeep
+!backend/Webscraping/input_files/.gitkeep
+!backend/Webscraping/openwebui/data/.gitkeep
+!backend/Webscraping/openwebui/data/webscraped/.gitkeep
+!backend/Webscraping/openwebui/data/thumbnails/.gitkeep
+!backend/Webscraping/openwebui/data/knowledge_base/.gitkeep
+!upload_pdf_app/backend/Webscraping/openwebui/data/.gitkeep
+!upload_pdf_app/backend/Webscraping/openwebui/data/webscraped/.gitkeep
+!upload_pdf_app/backend/Webscraping/openwebui/data/thumbnails/.gitkeep
+!upload_pdf_app/backend/Webscraping/openwebui/data/knowledge_base/.gitkeep
+!upload_pdf_app/backend/Webscraping/input_files/.gitkeep
 
 # Logs
 *.log
 
-# Database
+# Database - keep schema/examples
 *.db
 *.sqlite
-*.json
+!*.db.example
+!schema.sql
 
-# PDF and data files (if you don't want to track them)
+# JSON - only ignore specific runtime files
+pdf_state.json
+state.json
+cache.json
+
+# Keep important JSON config files
+!package.json
+!package-lock.json
+!tsconfig.json
+!jsconfig.json
+
+# PDF files - ignore all except examples/docs
 *.pdf
-!sample.pdf  # Exception for sample files if needed
+!sample.pdf
+!docs/*.pdf
+!examples/*.pdf
+
+# Node modules
+node_modules/
+frontend/upload/upload-app/node_modules/
+upload_pdf_app/frontend/upload/upload-app/node_modules/
+
+# React build
+frontend/upload/upload-app/build/
+upload_pdf_app/frontend/upload/upload-app/build/
 
 # RAG project
 rag_bio_project/index/
-rag_bio_project/data_pdfs/
+rag_bio_project/data_pdfs/*.pdf
 rag_bio_project/.env
+!rag_bio_project/data_pdfs/.gitkeep
+!rag_bio_project/.env.example
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
