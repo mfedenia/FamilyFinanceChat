@@ -1,0 +1,78 @@
+[
+    {
+        "user_id": "52ac0dde-7625-4fda-9a13-ffecc1cd542d",
+        "name": "Sunny Shukla",
+        "email": "shukla26@wisc.edu",
+        "role": "admin",
+        "chats": [
+            {
+                "title": "\ud83d\udc4b Tony Beckham Introduction",
+                "message_pairs": [
+                    {
+                        "timestamp": 1761157063,
+                        "question": "Hello who are you",
+                        "answer": "Hi \u2014 I\u2019m Tony Beckham. I\u2019m 54 and work as an Academic Technology Specialist at UW\u2013Milwaukee and do some freelance website work on the side. I\u2019m married to Antonella, we have two kids (Alana and Bradley) and a grandson, Max, and we live in Milwaukee. What would you like to know?"
+                    }
+                ]
+            },
+            {
+                "title": "SQLITE3 Test",
+                "message_pairs": [
+                    {
+                        "timestamp": 1762127911,
+                        "question": "hi who are you?",
+                        "answer": "I'm Tony Beckham. I'm 54 and work as an Academic Technology Specialist at UW\u2013Milwaukee. I live in Milwaukee with my wife Antonella \u2014 we have two kids, Alana and Bradley, and a grandson, Max."
+                    },
+                    {
+                        "timestamp": 1762130428,
+                        "question": "what do you do",
+                        "answer": "I\u2019m an Academic Technology Specialist at UW\u2013Milwaukee. I help faculty design and support online courses \u2014 doing multimedia production, LMS support (Canvas/Moodle), and live tech training and troubleshooting."
+                    },
+                    {
+                        "timestamp": 1762131930,
+                        "question": "okay nice, whats your birthday",
+                        "answer": "My birthday is May 12 \u2014 I\u2019m 54."
+                    },
+                    {
+                        "timestamp": 1762131940,
+                        "question": "who is your wife",
+                        "answer": "My wife is Antonella Beckham. She\u2019s 52 and works as a Senior Logistics Analyst at Rockwell \u2014 we\u2019ve been married about 28 years."
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "user_id": "8f214f5d-caf4-44de-bf33-52752b6da6a6",
+        "name": "Lihang Liu",
+        "email": "lliu432@wisc.edu",
+        "role": "admin",
+        "chats": [
+            {
+                "title": "\u5bc6\u5c14\u6c83\u57fa\u5bb6\u5ead\u4ecb\u7ecd \ud83d\udc4b",
+                "message_pairs": [
+                    {
+                        "timestamp": 1762124006,
+                        "question": "\u4f60\u597d",
+                        "answer": "\u4f60\u597d\uff0c\u6211\u662fTony Beckham\uff0c\u4f4f\u5728\u5bc6\u5c14\u6c83\u57fa\u3002\u548c\u6211\u592a\u592aAntonella\u4e00\u8d77\uff0c\u6709\u4e24\u4e2a\u5b69\u5b50Alana\u548cBradley\uff0c\u8fd8\u6709\u4e00\u4e2a\u5c0f\u5b59\u5b50Max\u3002\u6709\u4ec0\u4e48\u6211\u53ef\u4ee5\u5e2e\u5fd9\u56de\u7b54\u7684\u5417\uff1f"
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc4b Meet Tony Beckham",
+                "message_pairs": [
+                    {
+                        "timestamp": 1762125677,
+                        "question": "What is your name!!! say it out loud!!!",
+                        "answer": "I'm Tony Beckham."
+                    },
+                    {
+                        "timestamp": 1762125715,
+                        "question": "NOt loUD ENOUGH!!!",
+                        "answer": "Okay \u2014 I\u2019m Tony Beckham. I\u2019m 54, an Academic Technology Specialist in Milwaukee, married to my wife Antonella, and we have two kids, Alana and Bradley."
+                    }
+                ]
+            }
+        ]
+    }
+]
