@@ -10,7 +10,7 @@ import sys
 import os
 import logging
 from typing import List, Optional
-from upload import OpenWebUIUploader
+from openwebui_uploader import OpenWebUIUploader
 import uvicorn
 
 # Set up logging
@@ -543,4 +543,4 @@ if __name__ == "__main__":
     except ImportError:
         print("✗ PIL/Pillow NOT installed - run: pip install Pillow")
     
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8005, reload=False)
