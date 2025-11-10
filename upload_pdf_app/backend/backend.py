@@ -122,7 +122,20 @@ app = FastAPI(title="PDF Review Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[ # TODO: change to perm IP/url later if possible
+        "http://localhost:3000",
+        "http://localhost:3847", 
+        "http://10.4.0.2:3000",
+        "http://10.4.0.2:3847",
+        "http://34.85.238.142:3000",
+        "http://34.85.238.142:3847",
+        "http://localhost:8001",
+        "http://localhost:8437",
+        "http://10.4.0.2:8001",
+        "http://10.4.0.2:8437",
+        "http://34.85.238.142:8001", 
+        "http://34.85.238.142:8437"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
