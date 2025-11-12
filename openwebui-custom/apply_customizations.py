@@ -43,7 +43,7 @@ if os.path.exists("/app/custom_code/custom_api.py"):
 # Create custom JavaScript
 custom_js = '''
 (function() {
-    console.log('[Custom] Script loaded - persistent version');
+    console.log('[Custom] Script loaded - targeting + button version');
     
     let customButtonAdded = false;
     let checkInterval;
@@ -54,34 +54,57 @@ custom_js = '''
             return;
         }
         
+        // Look for the + button in the collection container
+        // Target button with aria-label containing "Add" or buttons in flex containers with specific classes
         const buttons = Array.from(document.querySelectorAll('button'));
-        const uploadButton = buttons.find(btn => {
-            const text = (btn.innerText || btn.textContent || '').toLowerCase();
-            return (text.includes('upload') || text.includes('add file')) && 
-                   btn.offsetParent !== null &&
-                   !btn.id?.includes('custom');
+        const addButton = buttons.find(btn => {
+            // Check for + button characteristics
+            const ariaLabel = btn.getAttribute('aria-label');
+            const btnText = (btn.innerText || btn.textContent || '').trim();
+            
+            // Look for button with + symbol or Add aria-label
+            if (btnText === '+' || (ariaLabel && ariaLabel.toLowerCase().includes('add'))) {
+                // Additional check: should be in a collection container
+                const parent = btn.closest('.flex.flex-col');
+                if (parent && btn.offsetParent !== null) {
+                    return true;
+                }
+            }
+            
+            // Alternative: Check for button with specific classes related to adding files
+            if (btn.classList.contains('rounded-xl') && 
+                btn.classList.contains('hover:bg-gray-100') &&
+                btnText === '+') {
+                return true;
+            }
+            
+            return false;
         });
         
-        if (!uploadButton || document.getElementById('custom-action-button')) {
+        if (!addButton || document.getElementById('custom-action-button')) {
             return;
         }
         
-        console.log('[Custom] Adding custom button...');
+        console.log('[Custom] Found + button, adding custom button...');
         
-        const customButton = uploadButton.cloneNode(true);
+        // Clone the + button to maintain styling
+        const customButton = addButton.cloneNode(true);
         customButton.id = 'custom-action-button';
         
-        const textNodes = customButton.querySelectorAll('span, div');
-        if (textNodes.length > 0) {
-            textNodes[textNodes.length - 1].textContent = 'Custom Action';
-        } else {
-            customButton.textContent = 'Custom Action';
-        }
+        // Change the content to a custom icon or text
+        // Using a different icon - you can change this to any icon or emoji
+        customButton.innerHTML = '⚡'; // Lightning bolt icon, or use '🔧' for wrench, '⚙️' for gear
+        customButton.setAttribute('aria-label', 'Custom Action');
+        customButton.title = 'Custom Action';
         
-        customButton.onclick = async function(e) {
+        // Remove any existing onclick handlers
+        customButton.onclick = null;
+        
+        // Add our custom click handler
+        customButton.addEventListener('click', async function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('[Custom] Button clicked!');
+            console.log('[Custom] Custom button clicked!');
             
             const token = localStorage.getItem('token');
             if (!token) {
@@ -91,6 +114,13 @@ custom_js = '''
             
             try {
                 customButton.disabled = true;
+                
+                // Get collection info if available
+                const collectionContainer = customButton.closest('[class*="collection"]');
+                const collectionName = collectionContainer ? 
+                    collectionContainer.querySelector('input[type="text"]')?.value || 'Unknown' : 
+                    'Unknown';
+                
                 const response = await fetch('/api/v1/custom/execute', {
                     method: 'POST',
                     headers: {
@@ -100,7 +130,9 @@ custom_js = '''
                     body: JSON.stringify({
                         data: {
                             timestamp: new Date().toISOString(),
-                            page: window.location.pathname
+                            page: window.location.pathname,
+                            collection: collectionName,
+                            action: 'custom_button_click'
                         }
                     })
                 });
@@ -109,7 +141,7 @@ custom_js = '''
                 console.log('[Custom] Response:', result);
                 
                 if (response.ok) {
-                    alert('Custom action completed!');
+                    alert('Custom action completed successfully!');
                 } else {
                     alert('Error: ' + (result.detail || 'Unknown error'));
                 }
@@ -119,27 +151,42 @@ custom_js = '''
             } finally {
                 customButton.disabled = false;
             }
-        };
+        });
         
-        uploadButton.parentNode.insertBefore(customButton, uploadButton.nextSibling);
+        // Insert the custom button right after the + button
+        addButton.parentNode.insertBefore(customButton, addButton.nextSibling);
+        
+        // Add a small margin to separate the buttons
+        customButton.style.marginLeft = '8px';
+        
         customButtonAdded = true;
-        console.log('[Custom] Button added successfully');
+        console.log('[Custom] Custom button added successfully next to + button');
     }
     
-    // Check periodically for the upload button
+    // Check periodically for the + button
     checkInterval = setInterval(() => {
         if (window.location.pathname.includes('knowledge')) {
             addCustomButton();
         }
     }, 1000);
     
-    // Watch for clicks to detect dropdown opening
-    document.addEventListener('click', function(e) {
-        setTimeout(addCustomButton, 200);
-        setTimeout(addCustomButton, 500);
+    // Also check on any DOM changes
+    const observer = new MutationObserver(() => {
+        if (window.location.pathname.includes('knowledge')) {
+            setTimeout(addCustomButton, 100);
+        }
     });
     
-    console.log('[Custom] Persistent script initialized');
+    // Start observing the document for changes
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // Initial check
+    setTimeout(addCustomButton, 500);
+    
+    console.log('[Custom] Script initialized - monitoring for + button');
 })();
 '''
 
