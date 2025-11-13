@@ -11,7 +11,6 @@ export default function App() {
                 <Routes>
                     <Route path='/' element={<Home />} />
                     <Route path='/user/:userId' element={<UserDetail />} />
-                    <Route path='/chat/:userId/:chatTitle' element={<ChatViewer />} />
                 </Routes>
             </div>
         </BrowserRouter>
