@@ -80,7 +80,7 @@ export default function UserDetail() {
                       {/* QUESTION BUBBLE (LEFT) */}
                       <div className="flex justify-start">
                         <div className="bg-blue-600 text-white px-4 py-2 rounded-xl max-w-[75%] shadow">
-                          <p className="text-xs text-gray-300 font-semibold mb-1">Question</p>
+                          <p className="text-xs text-gray-300 font-semibold mb-1">Student</p>
                           <p>{pair.question}</p>
                           <p className="text-[10px] text-gray-400 mt-1">
                             {pair.timestamp}
@@ -91,7 +91,7 @@ export default function UserDetail() {
                       {/* ANSWER BUBBLE (RIGHT) */}
                       <div className="flex justify-end">
                         <div className="bg-gray-600 text-white px-4 py-2 rounded-xl max-w-[75%] shadow">
-                          <p className="text-xs text-blue-200 font-semibold mb-1">Answer</p>
+                          <p className="text-xs text-blue-200 font-semibold mb-1">Chatbot</p>
                           <p>{pair.answer}</p>
                           <p className="text-[10px] text-blue-100 mt-1">
                             {pair.timestamp}
