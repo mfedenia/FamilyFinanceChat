@@ -38,7 +38,11 @@ export default function Home() {
                 value={searchTerm}
                 onChange={(e)=> setSearchTerm(e.target.value)}
             />
+            {filteredUsers.length == 0 && (
+                    <p className="p-3">No users found</p>
+            )}
 
+            {filteredUsers.length > 0 && ( 
             <table className="min-w-full bg-gray-900 border border-gray-700 rounded-lg">
                 <thead className="bg-gray-800">
                     <tr>
@@ -49,7 +53,9 @@ export default function Home() {
                         <th className="text-left p-3 border-b border-gray-700">Action</th>
                     </tr>
                 </thead>
+                
                 <tbody>
+
                     {filteredUsers.map((u) => (
                         <tr key={u.user_id} className="hover:bg-gray-800 transition">
                             <td className="p-3">{u.name}</td>
@@ -68,6 +74,7 @@ export default function Home() {
                     ))}
                 </tbody>
             </table>
+            )}
         </div>
 
 
