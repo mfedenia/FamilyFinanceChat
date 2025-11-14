@@ -1,6 +1,5 @@
 import {BrowserRouter, Routes, Route} from 'react-router-dom'
 import Home from './pages/Home'
-import ChatViewer from './pages/ChatViewer'
 import UserDetail from './pages/UserDetail'
 
 export default function App() {
