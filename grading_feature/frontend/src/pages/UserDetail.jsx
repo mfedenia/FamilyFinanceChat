@@ -15,7 +15,7 @@ export default function UserDetail() {
   }, [userId]);
 
   if (!user) return <p>Loading...</p>;
-
+  
   return (
     <div>
       <button 
@@ -25,26 +25,24 @@ export default function UserDetail() {
         ← Back
       </button>
 
-      <h1 className="">
-        {user.name} ({user.email})
-      </h1>
 
       <h2 className="text-xl font-semibold mb-3">Chat Sessions</h2>
 
       <table className="min-w-full bg-gray-900 border border-gray-700 rounded-lg">
         <thead className="bg-gray-800">
           <tr>
-            <th className="">Title</th>
-            <th className="">Action</th>
+            <th className="text-left p-3 border-b border-gray-700">Title</th>
+            <th className="text-left p-3 border-b border-gray-700">Last Interacted</th>
+            <th className="text-left p-3 border-b border-gray-700">Action</th>
           </tr>
         </thead>
         
         <tbody>
           {user.chats.map((chat, index) => (
             <tr key={index} className="hover:bg-gray-800 transition">
-              <td className="p-3 text-center">{chat.title}</td>
-
-              <td className="p-3 text-center">
+              <td className="p-3">{chat.title}</td>
+              <td className="p-3">{chat.message_pairs[chat.message_pairs.length - 1].timestamp.split(" ")[0]}</td>
+              <td className="p-3">
                 <button 
                   onClick={() => setSelectedChat(chat)}
                   className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -57,36 +55,56 @@ export default function UserDetail() {
         </tbody>
       </table> 
       {/* DRAWER */}
-      <div className={`fixed top-0 right-0 h-full w-[45%] bg-gray-900 border-l border-gray-700 shadow-xl transform transition-transform duration-300 ${selectedChat ? "translate-x-0" : "translate-x-full"}`}>
+      <div className={`fixed top-14 right-0 h-[calc(100%-56px)] w-[45%] bg-gray-900 border-l border-gray-700 shadow-xl transform transition-transform duration-300 ${selectedChat ? "translate-x-0" : "translate-x-full"}`}>
         {selectedChat && (
-          <div className="p-5 flex flex-col h-full">
-            <div className="flex justify-between items-center border-b border-gray-700 pb-3 mb-4">
-              <h2 className="text-xl font-bold">{selectedChat.title}</h2>
-              <h2 className="text-xl font-bold">{user.email}</h2>
-              <button
-                onClick={() => setSelectedChat(null)}
-                className="text-gray-400 hover:text-gray-200 text-xl font-bold"
-              >
-                ✕
-              </button>
-            </div>
+              
+              <div className="flex flex-col h-full">
 
-            <div> 
-              {selectedChat.message_pairs.map((pair, idx) => ( 
-                  <div key={idx} className="bg-gray-800 p-4 rounded-lg border border-gray-700">                     
-                    <p className="text-blue-300 font-semibold">Question:</p>
-                    <p className="mb3">{pair.question}</p>
-                    <p className="text-blue-300 font-semibold">Answer:</p>
-                    <p className="mb3">{pair.timestamp}</p>
-                  </div>
+                {/* HEADER */}
+                <div className="p-5 flex justify-between items-center border-b border-gray-700 bg-gray-800">
+                  <h2 className="text-xl font-semibold">{selectedChat.title}</h2>
+                  <h2 className="text-xl font-semibold">{user.email}</h2>
+                  <button
+                    onClick={() => setSelectedChat(null)}
+                    className="text-gray-400 hover:text-gray-200 text-xl font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
             
-            
-              ))}
-            </div>  
-          </div>
-        )}
+                {/* SCROLLABLE CONTENT */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                   {selectedChat.message_pairs.map((pair, idx) => (
+                    <div key={idx} className="space-y-2">
+
+                      {/* QUESTION BUBBLE (LEFT) */}
+                      <div className="flex justify-start">
+                        <div className="bg-blue-600 text-white px-4 py-2 rounded-xl max-w-[75%] shadow">
+                          <p className="text-xs text-gray-300 font-semibold mb-1">Question</p>
+                          <p>{pair.question}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            {pair.timestamp}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* ANSWER BUBBLE (RIGHT) */}
+                      <div className="flex justify-end">
+                        <div className="bg-gray-600 text-white px-4 py-2 rounded-xl max-w-[75%] shadow">
+                          <p className="text-xs text-blue-200 font-semibold mb-1">Answer</p>
+                          <p>{pair.answer}</p>
+                          <p className="text-[10px] text-blue-100 mt-1">
+                            {pair.timestamp}
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              </div>
+          )}
       </div>
     </div>
-    
-  )
+)
 }
