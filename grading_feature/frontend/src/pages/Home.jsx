@@ -5,6 +5,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 export default function Home() {
     const[users, setUsers] = useState([]);
     const navigate = useNavigate();
+    const [searchTerm, setSearchTerm] = useState(""); 
 
     useEffect(() => {
         axios.get("http://localhost:8080/users")
@@ -14,10 +15,30 @@ export default function Home() {
 
     console.log(users);
 
+    // Search function
+    const filteredUsers = users.filter(u => {
+        const name = u.name?.toLowerCase() || "";
+        const email = u.email?.toLowerCase() || "";    
+        const search = searchTerm.toLowerCase();
+
+        return (
+            name.includes(search) ||
+            email.includes(search) 
+        );
+    });
 
     return (
 
         <div>
+            <input
+                type="text"
+                placeholder="Search by name or email..."
+                className="mb-4 px-3 py-2 w-full rounded bg-gray-800 border border-gray-700
+                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchTerm}
+                onChange={(e)=> setSearchTerm(e.target.value)}
+            />
+
             <table className="min-w-full bg-gray-900 border border-gray-700 rounded-lg">
                 <thead className="bg-gray-800">
                     <tr>
@@ -29,7 +50,7 @@ export default function Home() {
                     </tr>
                 </thead>
                 <tbody>
-                    {users.map((u) => (
+                    {filteredUsers.map((u) => (
                         <tr key={u.user_id} className="hover:bg-gray-800 transition">
                             <td className="p-3">{u.name}</td>
                             <td className="p-3">{u.email}</td>
