@@ -38,9 +38,11 @@ def get_user(user_id):
     return {"error": "User not found"}
 
 @app.get("/refresh")
-def refresh_data():
-    logger.info("Refreshing the data")
-    extract_data()
-    return {"message": "Data refreshed"}
+def run_extract():
+    try:
+        extract_data()
+        logger.info("Extract completed successfully.")
+    except Exception as e:
+        logger.error(f"Extract failed: {e}")
 
 uvicorn.run(app, host="0.0.0.0", port=8080, reload=False)
