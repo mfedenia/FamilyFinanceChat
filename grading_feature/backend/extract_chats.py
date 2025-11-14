@@ -2,6 +2,7 @@ import sqlite3
 import pandas as pd 
 import json
 from logger import logging
+import datetime
 
 
 '''
@@ -14,7 +15,7 @@ OUTPUT_JSON_SHAPE = {
         "title" : "" ,
         "message_pairs" : [
             {
-                "timestamp": "...",
+                "timestamp": "...", # in format "MM/dd/YYYY HH/MM"
                 "question" : "...",
                 "answer" : "..." 
             } ,  
@@ -82,6 +83,13 @@ def parse_json(json_string):
         logger.error("Can't parse json string")
         return None
 
+def get_timestamp(ts):
+    ts_format = datetime.datetime.fromtimestamp(ts)
+    date_formatted = ts_format.strftime("%m/%d/%Y")
+    time_formatted = ts_format.strftime("%H:%M")
+
+    return f"{date_formatted} {time_formatted}"
+
 def build_hieracrchy(conn, emails):
     """Builds hieractchy like the shape above"""
 
@@ -121,7 +129,7 @@ def build_hieracrchy(conn, emails):
                 }
                 messages = processed_json.get('messages', [])
                 for j in range(0, len(messages), 2):
-                    ts = messages[j].get('timestamp', 0)
+                    ts = get_timestamp(messages[j].get('timestamp', 0))
                     q = messages[j].get("content", "")
                     a = messages[j+1].get("content", "") if j+1 < len(messages) else None
                     chat_entry["message_pairs"].append({"timestamp": ts, "question": q, "answer": a})
