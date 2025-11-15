@@ -64,7 +64,6 @@ export default function Home() {
                         <th className="text-left p-3 border-b border-gray-700">Email</th>
                         <th className="text-left p-3 border-b border-gray-700">Join Date</th>
                         <th className="text-left p-3 border-b border-gray-700"># Chats</th>
-                        <th className="text-left p-3 border-b border-gray-700">Role</th>
                         <th className="text-left p-3 border-b border-gray-700">Action</th>
                     </tr>
                 </thead>
@@ -77,7 +76,6 @@ export default function Home() {
                             <td className="p-3">{u.email}</td>
                             <td className="p-3">{u.join_date.split(" ")[0]}</td>
                             <td className="p-3">{u.chats.length}</td>
-                            <td className="p-3">{u.role}</td>
                             <td className="p-3">
                                 <button
                                     onClick={() => navigate(`/user/${u.user_id}`)}
