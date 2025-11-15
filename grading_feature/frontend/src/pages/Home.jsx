@@ -1,19 +1,27 @@
 import axios, { Axios } from "axios";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import Pagination from "../components/Pagination";
 
 export default function Home() {
+    
     const[users, setUsers] = useState([]);
     const navigate = useNavigate();
+    
+    // Search
     const [searchTerm, setSearchTerm] = useState(""); 
+    
+    // Pagination 
+    const [currentPage, setCurrentPage] = useState(1)
 
+    
+
+    // Get all users
     useEffect(() => {
         axios.get("http://localhost:8080/users")
             .then(res => setUsers(res.data))
             .catch(err => console.error(err))
     }, []);
-
-    console.log(users);
 
     // Search function
     const filteredUsers = users.filter(u => {
@@ -26,6 +34,12 @@ export default function Home() {
             email.includes(search) 
         );
     });
+
+    // Pagination Vars and Calculation
+    const rowsPerPage = 10
+    const idxOfLastUser = currentPage * rowsPerPage
+    const idxOfFirstUser = idxOfLastUser - rowsPerPage
+    const currentUsers = filteredUsers.slice(idxOfFirstUser, idxOfLastUser)
 
     return (
 
@@ -56,7 +70,7 @@ export default function Home() {
                 
                 <tbody>
 
-                    {filteredUsers.map((u) => (
+                    {currentUsers.map((u) => (
                         <tr key={u.user_id} className="hover:bg-gray-800 transition">
                             <td className="p-3">{u.name}</td>
                             <td className="p-3">{u.email}</td>
@@ -75,6 +89,12 @@ export default function Home() {
                 </tbody>
             </table>
             )}
+            <Pagination 
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                totalItems={filteredUsers.length}
+                rowsPerPage={rowsPerPage}
+            />
         </div>
 
 

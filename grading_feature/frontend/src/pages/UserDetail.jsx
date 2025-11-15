@@ -1,21 +1,36 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Pagination from "../components/Pagination";
 
 export default function UserDetail() {
   const { userId } = useParams();
   const navigate = useNavigate();
+
+  // Set a specific user when clicked
   const [user, setUser] = useState(null);
+  
+  // Set chat when title is clicked
   const [selectedChat, setSelectedChat] = useState(null);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  
   useEffect((u) => {
     axios.get(`http://localhost:8080/user/${userId}`)
          .then(res => setUser(res.data))
          .catch(err => console.log(err))
   }, [userId]);
 
+  // Loading
   if (!user) return <p>Loading...</p>;
   
+  // Pagination variables and calculations
+  const rowsPerPage = 10;
+  const indexOfLast = currentPage * rowsPerPage;
+  const indexOfFirst = indexOfLast - rowsPerPage;
+  const currentChats = user.chats.slice(indexOfFirst, indexOfLast)
+
   return (
     <div>
       <button 
@@ -38,7 +53,7 @@ export default function UserDetail() {
         </thead>
         
         <tbody>
-          {user.chats.map((chat, index) => (
+          {currentChats.map((chat, index) => (
             <tr key={index} className="hover:bg-gray-800 transition">
               <td className="p-3">{chat.title}</td>
               <td className="p-3">{chat.message_pairs[chat.message_pairs.length - 1].timestamp.split(" ")[0]}</td>
@@ -54,6 +69,14 @@ export default function UserDetail() {
           ))}
         </tbody>
       </table> 
+      
+      <Pagination
+      currentPage={currentPage}
+      setCurrentPage={setCurrentPage}
+      totalItems={user.chats.length}
+      rowsPerPage={rowsPerPage}
+      />
+      
       {/* DRAWER */}
       <div className={`fixed top-14 right-0 h-[calc(100%-56px)] w-[45%] bg-gray-900 border-l border-gray-700 shadow-xl transform transition-transform duration-300 ${selectedChat ? "translate-x-0" : "translate-x-full"}`}>
         {selectedChat && (
