@@ -43,6 +43,7 @@ DB_PATH = "/opt/openwebui/data/webui.db"
 EMAILS_PATH = "data/test_emails.csv"
 OUTPUT_PATH = "data/extracted_chats.json"
 
+all_users = []
 
 def get_connection():
     """Creates a connection with dict like rows """
@@ -51,25 +52,12 @@ def get_connection():
     logger.debug("Created database connection")
     return conn
 
-def get_df():
-    """Returns email df"""
-    try:
-        df = pd.read_csv(EMAILS_PATH)
-        logger.debug(f"Loaded {len(df)} emails from CSV.")
-        return df
-    except FileNotFoundError:
-        logger.error(f"Email file not found at {EMAILS_PATH}")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error reading CSV: {e}")
-        return None
-
-def get_user_by_email(conn,  email):
+def get_all_users(conn):
     """Queries the db and gives back one corresponding tuple back"""
-    query = "SELECT id, name, role, created_at FROM user WHERE email = ?;"
-    cur = conn.execute(query, (email,))
+    query = "SELECT id, email, name, role, created_at FROM user WHERE role = 'user';"
+    cur = conn.execute(query)
 
-    return cur.fetchone()
+    return cur.fetchall()
 
 def get_chats_by_user(conn, user_id):
     query = "SELECT chat FROM chat WHERE user_id = ?;"
@@ -91,20 +79,20 @@ def get_timestamp(ts):
 
     return f"{date_formatted} {time_formatted}"
 
-def build_hieracrchy(conn, emails):
+def build_hieracrchy(conn):
     """Builds hieractchy like the shape above"""
 
     logger.info("Building logger hierarchy")
-    all_users = []
 
-    for email in emails['email']:
-        try:
-            user = get_user_by_email(conn, email)
-
-            if not user:
-                logger.warning(f"Skipping email {email} not found in DB")
-                continue
-            user_id, name, role, created_date = user[0], user[1], user[2], user[3]
+    try:
+        users = get_all_users(conn)
+        
+        if not users:
+            logger.warning(f"No users found in DB")
+            return
+        
+        for user in users:
+            user_id, email, name, role, created_date = user[0], user[1], user[2], user[3], user[4] 
             
             join_date = get_timestamp(created_date)
 
@@ -120,10 +108,10 @@ def build_hieracrchy(conn, emails):
             user_chats = get_chats_by_user(conn, user_id)
             if not user_chats:
                 logger.warning(f"No chats associated with {name}({email}), going to next user")
-                continue
+                
             
             for idx, row in enumerate(user_chats):
-                chats_json = row[0]
+                chats_json = row[0] # get first val from tuple
                 processed_json = parse_json(chats_json)
                 if not processed_json:
                     logger.warning("Skipping broken json")
@@ -142,34 +130,25 @@ def build_hieracrchy(conn, emails):
                 logger.info(f"Added a chat entry")
 
             all_users.append(json_structure)  
-            logger.info(f"Created hierarchy for {name} ({email})")     
-        except Exception as e:
-            logger.error(f"Can't query the data with email {email}: {e}")
+            logger.info(f"Created hierarchy for {name} ({email}))")     
+    except Exception as e:
+        logger.error(f"Can't query the data with email {email}: {e}")
 
-    return all_users
+    return None
 
 
-def export_json(users_dict):
+def export_json():
     # add to json file
     with open(OUTPUT_PATH, "w") as f:
-        json.dump(users_dict, f, indent=4)
+        json.dump(all_users, f, indent=4)
     logger.info("Exported User JSON file")
 
 
 def main():
     try: 
         conn = get_connection()
-    
-        emails_df = get_df()
-        if emails_df is None or emails_df.empty:
-            return
-        
-        all_users = build_hieracrchy(conn, emails_df)
-        
-        if not all_users:
-            logger.warning("No data was found")
-            return
-        export_json(all_users)
+        build_hieracrchy(conn)
+        export_json()
 
     except Exception as e:
         logger.critical(f"Fatal error in main: {e}")
