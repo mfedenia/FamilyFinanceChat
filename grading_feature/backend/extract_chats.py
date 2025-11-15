@@ -11,6 +11,7 @@ OUTPUT_JSON_SHAPE = {
     "name" : "" ,
     "email": "" ,
     "role" : "" ,
+    "join_date": "",
     "chats" : [ {
         "title" : "" ,
         "message_pairs" : [
@@ -65,7 +66,7 @@ def get_df():
 
 def get_user_by_email(conn,  email):
     """Queries the db and gives back one corresponding tuple back"""
-    query = "SELECT id, name, role FROM user WHERE email = ?;"
+    query = "SELECT id, name, role, created_at FROM user WHERE email = ?;"
     cur = conn.execute(query, (email,))
 
     return cur.fetchone()
@@ -103,13 +104,16 @@ def build_hieracrchy(conn, emails):
             if not user:
                 logger.warning(f"Skipping email {email} not found in DB")
                 continue
-            user_id, name, role = user[0], user[1], user[2]
-        
+            user_id, name, role, created_date = user[0], user[1], user[2], user[3]
+            
+            join_date = get_timestamp(created_date)
+
             json_structure = {
                 "user_id": user_id,
                 "name": name,
                 "email": email,
                 "role": role,
+                "join_date": join_date,
                 "chats": []
             }
 

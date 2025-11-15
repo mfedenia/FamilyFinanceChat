@@ -62,6 +62,7 @@ export default function Home() {
                     <tr>
                         <th className="text-left p-3 border-b border-gray-700">Name</th>
                         <th className="text-left p-3 border-b border-gray-700">Email</th>
+                        <th className="text-left p-3 border-b border-gray-700">Join Date</th>
                         <th className="text-left p-3 border-b border-gray-700"># Chats</th>
                         <th className="text-left p-3 border-b border-gray-700">Role</th>
                         <th className="text-left p-3 border-b border-gray-700">Action</th>
@@ -74,6 +75,7 @@ export default function Home() {
                         <tr key={u.user_id} className="hover:bg-gray-800 transition">
                             <td className="p-3">{u.name}</td>
                             <td className="p-3">{u.email}</td>
+                            <td className="p-3">{u.join_date.split(" ")[0]}</td>
                             <td className="p-3">{u.chats.length}</td>
                             <td className="p-3">{u.role}</td>
                             <td className="p-3">
