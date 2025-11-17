@@ -10,16 +10,28 @@ import sys
 import os
 import logging
 from typing import List, Optional
-from upload import OpenWebUIUploader
+from openwebui_uploader import OpenWebUIUploader
 import uvicorn
+from dotenv import load_dotenv
+import socket
+
+# getting the vars
+load_dotenv() 
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # configs
-OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://127.0.0.1:3000")
-OPENWEBUI_API_KEY = os.getenv("OPENWEBUI_API_KEY", "")  # TODO: env var
-OPENWEBUI_KB_ID = os.getenv("OPENWEBUI_KB_ID", "d2d01280-b703-4c94-8d53-058e9b3ff3b1")
+IS_DOCKER = os.environ.get('HOSTNAME', '').startswith('pdf-upload') or os.environ.get('DOCKER_CONTAINER', '') == 'true'
+
+if IS_DOCKER:
+    # Inside Docker, use container name
+    OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://open-webui:8080")
+else:
+    # Outside Docker, use localhost
+    OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://127.0.0.1:3000")
+OPENWEBUI_API_KEY = os.getenv("OPENWEBUI_API_KEY", "")
+OPENWEBUI_KB_ID = os.getenv("OPENWEBUI_KB_ID", "caf7b373-60ad-4238-9a06-8511cd6ce05a")  # Updated default
 
 # Initialize the uploader
 uploader = OpenWebUIUploader(
@@ -122,7 +134,21 @@ app = FastAPI(title="PDF Review Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    # allow_origins=[ # TODO: change to perm IP/url later if possible
+    #     # "http://localhost:3000",
+    #     # "http://localhost:3847", 
+    #     # "http://10.4.0.2:3000",
+    #     # "http://10.4.0.2:3847",
+    #     # "http://34.85.238.142:3000",
+    #     # "http://34.85.238.142:3847",
+    #     # "http://localhost:8001",
+    #     # "http://localhost:8437",
+    #     # "http://10.4.0.2:8001",
+    #     # "http://10.4.0.2:8437",
+    #     # "http://34.85.238.142:8001", 
+    #     # "http://34.85.238.142:8437"
+    # ],
+    allow_origins=["*"], # temp
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -543,4 +569,5 @@ if __name__ == "__main__":
     except ImportError:
         print("✗ PIL/Pillow NOT installed - run: pip install Pillow")
     
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8437
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
