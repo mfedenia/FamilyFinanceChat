@@ -18,7 +18,7 @@ export default function Home() {
 
     // Get all users
     useEffect(() => {
-        axios.get("http://localhost:8080/users")
+        axios.get("http://localhost:9500/users")
             .then(res => setUsers(res.data))
             .catch(err => console.error(err))
     }, []);

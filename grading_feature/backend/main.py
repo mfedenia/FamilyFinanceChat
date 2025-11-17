@@ -45,4 +45,4 @@ def run_extract():
     except Exception as e:
         logger.error(f"Extract failed: {e}")
 
-uvicorn.run(app, host="0.0.0.0", port=8080, reload=False)
+# uvicorn.run(app, host="0.0.0.0", port=8080, reload=False)

@@ -1,9 +1,6 @@
 export default function Pagination ( {currentPage, setCurrentPage, totalItems, rowsPerPage} ) {
 
     const totalPages = Math.ceil(totalItems / rowsPerPage)
-    console.log("--------------------")
-    console.log(currentPage)
-    console.log(totalPages)
     if (totalPages <= 1) return null;
     return (
         <div className="flex items-center justify-center gap-4 mt-4">

@@ -2,7 +2,7 @@ import axios from "axios";
 export default function Navbar() {
     const handleRefresh = async () => {
         try {
-            await axios.get("http://localhost:8080/refresh");
+            await axios.get("http://localhost:9500/refresh");
             window.location.reload();
         } catch (err) {
             alert("Backend not responsive");

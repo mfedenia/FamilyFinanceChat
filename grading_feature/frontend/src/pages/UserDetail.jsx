@@ -17,7 +17,7 @@ export default function UserDetail() {
   const [currentPage, setCurrentPage] = useState(1);
   
   useEffect((u) => {
-    axios.get(`http://localhost:8080/user/${userId}`)
+    axios.get(`http://localhost:9500/user/${userId}`)
          .then(res => setUser(res.data))
          .catch(err => console.log(err))
   }, [userId]);
@@ -122,7 +122,7 @@ export default function UserDetail() {
                                         max-w-[75%] shadow border border-white/10">
                           <p className="text-xs text-blue-200 font-semibold mb-1">Chatbot</p>
                           <p>{pair.answer}</p>
-                          <p className="text-[10px] text-blue-100 mt-1">
+                          <p className="text-[10px] text-gray-400 mt-1">
                             {pair.timestamp}
                           </p>
                         </div>
