@@ -43,8 +43,6 @@ DB_PATH = "/opt/openwebui/data/webui.db"
 EMAILS_PATH = "data/test_emails.csv"
 OUTPUT_PATH = "data/extracted_chats.json"
 
-all_users = []
-
 def get_connection():
     """Creates a connection with dict like rows """
     conn = sqlite3.connect(DB_PATH)
@@ -83,6 +81,8 @@ def build_hieracrchy(conn):
     """Builds hieractchy like the shape above"""
 
     logger.info("Building logger hierarchy")
+    
+    all_users = []
 
     try:
         users = get_all_users(conn)
@@ -134,10 +134,10 @@ def build_hieracrchy(conn):
     except Exception as e:
         logger.error(f"Can't query the data with email {email}: {e}")
 
-    return None
+    return all_users
 
 
-def export_json():
+def export_json(all_users):
     # add to json file
     with open(OUTPUT_PATH, "w") as f:
         json.dump(all_users, f, indent=4)
@@ -147,8 +147,8 @@ def export_json():
 def main():
     try: 
         conn = get_connection()
-        build_hieracrchy(conn)
-        export_json()
+        all_users = build_hieracrchy(conn)
+        export_json(all_users)
 
     except Exception as e:
         logger.critical(f"Fatal error in main: {e}")
