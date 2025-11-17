@@ -36,7 +36,7 @@ export default function Home() {
     });
 
     // Pagination Vars and Calculation
-    const rowsPerPage = 10
+    const rowsPerPage = 8
     const idxOfLastUser = currentPage * rowsPerPage
     const idxOfFirstUser = idxOfLastUser - rowsPerPage
     const currentUsers = filteredUsers.slice(idxOfFirstUser, idxOfLastUser)
@@ -47,47 +47,51 @@ export default function Home() {
             <input
                 type="text"
                 placeholder="Search by name or email..."
-                className="mb-4 px-3 py-2 w-full rounded bg-gray-800 border border-gray-700
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mb-4 w-full px-4 py-2 rounded-full 
+                        bg-[#161b22] border border-white/10 
+                        focus:outline-none focus:ring-2 focus:ring-blue-500/50 
+                        text-white placeholder-gray-500"
                 value={searchTerm}
                 onChange={(e)=> setSearchTerm(e.target.value)}
             />
             {filteredUsers.length == 0 && (
-                    <p className="p-3">No users found</p>
+                <p className="p-3">No users found</p>
             )}
 
             {filteredUsers.length > 0 && ( 
-            <table className="min-w-full bg-gray-900 border border-gray-700 rounded-lg">
-                <thead className="bg-gray-800">
-                    <tr>
-                        <th className="text-left p-3 border-b border-gray-700">Name</th>
-                        <th className="text-left p-3 border-b border-gray-700">Email</th>
-                        <th className="text-left p-3 border-b border-gray-700">Join Date</th>
-                        <th className="text-left p-3 border-b border-gray-700"># Chats</th>
-                        <th className="text-left p-3 border-b border-gray-700">Action</th>
-                    </tr>
-                </thead>
-                
-                <tbody>
-
-                    {currentUsers.map((u) => (
-                        <tr key={u.user_id} className="hover:bg-gray-800 transition">
-                            <td className="p-3">{u.name}</td>
-                            <td className="p-3">{u.email}</td>
-                            <td className="p-3">{u.join_date.split(" ")[0]}</td>
-                            <td className="p-3">{u.chats.length}</td>
-                            <td className="p-3">
-                                <button
-                                    onClick={() => navigate(`/user/${u.user_id}`)}
-                                    className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                >
-                                    View
-                                </button>
-                            </td>
+                <table className="min-w-full bg-[#0d1117] border border-white/10 rounded-lg shadow-sm">
+                    <thead className="bg-[#161b22] text-gray-300">
+                        <tr>
+                            <th className="text-left p-3 border-b border-white/10 font-medium">Name</th>
+                            <th className="text-left p-3 border-b border-white/10 font-medium">Email</th>
+                            <th className="text-left p-3 border-b border-white/10 font-medium">Join Date</th>
+                            <th className="text-left p-3 border-b border-white/10 font-medium"># Chats</th>
+                            <th className="text-left p-3 border-b border-white/10 font-medium">Action</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    
+                    <tbody>
+
+                        {currentUsers.map((u) => (
+                            <tr key={u.user_id} className="hover:bg-gray-800 transition">
+                                <td className="p-3">{u.name}</td>
+                                <td className="p-3">{u.email}</td>
+                                <td className="p-3">{u.join_date.split(" ")[0]}</td>
+                                <td className="p-3">{u.chats.length}</td>
+                                <td className="p-3">
+                                    <button
+                                        onClick={() => navigate(`/user/${u.user_id}`)}
+                                        className="px-4 py-1 rounded-full border border-white/10 
+                                                bg-[#21262d] hover:bg-[#30363d] text-white transition"
+                                    >
+                                        View
+                                    </button>
+
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             )}
             <Pagination 
                 currentPage={currentPage}

@@ -25,8 +25,8 @@ export default function Pagination ( {currentPage, setCurrentPage, totalItems, r
                     onClick={() => setCurrentPage(num)}
                     className={`px-3 py-1 rounded ${
                                     num === currentPage
-                                        ? "bg-blue-600 text-white"
-                                        : "bg-gray-800 hover:bg-gray-700"
+                                        ? "bg-blue-900 text-white"
+                                        : "bg-[#161b22] hover:bg-gray-800"
                                 }`
                             }
                   >

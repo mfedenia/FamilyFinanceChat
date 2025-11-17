@@ -26,7 +26,7 @@ export default function UserDetail() {
   if (!user) return <p>Loading...</p>;
   
   // Pagination variables and calculations
-  const rowsPerPage = 10;
+  const rowsPerPage = 8;
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
   const currentChats = user.chats.slice(indexOfFirst, indexOfLast)
@@ -35,7 +35,11 @@ export default function UserDetail() {
     <div>
       <button 
         onClick={() => navigate(-1)}
-        className="text-blue-400 hover:underline mb-4"
+          className="inline-flex items-center gap-2 
+             px-3 py-1.5 rounded-md 
+             bg-[#161b22] border border-white/10 
+             text-gray-300 hover:bg-[#1c2128] 
+             transition"
       >
         ← Back
       </button>
@@ -43,25 +47,25 @@ export default function UserDetail() {
 
       <h2 className="text-xl font-semibold mb-3">Chat Sessions</h2>
 
-      <table className="min-w-full bg-gray-900 border border-gray-700 rounded-lg">
-        <thead className="bg-gray-800">
+      <table className="min-w-full bg-[#0d1117] border border-white/10 rounded-lg shadow-sm">
+        <thead className="bg-[#161b22] text-gray-300">
           <tr>
-            <th className="text-left p-3 border-b border-gray-700">Title</th>
-            <th className="text-left p-3 border-b border-gray-700">Last Interacted</th>
-            <th className="text-left p-3 border-b border-gray-700">Action</th>
+            <th className="text-left p-3 border-b border-white/10 font-medium">Title</th>
+            <th className="text-left p-3 border-b border-white/10 font-medium">Last Interacted</th>
+            <th className="text-left p-3 border-b border-white/10 font-medium">Action</th>
           </tr>
         </thead>
         
         <tbody>
           {currentChats.map((chat, index) => (
-            <tr key={index} className="hover:bg-gray-800 transition">
+            <tr key={index} className="hover:bg-[#161b22]/50 transition">
               <td className="p-3">{chat.title}</td>
               <td className="p-3">{chat.message_pairs[chat.message_pairs.length - 1].timestamp.split(" ")[0]}</td>
               <td className="p-3">
                 <button 
                   onClick={() => setSelectedChat(chat)}
-                  className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
+                  className="bg-[#161b22] text-white px-4 py-2 rounded-2xl max-w-[75%] shadow border border-white/10"
+                > 
                   View Chat
                 </button>
               </td>
@@ -84,7 +88,7 @@ export default function UserDetail() {
               <div className="flex flex-col h-full">
 
                 {/* HEADER */}
-                <div className="p-5 flex justify-between items-center border-b border-gray-700 bg-gray-800">
+                <div className="p-5 flex justify-between items-center border-b border-white/10 bg-[#161b22]">
                   <h2 className="text-xl font-semibold">{selectedChat.title}</h2>
                   <h2 className="text-xl font-semibold">{user.email}</h2>
                   <button
@@ -102,7 +106,8 @@ export default function UserDetail() {
 
                       {/* QUESTION BUBBLE (LEFT) */}
                       <div className="flex justify-start">
-                        <div className="bg-blue-600 text-white px-4 py-2 rounded-xl max-w-[75%] shadow">
+                        <div className="bg-[#21262d] text-white px-4 py-2 rounded-2xl 
+                                        max-w-[75%] shadow border border-white/10">
                           <p className="text-xs text-gray-300 font-semibold mb-1">Student</p>
                           <p>{pair.question}</p>
                           <p className="text-[10px] text-gray-400 mt-1">
@@ -113,7 +118,8 @@ export default function UserDetail() {
 
                       {/* ANSWER BUBBLE (RIGHT) */}
                       <div className="flex justify-end">
-                        <div className="bg-gray-600 text-white px-4 py-2 rounded-xl max-w-[75%] shadow">
+                        <div className="bg-[#161b22] text-white px-4 py-2 rounded-2xl 
+                                        max-w-[75%] shadow border border-white/10">
                           <p className="text-xs text-blue-200 font-semibold mb-1">Chatbot</p>
                           <p>{pair.answer}</p>
                           <p className="text-[10px] text-blue-100 mt-1">
