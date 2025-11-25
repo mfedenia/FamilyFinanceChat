@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pdf2image
+Pillow
+pydantic
+requests
+python-dotenv
+python-multipart
+fitz
+PyMuPDF
