@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Pagination from "../components/Pagination";
 import MetricCard from "../components/MetricCard";
+import TopUsersChart from "../components/TopUsersChart";
 
 export default function Home() {
     
@@ -49,14 +50,29 @@ export default function Home() {
     const idxOfFirstUser = idxOfLastUser - rowsPerPage
     const currentUsers = filteredUsers.slice(idxOfFirstUser, idxOfLastUser)
 
+    // Top 10 User Visualization
+    function getTopUsers(data, limit=5) {
+         const result = data.map(student => ({
+            name: student.name,
+            num_chats: student.chats?.length || 0
+        }));
+        return result.sort((a,b) => b.num_chats - a.num_chats).slice(0, limit); // Descending order
+    }
+    const top10 = getTopUsers(users)
+
+
+    
     return (
 
         <div className="mt-8">
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mx-5 mb-8">
                 <MetricCard title="Total Students" value={totalStudents} />
                 <MetricCard title="Total Chats" value={totalChats} />
                 <MetricCard title="Total Messages" value={totalMessages} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mx-5 mb-8">
+                <TopUsersChart data={top10} />
             </div>
 
             <input
