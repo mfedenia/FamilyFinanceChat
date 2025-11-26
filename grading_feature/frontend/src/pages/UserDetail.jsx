@@ -32,20 +32,20 @@ export default function UserDetail() {
   const currentChats = user.chats.slice(indexOfFirst, indexOfLast)
 
   return (
-    <div>
+    <div className="mt-2">
       <button 
         onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 
              px-3 py-1.5 rounded-md 
              bg-[#161b22] border border-white/10 
              text-gray-300 hover:bg-[#1c2128] 
-             transition"
+             transition mb-3"
       >
         ← Back
       </button>
 
 
-      <h2 className="text-xl font-semibold mb-3">Chat Sessions</h2>
+      <h2 className="text-xl font-semibold mb-3">Chat Sessions for {user.name} ({user.email})</h2>
 
       <table className="min-w-full bg-[#0d1117] border border-white/10 rounded-lg shadow-sm">
         <thead className="bg-[#161b22] text-gray-300">

@@ -2,6 +2,7 @@ import axios, { Axios } from "axios";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Pagination from "../components/Pagination";
+import MetricCard from "../components/MetricCard";
 
 export default function Home() {
     
@@ -14,14 +15,21 @@ export default function Home() {
     // Pagination 
     const [currentPage, setCurrentPage] = useState(1)
 
-    
-
     // Get all users
     useEffect(() => {
         axios.get("http://localhost:9500/users")
             .then(res => setUsers(res.data))
             .catch(err => console.error(err))
     }, []);
+
+    // Vars for Metric Cards 
+    const totalStudents = users.length
+    const totalChats = users.reduce((sum, student) => sum + student.chats.length, 0)
+    const totalMessages = users.reduce((total, student) => {
+        return total + student.chats.reduce((sum, chat) => {
+            return sum + chat.message_pairs.length * 2;
+        }, 0);
+    }, 0);
 
     // Search function
     const filteredUsers = users.filter(u => {
@@ -43,7 +51,14 @@ export default function Home() {
 
     return (
 
-        <div>
+        <div className="mt-8">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mx-5 mb-8">
+                <MetricCard title="Total Students" value={totalStudents} />
+                <MetricCard title="Total Chats" value={totalChats} />
+                <MetricCard title="Total Messages" value={totalMessages} />
+            </div>
+
             <input
                 type="text"
                 placeholder="Search by name or email..."
@@ -101,9 +116,6 @@ export default function Home() {
             />
         </div>
 
-
-
     )
-
 
 }
