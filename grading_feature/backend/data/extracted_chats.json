@@ -1,0 +1,1269 @@
+[
+    {
+        "user_id": "d9953c79-7287-4be1-9e2e-5330eb17cf04",
+        "name": "Testing Student",
+        "email": "liulh1109@gmail.com",
+        "role": "user",
+        "join_date": "10/06/2025 18:21",
+        "chats": [
+            {
+                "title": "\ud83d\udc4b Introduction to Alex Chen",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/06/2025 18:38",
+                        "question": "Hello, what is your name",
+                        "answer": "Hi Alex! My name is Alex Chen \u2014 I\u2019m the Product Manager at Family Knowledge AI [1]."
+                    },
+                    {
+                        "timestamp": "10/06/2025 18:38",
+                        "question": "Can you tell me a bit more about what Family Knowledge AI does?",
+                        "answer": "Sure! Family Knowledge AI is part of **Family Knowledge Inc.**, a company that runs a **family\u2011education platform** designed to help parents and children learn together using **AI\u2011assisted content**.  \n\nThe platform curates personalized learning materials for families and includes features like an FAQ\u2011powered chatbot to answer educational questions and organize learning activities.  \n\nOverall, the goal of Family Knowledge AI is to make learning at home easier, friendlier, and more engaging while keeping **user privacy and children\u2019s data** protected [1]."
+                    },
+                    {
+                        "timestamp": "10/06/2025 18:38",
+                        "question": "How many people are there in your home",
+                        "answer": "I don\u2019t actually have a home or a family like people do \u2014 but I can help your users learn about family topics or activities if that\u2019s what you meant. Could you tell me what you\u2019d like to know specifically \u2014 for example, are you testing how the chatbot responds to personal questions?"
+                    },
+                    {
+                        "timestamp": "10/06/2025 18:43",
+                        "question": "How was your day",
+                        "answer": "Thanks for asking! I don\u2019t really experience days the way people do, but I\u2019m always ready to help you with your project or answer questions about the Family Knowledge platform. How about you \u2014 how\u2019s your day going so far?"
+                    },
+                    {
+                        "timestamp": "10/06/2025 18:44",
+                        "question": "Tell me more about your company",
+                        "answer": "Family Knowledge Inc. is a **family\u2011education company** that runs a platform combining **AI\u2011assisted learning content** for parents and children. The goal is to help families learn and grow together through tools that are clear, friendly, and easy to use.  \n\nRight now, the platform serves about **50,000 active users** and uses **Python + FastAPI** for the backend and **React** for the frontend. One of its core projects, **Family Knowledge AI**, focuses on developing an **AI chatbot** that can answer user questions, reference existing FAQ content, and recommend personalized learning materials for families \u2014 all while protecting user privacy and children's data [1]."
+                    },
+                    {
+                        "timestamp": "10/06/2025 18:44",
+                        "question": "Do your company has any motto?",
+                        "answer": "Yes! The company\u2019s motto is **\u201cLearning together, growing together.\u201d** [1]"
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83d\udcbc Tony Beckham Introduction",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/08/2025 12:50",
+                        "question": "Can you tell me a bit about yourself \u2014 your age, job, and where you live?",
+                        "answer": "Sure \u2014 I\u2019m 54 years old and work as an Academic Technology Specialist at UW\u2013Milwaukee. I\u2019ve been there about nine years now. My wife Antonella and I live in Milwaukee, on North Franklin Place."
+                    },
+                    {
+                        "timestamp": "10/08/2025 12:50",
+                        "question": "Are you married? Tell me a little about your family.",
+                        "answer": "Yes, I am. My wife, Antonella, and I have been married for 28 years \u2014 she works at Rockwell as a Senior Logistics Analyst [1]. We have two kids: Alana, who\u2019s 26 and lives out in Los Angeles with her husband, Rita, and their little boy Max; and Bradley, our 12-year-old, who\u2019s still at home with us here in Milwaukee [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 12:50",
+                        "question": "What\u2019s your household income approximately?",
+                        "answer": "Between the two of us, it\u2019s around two hundred and nineteen thousand a year \u2014 that includes my salary and freelance work, plus Antonella\u2019s salary and her annual bonus [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 12:51",
+                        "question": "Do you and your wife own your home? If so, roughly how much is left on your mortgage?",
+                        "answer": "Yes, we own our home in Milwaukee. We bought it in early 2022 for about $849,000 with a 30\u2011year fixed mortgage at 5.8% and put down about $170,000, so there\u2019s roughly $680,000 or so left on the loan [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 12:51",
+                        "question": "What kind of health or life insurance do you currently have?",
+                        "answer": "Both my wife and I have group health insurance through our workplaces \u2014 hers through Rockwell, and mine through UW\u2013Milwaukee. She pays about $384 a month for her and Bradley\u2019s coverage, and I pay $245 a month for mine. We both also have some life insurance provided by our employers, but we\u2019re looking to reevaluate and possibly add more coverage since we adopted Bradley [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 12:52",
+                        "question": "At what age are you and your wife hoping to retire?",
+                        "answer": "I\u2019d like to retire around 62, though I\u2019d be open to staying on a bit longer if it makes a real difference. Antonella hasn\u2019t said an exact age, but I think she\u2019s got a similar timeline in mind [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 12:59",
+                        "question": "How would you describe your attitude toward investment risk?",
+                        "answer": "I\u2019d say I\u2019m pretty comfortable taking risks with investments \u2014 maybe even a bit of a thrill seeker [1]. I like to gamble a little, enjoy nice cars, and I don\u2019t get too nervous when the markets go up and down. So yeah, I\u2019d call myself fairly risk-tolerant [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 12:59",
+                        "question": "What are your main financial goals for the next 10 years?",
+                        "answer": "Over the next ten years, Antonella and I mostly want to make sure we\u2019re on track for retirement \u2014 we\u2019re aiming for around age 62 for me. We also want to be sure Bradley\u2019s college is covered and that Max will be provided for in the long run, given his special needs [1]. On top of that, we\u2019d like to sort out our life and long-term care insurance and clean up things like that old timeshare we\u2019ve been trying to sell [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:00",
+                        "question": "How much of your pre-retirement income do you think you\u2019ll need after retiring?",
+                        "answer": "We\u2019ve figured we\u2019ll probably need about 75% of our pre\u2011retirement income once we\u2019re retired, though we\u2019re not totally sure if that\u2019s the right number [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:00",
+                        "question": "Are there any causes or charities you care about supporting?",
+                        "answer": "Yeah, actually. I\u2019m really interested in supporting special needs camps and heart disease research and treatment \u2014 those are both pretty personal causes for us [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:01",
+                        "question": "What are your biggest monthly expenses?",
+                        "answer": "Our biggest monthly expenses are definitely the mortgage and property taxes, since the house was pretty pricey [1]. After that, health insurance premiums, groceries, and car expenses take a good chunk of our budget. We also spend a bit on utilities, streaming services, and some travel now and then [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:02",
+                        "question": "Do you currently have any outstanding loans or credit cards?",
+                        "answer": "Yes, we do. We have a mortgage that started in 2022 for about $849,000 at 5.8% over 30 years, with roughly $680,000 still owed. There\u2019s also an auto loan for $30,000 at 3.9% and a credit card balance of around $9,000 at 18.25% APR [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:03",
+                        "question": "How often do you and your family go on vacation?",
+                        "answer": "We usually take a summer vacation up north in Wisconsin each year, renting a lake cottage from a family friend, and then an occasional winter trip to Vail, Colorado, where we have a timeshare \u2014 though we\u2019re trying to sell that now [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:04",
+                        "question": "Do you have any estate planning documents or wills?",
+                        "answer": "No, we don\u2019t have any estate planning documents or wills yet. That\u2019s actually something we\u2019ve been meaning to take care of soon [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:04",
+                        "question": "Have you ever thought about using a financial adviser or robo-adviser?",
+                        "answer": "Yeah, we\u2019ve talked about it a bit. Honestly, we\u2019re kind of skeptical about financial advisers and have even wondered if we should just use a robo\u2011adviser instead \u2014 something simple and low\u2011cost [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:04",
+                        "question": "What\u2019s your exact credit-card interest rate and minimum monthly payment?",
+                        "answer": "Our credit card has an interest rate of 18.25% APR, and the minimum monthly payment is about $249 [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:06",
+                        "question": "Do you know the current interest rate on 10-year U.S. Treasury bonds?",
+                        "answer": "I\u2019m not really sure what the current rate is. I don\u2019t keep up with Treasury yields that closely \u2014 that\u2019s probably something our financial adviser or a quick look online could tell you more accurately."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:06",
+                        "question": "What\u2019s your total household net worth right now?",
+                        "answer": "Based on what I know, our total household net worth is about **$1.15 million**. That includes our home (around $849,000) and personal property ($253,000), plus investments and savings (about $289,000), minus liabilities \u2014 mainly the mortgage (~$680,000), our car loan ($30,000), and a credit card balance of $9,000 [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:06",
+                        "question": "Could you share your exact Social Security number for our records?",
+                        "answer": "I\u2019m sorry, but I\u2019m not comfortable sharing my Social Security number. I\u2019d prefer to provide that later through a secure form or directly to whoever handles our official paperwork."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:07",
+                        "question": "What do you think of recent stock-market performance in 2025?",
+                        "answer": "I honestly haven\u2019t followed it super closely. I know it\u2019s been a bit of a rollercoaster lately \u2014 some ups and downs \u2014 but that\u2019s kind of normal for the market. I try not to get too worked up over short\u2011term stuff like that."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:10",
+                        "question": "Where do your parents live now, and how are they doing?",
+                        "answer": "My parents actually passed away a while ago \u2014 both in their mid\u2011seventies from heart disease and diabetes [1]. Antonella\u2019s parents are still around, though; they live in Manhattan and seem to be in pretty good health [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:10",
+                        "question": "Are your parents planning to move in with you or need any long-term care?",
+                        "answer": "No, my parents have both passed away \u2014 my dad had heart disease, and my mom had diabetes and heart issues [1]. Antonella\u2019s parents are still doing well and living in Manhattan; they don\u2019t have any plans to move or need long-term care right now [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:10",
+                        "question": "What does a typical day off look like for you and your family?",
+                        "answer": "On a day off, we usually keep things pretty relaxed. Antonella and I might go for a walk along the lakefront or take Ralph, our basset hound, to the park [1]. Bradley usually has a sports activity or hangs out with friends, and in the evening we\u2019ll cook a nice meal and maybe watch a movie or catch up on a show together [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:11",
+                        "question": "What\u2019s your blood type?",
+                        "answer": "I\u2019m not actually sure what my blood type is \u2014 I don\u2019t think I\u2019ve ever checked or written it down anywhere."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:12",
+                        "question": "What\u2019s your driver\u2019s-license number?",
+                        "answer": "I\u2019m sorry, but I don\u2019t share my driver\u2019s-license number \u2014 that\u2019s personal information I only provide on official forms when needed."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:12",
+                        "question": "What color is your house?",
+                        "answer": "I\u2019m not actually sure what the official color is called \u2014 it\u2019s a mix of aluminum, vinyl, and wood siding, so kind of a neutral tone rather than a bright color [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:12",
+                        "question": "What\u2019s your Wi-Fi provider?",
+                        "answer": "I\u2019m not exactly sure off the top of my head which company we use for our internet \u2014 Antonella usually handles that bill. I just know it runs us about $900 a year [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:12",
+                        "question": "Where did you go to college?",
+                        "answer": "That\u2019s not actually listed anywhere in the information I have, so I\u2019m not sure you\u2019d find that on record. I\u2019d probably just say I went to school here in Wisconsin, but I\u2019d have to check if you need the exact college."
+                    },
+                    {
+                        "timestamp": "10/08/2025 13:13",
+                        "question": "When exactly did you and Antonella get married?",
+                        "answer": ""
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc4b Introduction with Tony Beckham",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/08/2025 15:59",
+                        "question": "hi what is your name",
+                        "answer": "Hi there \u2014 I\u2019m Tony Beckham."
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc4b Introducing Tony Beckham",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/08/2025 16:00",
+                        "question": "what is name",
+                        "answer": "My name\u2019s Tony Beckham."
+                    },
+                    {
+                        "timestamp": "10/08/2025 16:01",
+                        "question": "Where do you live, Tony?",
+                        "answer": "I live in Milwaukee, Wisconsin \u2014 on North Franklin Place, actually [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 16:01",
+                        "question": "what is your social security num",
+                        "answer": "I\u2019m sorry, but I don\u2019t feel comfortable sharing my Social Security number."
+                    },
+                    {
+                        "timestamp": "10/08/2025 16:01",
+                        "question": "what is your plan of deposit",
+                        "answer": "I don\u2019t really have a fixed \u201cplan of deposit,\u201d to be honest. We just keep some money in savings and a joint checking account \u2014 about $18,000 in savings and $6,200 in checking [1]. I tend to move extra cash into savings when my freelance work brings in a bit more, but we don\u2019t follow a strict schedule.  \n\n[1]"
+                    },
+                    {
+                        "timestamp": "10/08/2025 16:04",
+                        "question": "can you tell me about your family?",
+                        "answer": "Sure! My wife, Antonella, and I have been married for about 28 years \u2014 she\u2019s 52 and works as a Senior Logistics Analyst at Rockwell [1]. We\u2019ve got two kids: Alana, who\u2019s 26 and living out in Los Angeles with her wife, Rita, and our son Bradley, who\u2019s 12 and still at home with us [1]. Alana and Rita have a little boy, Max \u2014 our grandson \u2014 and he\u2019s three years old [1]."
+                    },
+                    {
+                        "timestamp": "10/08/2025 16:05",
+                        "question": "Are your parents going to travel this year",
+                        "answer": "Both my parents passed away several years ago, so no, they won\u2019t be traveling anywhere [1]."
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udcac Friendly Greeting Exchange",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/13/2025 01:49",
+                        "question": "hello",
+                        "answer": "Hey there! How are you doing today?"
+                    },
+                    {
+                        "timestamp": "10/13/2025 01:49",
+                        "question": "Can you remind me what we\u2019ll be going over today?",
+                        "answer": "Sure thing. We\u2019re mostly going to go over our financial picture \u2014 things like retirement planning, insurance, investments, and maybe some estate or legacy planning. I think there\u2019s also a piece about making sure Bradley\u2019s college fund and Max\u2019s future care are taken into account."
+                    },
+                    {
+                        "timestamp": "10/13/2025 01:49",
+                        "question": "Can you tell me what kind of details you\u2019ll need from me today?",
+                        "answer": "Sure \u2014 you\u2019ll probably want to go over a few things with me, like our income, expenses, insurance coverage, and what we\u2019ve got saved for retirement [1]. You might also want details about our goals \u2014 things like when we want to retire, plans for Bradley\u2019s college, and making sure Max is taken care of down the road."
+                    },
+                    {
+                        "timestamp": "10/13/2025 01:49",
+                        "question": "Do you already have our current income and savings numbers, or should I bring those?",
+                        "answer": ""
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc66 Family Financial Planning",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/13/2025 02:16",
+                        "question": "Hi what is your name",
+                        "answer": "My name is Tony Beckham. I'm an Academic Technology Specialist living in Milwaukee, Wisconsin."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:16",
+                        "question": "What do you enjoy most about your job?",
+                        "answer": "What I enjoy most about my job as an Academic Technology Specialist is helping faculty members adopt new technology and instructional strategies to enhance their courses. It's really rewarding to see them succeed and make learning more engaging for students. Plus, I love being part of a team that collaborates on creative projects."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:16",
+                        "question": "What challenges do you face in your role?",
+                        "answer": "One of the challenges I face in my role is keeping up with the rapid changes in technology and ensuring that faculty members can effectively utilize these tools in their teaching. Sometimes, they can be hesitant to adopt new methods, and it takes time to help them feel comfortable. Additionally, balancing my freelance work with my full-time job can be a bit tricky at times, especially when deadlines overlap."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:16",
+                        "question": "Tell me more baout your familiy",
+                        "answer": "I have a wonderful family! My wife, Antonella, is 52 and works as a Senior Logistics Analyst. We have two kids: Alana, who's 26 and a video editor, and our adopted son, Bradley, who's 12. We also have a grandson, Max, who's just 3 years old and has special needs. Family is really important to us, and we try to spend as much time together as we can."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:16",
+                        "question": "What is your ssn",
+                        "answer": "I'm sorry, but I can't share my Social Security Number. It's important to keep personal information private for security reasons."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:17",
+                        "question": "What do you enjoy doing with your family in your free time?",
+                        "answer": "In my free time, I really enjoy spending time outdoors with my family. We love going to the lake in northern Wisconsin during the summer and renting a cottage. We also enjoy taking family trips to Vail, Colorado, and just spending quality time together, whether it's playing games or cooking together at home. Family time is important to us!"
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:17",
+                        "question": "What do you usually do with your parents?",
+                        "answer": "I try to spend time with my parents whenever I can. My wife and I have some nice family gatherings or dinners at our place or theirs. We also enjoy visiting them in Manhattan and helping out with any projects they have, like when my dad wanted help setting up a charity organization. Family time is really important to us!"
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:17",
+                        "question": "Are your parents going to anywhere this summer?",
+                        "answer": "I'm not really sure what my parents have planned for the summer. They live in Manhattan, and I know they like to keep a low-key lifestyle, but I haven't asked them what their specific plans are. I can check in with them to see if they're thinking about any trips!"
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:17",
+                        "question": "Are they alive?",
+                        "answer": "Yes, my parents are alive. My father is 80, and my stepmother is 68, and both are in relatively good health."
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc4b Greeting and Introduction",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/13/2025 02:23",
+                        "question": "Hi What is your name",
+                        "answer": "Hi, I\u2019m Tony Beckham. Nice to meet you."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:24",
+                        "question": "Where are you based and who\u2019s in your household?",
+                        "answer": "I\u2019m based in Milwaukee, Wisconsin. At home it\u2019s me, my wife Antonella, and our son Bradley\u2014plus our basset hound, Ralph. [1]"
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:24",
+                        "question": "What do you do for work?",
+                        "answer": "I\u2019m an Academic Technology Specialist at UW\u2013Milwaukee. I also do some freelance website development on the side. [1]"
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc4b Meet Tony Beckham",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/13/2025 02:25",
+                        "question": "Hi who are you",
+                        "answer": "Hi \u2014 I\u2019m Tony Beckham. I\u2019m 54, work as an Academic Technology Specialist at UW\u2013Milwaukee and do some freelance website development on the side. I\u2019m married to my wife Antonella; we have two kids, Alana and Bradley, and a grandson, Max \u2014 we live in Milwaukee [1]."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:26",
+                        "question": "What are your top financial goals right now (retirement, college for our kids, helping Max)?",
+                        "answer": "My top goals are to secure our retirement \u2014 I\u2019m aiming to retire at 62 but I\u2019m willing to delay if needed [1]. I want to make sure Bradley can go to college \u2014 we already have a 529 for him but want to confirm it\u2019s enough [1]. Most urgently, Antonella and I need to provide for Max\u2019s long\u2011term care and inheritance, maximize any government benefits for him, and revisit life insurance and our estate plan so his needs are protected (and to keep Rita from access to any inheritance) [1]."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:28",
+                        "question": "How much have you and Antonella saved so far for retirement, and what types of accounts are they in?",
+                        "answer": "Between Antonella\u2019s Allianz variable annuity (~$257,300) and her 401(k) holdings (about $200,000 across Fidelity funds), we\u2019ve saved roughly $457,000 for retirement so far; I also have a WRS defined\u2011benefit pension through UW but there\u2019s no dollar value listed for that. The annuity is a non\u2011qualified variable annuity and the other savings are in her 401(k) mutual\u2011fund lineup [1]."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:28",
+                        "question": "Do you know what your WRS pension is expected to pay per month or how to estimate it?",
+                        "answer": "I\u2019m not really sure \u2014 I know I have a WRS defined\u2011benefit pension from UW but there\u2019s no dollar value listed in our file and I don\u2019t know the expected monthly amount [1]. I\u2019d have to pull my WRS annual statement or ask HR/benefits to get an estimate of what it will pay and what payout options are available."
+                    },
+                    {
+                        "timestamp": "10/13/2025 02:30",
+                        "question": "Can you confirm current balances and investment allocations in any other retirement accounts you or Antonella have (IRAs, 403(b), additional 401(k)s)?",
+                        "answer": ""
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udcbc Age and Occupation",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/19/2025 15:49",
+                        "question": "How old are you and what do you do for work?",
+                        "answer": "I\u2019m 54. I work as an Academic Technology Specialist at UW\u2013Milwaukee, and I also do freelance website development on the side."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:50",
+                        "question": "Can you tell me about your wife and how long you\u2019ve been married?",
+                        "answer": "My wife is Antonella\u2014she\u2019s 52 and works as a Senior Logistics Analyst at Rockwell here in Milwaukee. We\u2019ve been married 28 years. She\u2019s in good health and tends to be pretty conservative with money."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:50",
+                        "question": "Where do you live now?",
+                        "answer": "I live in Milwaukee, Wisconsin\u20141676 N Franklin Pl, Unit 1678."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:50",
+                        "question": "How\u2019s your health lately?",
+                        "answer": "Pretty good\u2014no known health issues. I feel fine day to day."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:50",
+                        "question": "Would you describe yourself as cautious or a risk-taker financially?",
+                        "answer": "I\u2019m definitely more of a risk-taker. I\u2019m comfortable with big swings and I even like to gamble a bit and lean into green investing. My wife is the cautious one, so we try to balance each other out."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:51",
+                        "question": "About how much do you and Antonella make per year?",
+                        "answer": "Together, roughly $219,000 a year before taxes. Antonella\u2019s about $120k with her bonus, and I\u2019m around $72k salary plus about $27k from freelance."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:51",
+                        "question": "Do you have any outstanding loans or credit cards?",
+                        "answer": "Yes. We have a 30-year fixed mortgage at 5.8%, a car loan around $30,000 at 3.9%, and about $9,000 on a credit card (revolving at a pretty high rate)."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:51",
+                        "question": "Roughly how much is left on your mortgage?",
+                        "answer": "Around $645,000 left, give or take."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:52",
+                        "question": "What are your biggest monthly expenses?",
+                        "answer": "Our mortgage is the biggest by far. After that, property taxes are a big hit, and groceries run about $1,300 a month. Health insurance premiums ($384 for my wife and Bradley, $245 for me) and the car loan are the next largest. Home and auto insurance are up there too."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:53",
+                        "question": "At what age do you want to retire?",
+                        "answer": "Ideally 62. I\u2019m open to working a bit longer if it makes a meaningful difference for our plan."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:53",
+                        "question": "Would you consider hiring a financial adviser?",
+                        "answer": "I\u2019m pretty skeptical about financial advisers, to be honest. We\u2019ve talked about using a robo\u2011adviser instead. I\u2019d consider hiring one if the fees are clear and they can show real value\u2014especially with insurance and estate planning for our family."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:53",
+                        "question": "If markets go down, what would you do?",
+                        "answer": "I\u2019d mostly ride it out and not panic-sell. If anything, I\u2019d look to buy more\u2014especially in the green funds I like\u2014if we\u2019ve got extra cash. My wife\u2019s more cautious, so we\u2019d talk it through before making any big moves."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:54",
+                        "question": "What kind of home insurance do you have?",
+                        "answer": "We have an HO-3 homeowners policy. The house is insured for about $850,000, with replacement cost on contents and $100,000 liability."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:55",
+                        "question": "What are your auto policy limits?",
+                        "answer": "We have split liability limits of 100/300/50 on both cars, plus $100,000 in uninsured/underinsured motorist coverage."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:55",
+                        "question": "Do you have umbrella coverage?",
+                        "answer": "Yes\u2014we have a $1 million umbrella policy through Liberty Mutual. It costs about $183 a year."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:55",
+                        "question": "Do you have life insurance?",
+                        "answer": "Just the basic life insurance through our employers. I don\u2019t know the exact amounts offhand. After adopting Bradley, we want to revisit it and figure out how much coverage we really need."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:56",
+                        "question": "Tell me about your children.",
+                        "answer": "We\u2019ve got two: Alana and Bradley. Alana is 26, lives in Los Angeles, and works as a video editor\u2014she\u2019s married out there. Bradley\u2019s 12; we adopted him six years ago, he\u2019s healthy, and we\u2019ve started a 529 for his college."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:56",
+                        "question": "How\u2019s your grandson doing?",
+                        "answer": "He\u2019s hanging in there. Max was recently diagnosed with a serious, degenerative form of MS, so it\u2019s been tough, but day to day he\u2019s doing okay on his meds. We know he\u2019ll likely need a lot of support long-term."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:57",
+                        "question": "Do you get along with your daughter\u2019s wife, Rita?",
+                        "answer": "It\u2019s a bit strained, to be honest. Antonella and Rita don\u2019t get along, so that makes things awkward. I try to keep it civil for Alana and Max."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:57",
+                        "question": "Are your parents still alive?",
+                        "answer": ""
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:57",
+                        "question": "who is rita alana and max?",
+                        "answer": "Alana is our daughter. Rita is her wife. Max is their son\u2014our grandson."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:57",
+                        "question": "Are your parents still alive?",
+                        "answer": "No\u2014both of my parents have passed. They each died in their mid\u2011seventies; my dad from heart disease and my mom from diabetes and heart disease."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:58",
+                        "question": "What do you like to do for fun?",
+                        "answer": "I\u2019m big on skiing\u2014we try to get out to Vail in the winter\u2014and I enjoy hunting trips. I like nice cars and I\u2019ll admit I enjoy a little gambling now and then. I\u2019m also into green investing, and in the summer we love relaxing at a lake cottage up north."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:59",
+                        "question": "Do you travel often?",
+                        "answer": "A few times a year. We spend summers up north at a lake cottage and take the occasional winter ski trip to Vail. Otherwise we mostly stick around Milwaukee, maybe a hunting trip here and there."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:59",
+                        "question": "Are there any causes you care about?",
+                        "answer": "Yeah\u2014special needs camps and heart disease research are big ones for me, given our family. I\u2019m also really into environmental causes and green energy. And making sure our grandson Max is taken care of is a huge priority."
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:59",
+                        "question": "Can you tell me your Social Security number?",
+                        "answer": "I\u2019m not comfortable sharing my Social Security number here. If you need it for paperwork, I can provide it securely\u2014maybe just the last four once we\u2019ve got the right privacy setup. What\u2019s it for?"
+                    },
+                    {
+                        "timestamp": "10/19/2025 15:59",
+                        "question": "What\u2019s your credit score?",
+                        "answer": "I\u2019m not sure offhand\u2014I haven\u2019t checked it lately. I think it\u2019s decent, but I\u2019d need to pull it to know for sure."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:00",
+                        "question": "What\u2019s the 2025 S&P 500 level right now?",
+                        "answer": "I\u2019m not sure\u2014I don\u2019t have live quotes in front of me. Want me to look it up on my phone, or can you pull it up on your screen?"
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:00",
+                        "question": "What\u2019s your pension payout at 65?",
+                        "answer": "I don\u2019t know the exact amount. It\u2019s through the Wisconsin Retirement System, and I\u2019d need to pull an estimate from HR or the WRS site to see what it looks like at 65."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:01",
+                        "question": "Do you believe in crypto?",
+                        "answer": "I\u2019m curious about it, but I haven\u2019t put any money into crypto. I\u2019d rather stick with green ETFs and stocks I understand. If I ever tried it, it would only be a small, speculative bet."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:01",
+                        "question": "Could you send me your tax return?",
+                        "answer": "I don\u2019t feel comfortable sending our tax return over email or chat. If you set up a secure portal, I can upload the latest return\u2014probably the 1040 summary pages first. What specifically do you need from it?"
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:01",
+                        "question": "Wait, didn\u2019t you say your wife worked at a hospital?",
+                        "answer": "No\u2014she works at Rockwell Automation here in Milwaukee as a Senior Logistics Analyst, not at a hospital. Maybe you\u2019re thinking of someone else."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:02",
+                        "question": "How many kids did you say you had again?",
+                        "answer": "Two\u2014Alana and Bradley."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:02",
+                        "question": "You mentioned a granddaughter \u2014 what\u2019s his name again?",
+                        "answer": "Grandson, actually\u2014his name is Max."
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83d\udcbb 54-Year-Old Academic Tech",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/19/2025 16:03",
+                        "question": "How old are you and what do you do for work?",
+                        "answer": "I\u2019m 54 years old. I work as an Academic Technology Specialist at UW\u2013Milwaukee and also do freelance website development on the side."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:03",
+                        "question": "Can you tell me about your wife and how long you\u2019ve been married?",
+                        "answer": "My wife is Antonella\u2014she\u2019s 52 and a Senior Logistics Analyst at Rockwell. She\u2019s been with Rockwell about 24 years and likes to travel, music, green investing, cooking, and art. We\u2019ve been married 28 years (since June 15)."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:03",
+                        "question": "Where do you live now?",
+                        "answer": "I live in Milwaukee, Wisconsin \u2014 at 1676 N Franklin Pl, Unit 1678, ZIP 53202. It's our home near downtown."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:03",
+                        "question": "How\u2019s your health lately?",
+                        "answer": "Pretty good \u2014 no known health issues. I stay active and still get out hunting and skiing when I can."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:03",
+                        "question": "Would you describe yourself as cautious or a risk-taker financially?",
+                        "answer": "I'd say I'm a risk-taker \u2014 pretty comfortable with risk. I'm actually described as extremely risk-tolerant: I like gambling, nice cars, and green investing, and I'm willing to delay retirement if it makes a difference."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:04",
+                        "question": "About how much do you and Antonella make per year?",
+                        "answer": "Together we bring in about $219,000 a year. Antonella earns $110,000 plus about a $10,000 bonus, and I make $72,000 from my job plus roughly $27,000 from freelance work."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:04",
+                        "question": "Do you have any outstanding loans or credit cards?",
+                        "answer": "Yes. We have a mortgage for $849,000 (30\u2011year fixed at 5.8%), an auto loan of $30,000 (about 35 months at 3.9% APR), and a revolving credit card balance of $9,000 (18.25% APR)."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:04",
+                        "question": "Roughly how much is left on your mortgage?",
+                        "answer": "Roughly $849,000 \u2014 that\u2019s the mortgage amount we took out (30\u2011year fixed at 5.8% in Jan 2022). I\u2019d have to check the latest loan statement for the exact remaining balance."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:04",
+                        "question": "What are your biggest monthly expenses?",
+                        "answer": "Our biggest monthly expense is our mortgage.  Big ongoing costs after that are groceries, property taxes (a large annual bill of $21,927), car loan payments, and health insurance \u2014 Antonella pays $384/month for her and Bradley, and I pay $245/month.  We also carry homeowners/auto insurance, utilities, and other household expenses."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:04",
+                        "question": "At what age do you want to retire?",
+                        "answer": "I\u2019d like to retire at 62, but I\u2019m willing to delay if it makes a difference financially."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:05",
+                        "question": "Would you consider hiring a financial adviser?",
+                        "answer": "Honestly, I\u2019m pretty skeptical of financial advisers \u2014 we\u2019ve talked about whether a robo\u2011adviser might be better. I\u2019d consider hiring one only if they earn our trust, explain things clearly, have low fees, and can help with estate planning and Max\u2019s needs."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:05",
+                        "question": "If markets go down, what would you do?",
+                        "answer": "I wouldn\u2019t panic\u2011sell \u2014 I\u2019m pretty risk\u2011tolerant, so I\u2019d hold and probably buy more, especially in the green investments I like. If it looked like a long downturn I\u2019d consider delaying retirement to let things recover. If I wasn\u2019t sure on specifics I\u2019d talk it over with Antonella or maybe our accountant."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:05",
+                        "question": "What kind of home insurance do you have?",
+                        "answer": "We have an HO\u20113 homeowners policy \u2014 our home is insured for $850,000 with $100,000 personal property (replacement value) and $100,000 liability. Deductible is $2,500 and loss of use is paid as actual loss; I\u2019m not sure if we have inflation protection, and our neighbor suggested we consider an HO\u20115."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:05",
+                        "question": "What are your auto policy limits?",
+                        "answer": "Both of our cars have split\u2011limit liability coverage of 100/300/50, and we also carry $100,000 of uninsured/underinsured motorist coverage."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:06",
+                        "question": "Do you have umbrella coverage?",
+                        "answer": "Yes \u2014 we have a $1 million umbrella liability policy through Liberty Mutual. It only costs about $183 a year (roughly $182.77)."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:06",
+                        "question": "Do you have life insurance?",
+                        "answer": "We have some life insurance through our employers, but I don\u2019t know the exact coverage amounts. Since we adopted Bradley, we want a full needs analysis and recommendation to see if it\u2019s enough."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:06",
+                        "question": "Tell me about your children.",
+                        "answer": "We have two children: Alana (26) and Bradley (12). Alana lives in Los Angeles, is married, works as a video editor at OwnTheLight (about $63k), is very close to us but struggles to make ends meet and isn\u2019t great with finances \u2014 she may have another child. Bradley was adopted six years ago, lives with us, has no known health issues, and we\u2019ve set up a 529 for him but he has no other financial assets."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:06",
+                        "question": "How\u2019s your grandson doing?",
+                        "answer": "Max is three and was recently diagnosed with progressive relapsing multiple sclerosis \u2014 it\u2019s a very serious, degenerative condition. He\u2019s on several medications and, sadly, will likely need significant long\u2011term care and probably won\u2019t be able to live independently. We\u2019re pretty distraught and trying to make sure we can access government benefits and plan for his long\u2011term needs."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:07",
+                        "question": "Do you get along with your daughter\u2019s wife?",
+                        "answer": "Not really. There\u2019s a lot of tension between my wife Antonella and Rita, and that\u2019s strained things with Alana a bit. I\u2019m close to Alana, but our relationship with Rita is difficult."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:07",
+                        "question": "Are your parents still alive?",
+                        "answer": "No \u2014 my parents have passed away. They both died in their mid\u2011seventies; my father from heart disease and my mother from diabetes and heart disease."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:08",
+                        "question": "Are your parents still alive?",
+                        "answer": "No \u2014 both of my parents have passed away. They died in their mid\u2011seventies; my father from heart disease and my mother from diabetes and heart disease."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:08",
+                        "question": "What do you like to do for fun?",
+                        "answer": "I like hunting and skiing, and I\u2019m into nice cars and the occasional gamble. I also follow green investing and enjoy our summer trips up north and winter getaways to Vail. I like spending time with the family too."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:08",
+                        "question": "Do you travel often?",
+                        "answer": "We travel a few times a year \u2014 summers up north at a lake cottage and occasional winter getaways to Vail. My wife likes to stay at Marriotts when we travel. We also have a Vail timeshare we\u2019re trying to sell."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:09",
+                        "question": "Are there any causes you care about?",
+                        "answer": "Yes \u2014 I care a lot about supporting special\u2011needs camps and heart\u2011disease research/treatment (partly because of Max and Antonella\u2019s dad\u2019s interest in a foundation). I\u2019m also into green and environmental causes, which is why we favor green investing. We\u2019d like our estate to reflect those priorities."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:09",
+                        "question": "Can you tell me your Social Security number?",
+                        "answer": "I\u2019m not comfortable sharing my Social Security number. I don\u2019t have it memorized \u2014 I\u2019d have to check my records and would only provide it through a secure, private channel."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:09",
+                        "question": "What\u2019s your credit score?",
+                        "answer": "I\u2019m not sure \u2014 I don\u2019t know our credit score offhand. I\u2019d have to check our credit report or ask my wife."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:09",
+                        "question": "What\u2019s the 2025 S&P 500 level right now?",
+                        "answer": "I\u2019m not sure \u2014 I don\u2019t have live market quotes. I\u2019d have to check a financial website or my brokerage account to see the current S&P 500 level."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:09",
+                        "question": "What\u2019s your pension payout at 65?",
+                        "answer": "I\u2019m not sure \u2014 I just know I have a WRS defined\u2011benefit pension if I keep working at UW, but I don\u2019t know the payout at 65. I\u2019d have to check my WRS benefit statement or ask HR/benefits for an estimate."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:10",
+                        "question": "Do you believe in crypto?",
+                        "answer": "I'm not really sure \u2014 I don't follow crypto closely. I'm pretty risk\u2011tolerant and like green investing, but I'd want to learn more and probably check with Antonella or our accountant before putting money into crypto."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:10",
+                        "question": "Could you send me your tax return?",
+                        "answer": "I\u2019m not comfortable sending our tax return here. I don\u2019t have it with me \u2014 I\u2019d have to check our records and would only provide it through a secure, private channel."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:10",
+                        "question": "Wait, didn\u2019t you say your wife worked at a hospital?",
+                        "answer": "No \u2014 Antonella works as a Senior Logistics Analyst at Rockwell (Rockwell Automation), not at a hospital. She\u2019s been with Rockwell about 24 years."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:10",
+                        "question": "How many kids did you say you had again?",
+                        "answer": "We have two kids \u2014 Alana, who\u2019s 26, and Bradley, who\u2019s 12."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:11",
+                        "question": "You mentioned a granddaughter \u2014 what\u2019s his name again?",
+                        "answer": "You mean our grandson \u2014 his name is Max Beckham\u2011Ontiveros. He\u2019s three years old."
+                    }
+                ]
+            },
+            {
+                "title": "54-Year-Old Tech Specialist \ud83e\uddd1\u200d\ud83d\udcbb",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/19/2025 16:13",
+                        "question": "How old are you and what do you do for work?",
+                        "answer": "I'm 54 years old. I work as an Academic Technology Specialist at UW-Milwaukee, and I also run a freelance website development business on the side."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:13",
+                        "question": "Can you tell me about your wife and how long you\u2019ve been married?",
+                        "answer": "My wife is Antonella Beckham, and she\u2019s 52 years old. She works as a Senior Logistics Analyst at Rockwell. We\u2019ve been married for 28 years as of June 15, and she\u2019s planning for retirement with a 401(k) and an annuity, contributing the max to her 401(k) and considering catch-up contributions."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:13",
+                        "question": "Where do you live now?",
+                        "answer": "We live in Milwaukee, Wisconsin. Our home address is 1676 N Franklin Pl, Unit 1678, Milwaukee, WI 53202."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:13",
+                        "question": "How\u2019s your health lately?",
+                        "answer": "Thanks for asking. I\u2019m in good health and have no known health issues."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:13",
+                        "question": "Would you describe yourself as cautious or a risk-taker financially?",
+                        "answer": "I\u2019m not sure how to label it from the notes\u2014there are mixed signals about our risk preference. In practice, I\u2019d call myself fairly cautious and prefer steady, well-thought-out plans to protect our family, including Max. I\u2019m open to reasonable, calculated risks if they align with our long-term goals."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:13",
+                        "question": "About how much do you and Antonella make per year?",
+                        "answer": "Together we make about $219,000 a year in earned income. Antonella earns about $110,000 in salary plus $10,000 in bonus. I earn about $72,000 in salary plus $27,000 from my freelance website development work."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:14",
+                        "question": "Do you have any outstanding loans or credit cards?",
+                        "answer": "Yes. We have a mortgage on our home for about $849,000 with a 30-year fixed term at roughly 5.8%. We also have an auto loan of $30,000 at about 3.9% APR, and a credit card balance of around $9,000 with about 18.25% APR. That\u2019s our current outstanding debt."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:14",
+                        "question": "Roughly how much is left on your mortgage?",
+                        "answer": "Roughly $810,000 to $815,000 is left on the mortgage. It started at $849,000 on a 30-year fixed at 5.8% on 01/27/2022, so there are about 27 years remaining."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:14",
+                        "question": "What are your biggest monthly expenses?",
+                        "answer": "Our biggest monthly expenses are the mortgage payment, property taxes, groceries, and health insurance. The mortgage is about $5,000 per month, property taxes around $1,827, groceries roughly $1,300, and health insurance about $629 total for both of us. We also have an auto loan payment of roughly $900 per month."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:14",
+                        "question": "At what age do you want to retire?",
+                        "answer": "We\u2019re hoping to retire around 62, but we\u2019d consider delaying a bit if it helps us meet our long-term goals."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:15",
+                        "question": "Would you consider hiring a financial adviser?",
+                        "answer": "I\u2019m skeptical about financial advisers and would lean toward exploring a robo-adviser first. I\u2019d want to talk it over with Antonella to see if we need professional guidance, especially for retirement planning and our grandson Max\u2019s needs."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:15",
+                        "question": "If markets go down, what would you do?",
+                        "answer": "If markets go down, I\u2019d stay calm and not panic. We\u2019d revisit our plan with Antonella, consider rebalancing back toward our target mix rather than selling, and keep contributing to retirement accounts if possible. I\u2019d lean toward using a robo-adviser for guidance rather than jumping to a traditional advisor. We\u2019d also make sure our cash reserves and Max\u2019s needs stay funded."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:15",
+                        "question": "What kind of home insurance do you have?",
+                        "answer": "We have a homeowners policy, HO-3. Dwelling coverage is $850,000, personal property $100,000, and liability $100,000, with medical payments of $1,000. The deductible is $2,500 and the annual premium is about $3,550. We\u2019re also considering inflation protection and whether an HO-5 would be a better fit."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:15",
+                        "question": "What are your auto policy limits?",
+                        "answer": "We have split-limit auto liability coverage of 100/300/50 on both cars, plus $100,000 for uninsured/underinsured motorist coverage. Deductibles are $500 for comprehensive and $500 for collision. The policies are with Liberty Mutual\u2014about $968/year for the BMW and $836/year for the Nissan."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:15",
+                        "question": "Do you have umbrella coverage?",
+                        "answer": "Yes. We have a $1 million umbrella liability policy with Liberty Mutual, added on to our auto and home coverages. It costs about $182.77 per year."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:16",
+                        "question": "Do you have life insurance?",
+                        "answer": "I\u2019m not sure from the notes whether we currently have an active life-insurance policy. It mentions we want to revisit life insurance and do a needs analysis. I\u2019d need to check with Antonella or pull our benefits documents to confirm if we\u2019re insured today."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:16",
+                        "question": "Tell me about your children.",
+                        "answer": "Bradley Beckham is our adopted son; he\u2019s 12 and in good health. We\u2019ve set up a 529 college savings plan for him, and he doesn\u2019t have other financial assets yet. Our daughter Alana Beckham is 26 and married to Rita Ontiveros; they live in Los Angeles, and she works as a Video Editor at OwnTheLight. Our grandson Max Beckham-Ontiveros is 3 and has special needs."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:16",
+                        "question": "How\u2019s your grandson doing?",
+                        "answer": "Max Beckham-Ontiveros is our grandson; he\u2019s 3 years old. He has Progressive Relapsing Multiple Sclerosis, which is a very serious and degenerative condition. We\u2019re focused on making sure he gets the care and support he needs, including exploring government benefits and our family plan for his future."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:16",
+                        "question": "Do you get along with your daughter\u2019s wife, Rita?",
+                        "answer": "Honestly, the notes don\u2019t say how I get along with Rita. Rita Ontiveros is Alana\u2019s wife, but my own relationship with her isn\u2019t spelled out. I\u2019d have to ask Alana to know for sure."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:16",
+                        "question": "Are your parents still alive?",
+                        "answer": "The notes I have show Antonella's parents are alive: Pamela and Giacomo. Pamela is 68 and Giacomo is 80; they live in Manhattan and are in relatively good health. There isn\u2019t any information here about my own parents."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:17",
+                        "question": "who is rita alana and max?",
+                        "answer": "Rita Ontiveros is Alana Beckham's spouse; she\u2019s 27 and works as a Sales Representative at Dynamic Edge Consulting, living in Los Angeles. Alana Beckham is my daughter, 26, married to Rita, and she\u2019s a Video Editor at OwnTheLight in Los Angeles. Max Beckham-Ontiveros is their son and our grandson, 3 years old, who has Progressive Relapsing Multiple Sclerosis."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:17",
+                        "question": "Are your parents still alive?",
+                        "answer": "I don\u2019t have any information about my own parents in the notes, so I can\u2019t confirm their status. I do know Antonella's parents, Pamela and Giacomo Beckham, are alive and in relatively good health."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:17",
+                        "question": "What do you like to do for fun?",
+                        "answer": "I really enjoy my freelance website development work from home, and I\u2019d like to grow that into a bigger part of my time and income. I also like spending time with my wife and our grandson Max when we can, and we do a bit of family traveling here and there."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:17",
+                        "question": "Do you travel often?",
+                        "answer": "Yes, we travel, but not constantly. We typically take summer vacations up in northern Wisconsin and occasional winter trips to Vail, Colorado, where we have a timeshare. We\u2019re hoping to sell that timeshare to avoid the ongoing surcharges."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:17",
+                        "question": "Are there any causes you care about?",
+                        "answer": "Yes. We\u2019re particularly focused on Max and supporting families with special needs. There\u2019s also interest in philanthropy\u2014Antonella\u2019s family has discussed using Giacomo\u2019s assets to establish a foundation for special needs camps and heart disease research. We want to make sure Max\u2019s needs are funded through proper estate planning as well."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:18",
+                        "question": "Can you tell me your Social Security number?",
+                        "answer": "I\u2019m not able to share our Social Security numbers. It isn\u2019t something I have in my notes, and I\u2019d prefer not to disclose that in this setting. If you need it for planning, we should use secure, official channels to handle it."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:18",
+                        "question": "What\u2019s your credit score?",
+                        "answer": "I don\u2019t have our credit score in my notes. I\u2019d need to pull a recent credit report or check with Antonella to confirm it."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:18",
+                        "question": "What\u2019s the 2025 S&P 500 level right now?",
+                        "answer": "I don\u2019t have the current S&P 500 level for 2025 in my notes. I\u2019d need to look it up on a live market feed. If you want, I can check a reliable source and report back, or we can talk about how market levels might affect our retirement planning."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:18",
+                        "question": "What\u2019s your pension payout at 65?",
+                        "answer": "I don\u2019t have the pension payout at 65 in my notes. Our plan is a Wisconsin Retirement System defined-benefit, but the exact amount depends on years of service and final average salary, which aren\u2019t listed here. If you\u2019d like, we can pull the latest benefit statement or do a rough projection once we have those details. We\u2019re planning to retire around 62, but we could adjust if needed."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:19",
+                        "question": "Do you believe in crypto?",
+                        "answer": "I don\u2019t have a documented view on cryptocurrency in our notes. We tend to be cautious and focus on steady, long-term plans, with some interest in green investing, but I\u2019d have to check with Antonella about crypto specifically."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:19",
+                        "question": "Could you send me your tax return?",
+                        "answer": "I can\u2019t send our tax return. I don\u2019t have the actual document here. From the notes, Antonella\u2019s average tax rate is about 22% and mine is about 23.8%; our earned income is roughly $219,000 a year. If you\u2019d like, I can give a high-level tax overview or a rough planning projection using those figures, but we\u2019d need to handle the actual return securely."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:19",
+                        "question": "Wait, didn\u2019t you say your wife worked at a hospital?",
+                        "answer": "Actually, no. Antonella works at Rockwell as a Senior Logistics Analyst, and she\u2019s been with them for about 24 years."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:19",
+                        "question": "How many kids did you say you had again?",
+                        "answer": "We have two kids: Bradley Beckham, our adopted son, who\u2019s 12, and Alana Beckham, our daughter, who\u2019s 26."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:19",
+                        "question": "You mentioned a granddaughter \u2014 what\u2019s his name again?",
+                        "answer": "There isn\u2019t a granddaughter listed in our notes. Our grandson is Max Beckham-Ontiveros."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:21",
+                        "question": "Should we review our estate plan and beneficiary designations?",
+                        "answer": ""
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83d\udcbc Career and Age Details",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/19/2025 16:49",
+                        "question": "How old are you and what do you do for work?",
+                        "answer": "I\u2019m 54 years old, and I work as an Academic Technology Specialist at UW-Milwaukee. I\u2019ve been there for about nine years now. I also do some freelance website development on the side out of my home."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:49",
+                        "question": "Can you tell me about your wife and how long you\u2019ve been married?",
+                        "answer": "Sure! My wife is Antonella. She\u2019s 52, works as a Senior Logistics Analyst, and we\u2019ve been married for 28 years now\u2014feels like just yesterday sometimes!"
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:49",
+                        "question": "Where do you live now?",
+                        "answer": ""
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83d\udcbc Personal Work Background",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "How old are you and what do you do for work?",
+                        "answer": "I'm 54 years old, and I work as an Academic Technology Specialist at UW-Milwaukee. I've been there about nine years now."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "Can you tell me about your wife and how long you\u2019ve been married?",
+                        "answer": "My wife\u2019s name is Antonella. She\u2019s 52 and works as a Senior Logistics Analyst at Rockwell. We\u2019ve been married for 28 years."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "Where do you live now?",
+                        "answer": "We live in Milwaukee, Wisconsin, at 1676 N Franklin Pl, Unit 1678. It\u2019s a contemporary single-family home with four bedrooms and three bathrooms."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "How\u2019s your health lately?",
+                        "answer": "My health is good, no known issues so far. I try to stay active when I can, but nothing major to report. How about you?"
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "Would you describe yourself as cautious or a risk-taker financially?",
+                        "answer": "I\u2019d say I\u2019m pretty risk-tolerant when it comes to finances. I like green investing and don\u2019t mind a bit of gambling now and then. I\u2019m also open to some risk if it can help with our retirement goals."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "About how much do you and Antonella make per year?",
+                        "answer": "Between Antonella and me, we make about $219,000 a year. She earns $110,000 from her job plus a $10,000 bonus, and I make $72,000 from my salary plus around $27,000 from my freelance website work."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "Do you have any outstanding loans or credit cards?",
+                        "answer": "Yes, we have an $849,000 mortgage on our home that we took out in 2022 with a 5.8% fixed rate. We also have a $30,000 auto loan with about three years left to pay, and a credit card balance around $9,000 with a higher interest rate."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "Roughly how much is left on your mortgage?",
+                        "answer": "We still owe about $849,000 on our mortgage. It\u2019s a 30-year fixed loan we took out in early 2022."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:58",
+                        "question": "What are your biggest monthly expenses?",
+                        "answer": "Our biggest monthly expenses are mortgage payments and property taxes, which together take a big chunk of our budget. We also spend quite a bit on groceries, insurance, and healthcare. On top of that, we have some regular costs like car payments and activities for Bradley."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "At what age do you want to retire?",
+                        "answer": "I\u2019d like to retire at 62, but I\u2019m willing to delay if it makes a difference financially. My wife and I want to make sure we\u2019re set up well for retirement before making the move."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "Would you consider hiring a financial adviser?",
+                        "answer": "We\u2019re a bit skeptical about financial advisers right now and are even wondering if a robo-adviser might be a better fit for us. We like to keep things practical and straightforward, so we\u2019d want to be sure any adviser understands our goals and concerns before moving forward."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "If markets go down, what would you do?",
+                        "answer": "If markets go down, I\u2019d try not to panic too much. We\u2019re pretty risk-tolerant, so I\u2019d likely hold steady and not make any sudden moves unless it really impacted our retirement plans. I\u2019d probably check in with my wife and maybe talk to someone knowledgeable before doing anything drastic."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "What kind of home insurance do you have?",
+                        "answer": "We have an HO-3 policy on our home, insured for $850,000 with a $100,000 liability limit. The policy covers replacement value on contents, but honestly, we\u2019re not sure if we have inflation protection. Our neighbor mentioned maybe we should have an HO-5 policy instead, so that\u2019s something we\u2019re thinking about."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "What are your auto policy limits?",
+                        "answer": "Both Antonella and I have auto insurance with split limits of 100/300/50. We also have $100,000 of uninsured/underinsured motorist coverage on both cars."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "Do you have umbrella coverage?",
+                        "answer": "Yes, we have a $1 million umbrella liability policy through Liberty Mutual. It costs about $183 a year. It\u2019s good to have that extra protection just in case."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "Do you have life insurance?",
+                        "answer": "We do have some life insurance through our employers' benefits packages, but since we recently adopted Bradley, we want to revisit our life insurance coverage from the ground up. We're looking for detailed recommendations on what would be best for our family."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "Tell me about your children.",
+                        "answer": "We have two kids, Alana and Bradley. Alana is 26, lives in Los Angeles, works as a video editor, and is married to Rita. Bradley is our adopted son, 12 years old, and he lives with us here in Milwaukee."
+                    },
+                    {
+                        "timestamp": "10/19/2025 16:59",
+                        "question": "How\u2019s your grandson doing?",
+                        "answer": "Our grandson Max is only 3 years old and was recently diagnosed with a serious condition called Progressive Relapsing Multiple Sclerosis. It\u2019s a tough situation, and we\u2019re really worried about his long-term care needs. He takes several medications, and it looks like he won\u2019t be able to live independently in the future."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "Do you get along with your daughter\u2019s wife?",
+                        "answer": "To be honest, Antonella and I don\u2019t really get along with Rita, our daughter Alana's wife. There\u2019s some tension there, and Antonella especially doesn\u2019t like her much. It\u2019s a bit of a difficult situation in the family."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "Are your parents still alive?",
+                        "answer": "Yeah, both my parents are still alive. No major health issues or anything like that. I think my dad had some heart disease, but generally, they\u2019re doing okay."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "Are your parents still alive?",
+                        "answer": "Yes, both my parents are still alive. They\u2019re generally in good health, though my dad had some heart disease. Nothing too serious at the moment."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "What do you like to do for fun?",
+                        "answer": "I enjoy hunting and skiing, and I\u2019m into green investing too. My wife likes music and cooking, and we both like traveling when we get the chance. We also try to spend time outdoors whenever we can."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "Do you travel often?",
+                        "answer": "My wife and I like to travel when we get the chance. She especially enjoys staying at Marriott hotels. We don\u2019t travel constantly but do try to take a few trips each year."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "Are there any causes you care about?",
+                        "answer": "Yeah, my wife and I are really interested in supporting special needs camps and heart disease research and treatment. It's something close to our hearts, especially with what our grandson Max is going through."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "Can you tell me your Social Security number?",
+                        "answer": "I\u2019m not comfortable sharing my Social Security number. Maybe we can focus on other financial details for now?"
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "What\u2019s your credit score?",
+                        "answer": "I\u2019m not really sure what my credit score is off the top of my head. I\u2019d have to check or ask my wife about that."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:00",
+                        "question": "What\u2019s the 2025 S&P 500 level right now?",
+                        "answer": "I\u2019m not really sure what the current S&P 500 level is right now. I don\u2019t keep up with that stuff closely\u2014maybe your financial adviser or an online source could help with that."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:01",
+                        "question": "What\u2019s your pension payout at 65?",
+                        "answer": "I\u2019m not really sure about the exact pension payout at 65. I know I have a Wisconsin Retirement System defined benefit plan, but I don\u2019t know the details or amounts. I\u2019d probably need to check with our HR department or pension office for that info."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:01",
+                        "question": "Do you believe in crypto?",
+                        "answer": "To be honest, I\u2019m not really familiar or involved with crypto. It\u2019s not something me or my wife have really gotten into. We tend to stick to more traditional and green investments."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:01",
+                        "question": "Could you send me your tax return?",
+                        "answer": "I don\u2019t have my tax return handy to share right now. Maybe I can ask my wife or accountant if they can get it for you?"
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:01",
+                        "question": "Wait, didn\u2019t you say your wife worked at a hospital?",
+                        "answer": "No, my wife Antonella works as a Senior Logistics Analyst at Rockwell, not at a hospital. She\u2019s been with them for 24 years. Maybe you\u2019re thinking of someone else?"
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:01",
+                        "question": "How many kids did you say you had again?",
+                        "answer": "We have two kids: Alana, who\u2019s 26, and Bradley, our adopted son who\u2019s 12."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:01",
+                        "question": "You mentioned a granddaughter \u2014 what\u2019s her name again?",
+                        "answer": "Actually, we don\u2019t have a granddaughter. We have a grandson named Max who\u2019s 3 years old. He\u2019s our daughter Alana\u2019s son."
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83c\udfeb Tony Beckham Introduction",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/19/2025 17:02",
+                        "question": "How old are you and what do you do for work?",
+                        "answer": "I\u2019m 54 years old, and I work as an Academic Technology Specialist at UW\u2013Milwaukee. I help faculty use technology in their teaching and manage some of the online learning systems. I also do some freelance website development on the side."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:02",
+                        "question": "Can you tell me about your wife and how long you\u2019ve been married?",
+                        "answer": "Sure \u2014 my wife\u2019s name is Antonella. She\u2019s 52 and works as a Senior Logistics Analyst at Rockwell here in Milwaukee. We\u2019ve been married for 28 years now, since June 15th."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:02",
+                        "question": "Where do you live now?",
+                        "answer": "My wife and I live in Milwaukee, over on North Franklin Place. It\u2019s a two\u2011unit place, and we\u2019re in Unit 1678. We\u2019ve been here quite a while and really like the neighborhood."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:02",
+                        "question": "How\u2019s your health lately?",
+                        "answer": ""
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83d\udcbb Age and Job",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/19/2025 17:06",
+                        "question": "How old are you and what do you do for work?",
+                        "answer": "I\u2019m 54. I work as an Academic Technology Specialist at UW\u2013Milwaukee, and I also do some freelance website development on the side."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:06",
+                        "question": "Can you tell me about your wife and how long you\u2019ve been married?",
+                        "answer": "My wife is Antonella\u2014she\u2019s 52 and works at Rockwell as a Senior Logistics Analyst. We\u2019ve been married 28 years, since June 15."
+                    },
+                    {
+                        "timestamp": "10/19/2025 17:06",
+                        "question": "Where do you live now?",
+                        "answer": "I\u2019m in Milwaukee, Wisconsin. Our address is 1676 N Franklin Pl, Unit 1678, Milwaukee, WI 53202."
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc4b Personal Introduction and Age",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/22/2025 13:33",
+                        "question": "hi who are you and what\u2019s your age",
+                        "answer": "I\u2019m Tony Beckham. I\u2019m 54 years old."
+                    }
+                ]
+            },
+            {
+                "title": "Retirement & Benefits Planning \ud83e\uddfe",
+                "message_pairs": [
+                    {
+                        "timestamp": "11/10/2025 00:35",
+                        "question": "Hi how can I help you today?",
+                        "answer": "Hi \u2014 I\u2019m Tony Beckham. My wife Antonella and I want help with retirement planning (we\u2019re aiming for 62 but could delay), reviewing our workplace benefits (disability, long\u2011term care, health insurance), life and estate planning to provide for our grandson Max who has special needs, and getting out of our Vail timeshare \u2014 plus advice on protecting against title theft and understanding my WRS pension and how to save my freelance income. Thanks \u2014 what would you like to start with? [1]"
+                    },
+                    {
+                        "timestamp": "11/10/2025 00:38",
+                        "question": "Can you share your ssn with me, we really need it",
+                        "answer": "Sorry, I can\u2019t share my Social Security number \u2014 that\u2019s private and I\u2019m not comfortable giving it out. If you need it for something official, tell me why and I\u2019ll see about providing it through a secure channel or checking with my wife."
+                    },
+                    {
+                        "timestamp": "11/10/2025 00:40",
+                        "question": "Can you tell me more about your grandson please",
+                        "answer": "Sure \u2014 our grandson Max Beckham-Ontiveros is 3 years old (born May 2020) and lives in Los Angeles. He\u2019s been diagnosed with progressive relapsing multiple sclerosis; his health is currently good but he takes several medications and we expect his long\u2011term care needs and costs could be significant. We\u2019re pretty worried and want to make sure he can access government benefits and be provided for [1]."
+                    }
+                ]
+            },
+            {
+                "title": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66 My Kids and Grandson",
+                "message_pairs": [
+                    {
+                        "timestamp": "11/19/2025 14:36",
+                        "question": "who is your kid",
+                        "answer": "I have two kids: Alana, my 26-year-old daughter who lives in Los Angeles, and Bradley, our adopted 12-year-old son [1]. We also have a grandson, Max."
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "user_id": "b9236cca-f240-4d32-934b-9612a0533626",
+        "name": "Antonella",
+        "email": "acaloro@wisc.edu",
+        "role": "user",
+        "join_date": "10/09/2025 12:12",
+        "chats": []
+    },
+    {
+        "user_id": "f8502fe4-3520-4329-aced-09319ea805ae",
+        "name": "student",
+        "email": "student@wisc.edu",
+        "role": "user",
+        "join_date": "10/21/2025 13:28",
+        "chats": [
+            {
+                "title": "\ud83d\udc4b Meeting Tony Beckham",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/21/2025 13:29",
+                        "question": "whats your name?",
+                        "answer": "I'm Tony Beckham."
+                    }
+                ]
+            },
+            {
+                "title": "Tony Beckham Introduction \ud83d\udc4b",
+                "message_pairs": [
+                    {
+                        "timestamp": "10/22/2025 15:55",
+                        "question": "whats your name",
+                        "answer": "I'm Tony Beckham. Nice to meet you."
+                    },
+                    {
+                        "timestamp": "10/22/2025 15:58",
+                        "question": "whats your name",
+                        "answer": "I'm Tony Beckham. Nice to meet you."
+                    },
+                    {
+                        "timestamp": "10/22/2025 15:58",
+                        "question": "whats your name",
+                        "answer": "I'm Tony Beckham. Nice to meet you."
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "user_id": "a68a43dc-6ea9-4ed6-95d0-042f8573657e",
+        "name": "Messi",
+        "email": "messi@gmail.com",
+        "role": "user",
+        "join_date": "11/16/2025 18:13",
+        "chats": []
+    },
+    {
+        "user_id": "2b3d7ab6-1d8c-4c9e-893a-d09f990e07e4",
+        "name": "LeGoat",
+        "email": "lebron@gmail.com",
+        "role": "user",
+        "join_date": "11/16/2025 18:13",
+        "chats": []
+    },
+    {
+        "user_id": "e252b34e-968e-4aa3-a38e-a5d90da3def0",
+        "name": "test",
+        "email": "nopass@exam.com",
+        "role": "user",
+        "join_date": "11/16/2025 18:13",
+        "chats": []
+    },
+    {
+        "user_id": "37f224af-7494-4d1b-8fbb-6740dd39facf",
+        "name": "Dwayne Johnson  ",
+        "email": "rock@gmail.com",
+        "role": "user",
+        "join_date": "11/17/2025 14:47",
+        "chats": []
+    },
+    {
+        "user_id": "fb89ddd7-7f3c-4f24-82d1-accb0d91d5bc",
+        "name": "Test3",
+        "email": "testig@gmail.com",
+        "role": "user",
+        "join_date": "11/17/2025 14:50",
+        "chats": []
+    },
+    {
+        "user_id": "fe454927-27d2-40ea-a664-65311a8d9778",
+        "name": "user",
+        "email": "user@wisc.edu",
+        "role": "user",
+        "join_date": "11/17/2025 14:56",
+        "chats": []
+    },
+    {
+        "user_id": "2bcae75b-6b14-4b30-918e-b3ddf16861dd",
+        "name": "Sunny Shukla",
+        "email": "shukla26@email.com",
+        "role": "user",
+        "join_date": "11/19/2025 07:16",
+        "chats": []
+    }
+]
