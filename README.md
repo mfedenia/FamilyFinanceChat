@@ -17,6 +17,10 @@ Includes loaders, text splitters, embedding generators, and a Chroma-based vecto
 A full-stack web dashboard for uploading, crawling, and reviewing PDFs before syncing them to a knowledge base.
 Built with **FastAPI** and **React** to support local testing and OpenWebUI integration.
 
+### `Grading_feature`
+
+Including the page that can extract all users' chats and show them to admins.
+
 ### `scoring_page`
 
 A web interface and backend for automatically scoring question quality using large language models.
