@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+  File "/app/backend/open_webui/main.py", line 60, in <module>
+    from open_webui.utils import logger
+  File "/app/backend/open_webui/utils/logger.py", line 8, in <module>
+    from open_webui.env import (
+  File "/app/backend/open_webui/env.py", line 467, in <module>
+    raise ValueError(ERROR_MESSAGES.ENV_VAR_NOT_FOUND)
+ValueError: Required environment variable not found. Terminating now.
+✗ ERROR: Required environment variable not found. Terminating now.

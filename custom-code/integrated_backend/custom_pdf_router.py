@@ -9,19 +9,22 @@ import shutil
 import subprocess
 import sys
 import os
+import io
 import uuid
 from pathlib import Path
 from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request, BackgroundTasks
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, PlainTextResponse
+
 from pydantic import BaseModel
 
 from open_webui.utils.auth import get_verified_user
 from open_webui.models.knowledge import Knowledges
 from open_webui.models.files import Files, FileForm
 from open_webui.storage.provider import Storage
+from open_webui.routers.retrieval import ProcessFileForm, process_file
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -154,58 +157,83 @@ def save_state(data: List[dict]):
 # ============================================================================
 
 def generate_thumbnail(pdf_path: Path, thumbnail_dir: Path) -> Optional[Path]:
-    thumb_path = thumbnail_dir / f"{pdf_path.stem}.png"
-    
-    if thumb_path.exists():
-        return thumb_path
-    
+    """Generate a thumbnail for a PDF file using PyMuPDF (fitz)"""
     try:
-        from pdf2image import convert_from_path
-        from PIL import Image
+        import fitz  # PyMuPDF
         
-        log.info(f"Generating thumbnail for {pdf_path.name}...")
+        thumbnail_dir.mkdir(parents=True, exist_ok=True)
+        output_path = thumbnail_dir / f"{pdf_path.stem}.png"
         
-        images = convert_from_path(
-            str(pdf_path), 
-            first_page=1, 
-            last_page=1, 
-            dpi=72,
-            fmt='png'
-        )
+        # Check if thumbnail already exists
+        if output_path.exists():
+            log.debug(f"Thumbnail already exists: {output_path}")
+            return output_path
         
-        if images:
-            img = images[0]
-            img.thumbnail((150, 200), Image.Resampling.LANCZOS)
-            img.save(str(thumb_path), "PNG")
-            log.info(f"Generated thumbnail: {thumb_path}")
-            return thumb_path
-            
-    except ImportError as e:
-        log.warning(f"pdf2image not available: {e}")
+        log.info(f"Generating thumbnail for: {pdf_path}")
+        
+        # Open the PDF
+        doc = fitz.open(pdf_path)
+        
+        if len(doc) == 0:
+            log.warning(f"PDF has no pages: {pdf_path}")
+            doc.close()
+            return None
+        
+        # Get the first page
+        page = doc[0]
+        
+        # Render page to image (pixmap)
+        # Use a matrix to scale - 0.5 gives a reasonable thumbnail size
+        mat = fitz.Matrix(0.5, 0.5)
+        pix = page.get_pixmap(matrix=mat)
+        
+        # Save as PNG
+        pix.save(str(output_path))
+        
+        doc.close()
+        
+        log.info(f"Generated thumbnail: {output_path}")
+        return output_path
+        
+    except ImportError:
+        log.error("PyMuPDF (fitz) not installed, cannot generate thumbnails")
+        return None
     except Exception as e:
-        log.error(f"Failed to generate thumbnail for {pdf_path}: {e}")
-    
-    return None
+        log.error(f"Error generating thumbnail for {pdf_path}: {e}")
+        return None
 
 # ============================================================================
 # Web Scraping
 # ============================================================================
 
 def find_link_downloader() -> Optional[Path]:
+    """Find link_downloader.py in various possible locations"""
     script_locations = [
+        # Check relative to this router file
         Path(__file__).parent / "Webscraping" / "link_downloader.py",
+        # Check in the routers directory (if copied there)
         Path("/app/backend/open_webui/routers/Webscraping/link_downloader.py"),
+        # Check in custom_code integrated_backend
         Path("/app/custom_code/integrated_backend/Webscraping/link_downloader.py"),
+        # Check in custom_code root
         Path("/app/custom_code/Webscraping/link_downloader.py"),
+        # Check in custom-code (with hyphen) upload_pdf_app backend
+        Path("/app/custom-code/upload_pdf_app/backend/Webscraping/link_downloader.py"),
+        # Check in custom-code integrated_backend
+        Path("/app/custom-code/integrated_backend/Webscraping/link_downloader.py"),
     ]
     
     for loc in script_locations:
+        log.debug(f"Checking for link_downloader.py at: {loc}")
         if loc.exists():
+            log.info(f"Found link_downloader.py at: {loc}")
             return loc
+    
+    log.warning("link_downloader.py not found in any known location")
     return None
 
-
 def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
+    """Run the link_downloader.py script to crawl PDFs"""
     log.info(f"[Job {job_id}] Starting crawl job...")
     save_job_status(job_id, "running", "Starting web crawler...", 0, 10)
     
@@ -213,6 +241,7 @@ def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
     
     if not script_path:
         log.error(f"[Job {job_id}] link_downloader.py not found")
+        # Copy input files to output as fallback
         for pdf in input_dir.glob("*.pdf"):
             shutil.copy2(pdf, output_dir / pdf.name)
         pdf_count = len(list(output_dir.glob("*.pdf")))
@@ -226,6 +255,19 @@ def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
         save_job_status(job_id, "failed", "No PDF files found", 0, 100)
         return
     
+    log.info(f"[Job {job_id}] Found {len(input_files)} input PDFs: {[f.name for f in input_files]}")
+    
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # IMPORTANT: Copy input PDFs to output directory FIRST
+    # This ensures the original uploaded files are always included
+    for pdf in input_files:
+        dest = output_dir / pdf.name
+        if not dest.exists():
+            shutil.copy2(pdf, dest)
+            log.info(f"[Job {job_id}] Copied input PDF to output: {pdf.name}")
+    
     cmd = [
         sys.executable,
         str(script_path),
@@ -238,6 +280,7 @@ def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
     ]
     
     log.info(f"[Job {job_id}] Running: {' '.join(cmd)}")
+    log.info(f"[Job {job_id}] Working directory: {script_path.parent}")
     save_job_status(job_id, "running", "Downloading PDFs from links...", 0, 30)
     
     env = os.environ.copy()
@@ -247,29 +290,48 @@ def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
             text=True,
             cwd=str(script_path.parent),
             env=env
         )
         
         progress = 30
-        for line in process.stdout:
-            log.info(f"[Job {job_id}] {line.strip()}")
-            
-            if "Downloading" in line or "Downloaded" in line:
-                progress = min(progress + 5, 90)
-                pdf_count = len(list(output_dir.glob("*.pdf")))
-                save_job_status(job_id, "running", line.strip()[:100], pdf_count, progress)
+        stdout_lines = []
         
+        # Read stdout
+        for line in process.stdout:
+            line = line.strip()
+            if line:
+                log.info(f"[Job {job_id}] STDOUT: {line}")
+                stdout_lines.append(line)
+                
+                if "Downloading" in line or "Downloaded" in line or "Found" in line:
+                    progress = min(progress + 5, 90)
+                    pdf_count = len(list(output_dir.glob("*.pdf")))
+                    save_job_status(job_id, "running", line[:100], pdf_count, progress)
+        
+        # Wait for process to complete
         process.wait()
         
-        pdf_count = len(list(output_dir.glob("*.pdf")))
+        # Read any stderr
+        stderr = process.stderr.read()
+        if stderr:
+            log.error(f"[Job {job_id}] STDERR: {stderr}")
         
+        log.info(f"[Job {job_id}] Process exited with code: {process.returncode}")
+        
+        pdf_count = len(list(output_dir.glob("*.pdf")))
+        log.info(f"[Job {job_id}] PDFs in output directory: {pdf_count}")
+        log.info(f"[Job {job_id}] Output files: {[f.name for f in output_dir.glob('*.pdf')]}")
+        
+        # If somehow no PDFs in output (shouldn't happen since we copied input first)
         if pdf_count == 0:
-            log.info(f"[Job {job_id}] No PDFs downloaded, using uploaded files")
+            log.info(f"[Job {job_id}] No PDFs in output, copying uploaded files")
             for pdf in input_dir.glob("*.pdf"):
-                shutil.copy2(pdf, output_dir / pdf.name)
+                dest = output_dir / pdf.name
+                shutil.copy2(pdf, dest)
+                log.info(f"[Job {job_id}] Copied: {pdf.name} -> {dest}")
             pdf_count = len(list(output_dir.glob("*.pdf")))
         
         log.info(f"[Job {job_id}] Completed with {pdf_count} PDFs")
@@ -277,13 +339,17 @@ def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
         
     except Exception as e:
         log.error(f"[Job {job_id}] Error: {e}")
+        import traceback
+        log.error(f"[Job {job_id}] Traceback: {traceback.format_exc()}")
         
+        # Make sure input files are in output even on error
         for pdf in input_dir.glob("*.pdf"):
-            shutil.copy2(pdf, output_dir / pdf.name)
+            dest = output_dir / pdf.name
+            if not dest.exists():
+                shutil.copy2(pdf, dest)
         pdf_count = len(list(output_dir.glob("*.pdf")))
         
         save_job_status(job_id, "completed", f"Crawler error. Using {pdf_count} uploaded files.", pdf_count, 100)
-
 
 # ============================================================================
 # Knowledge Base Integration
@@ -484,7 +550,6 @@ async def toggle_exclusion(
     save_state(state)
     return {"name": name, "excluded": item.excluded}
 
-
 @router.post("/pdf-finalize", response_model=FinalizeResponse)
 async def finalize_upload(
     request: Request,
@@ -498,12 +563,25 @@ async def finalize_upload(
     paths = get_paths()
     state = load_state()
     
+    log.info(f"=== Finalize Upload ===")
+    log.info(f"Loaded state: {state}")
+    log.info(f"Scraped dir: {paths['scraped']}")
+    log.info(f"Files in scraped: {[f.name for f in paths['scraped'].glob('*.pdf')]}")
+    
     # Get knowledge_id from request body if provided
     knowledge_id = None
     if form_data and form_data.knowledge_id:
         knowledge_id = form_data.knowledge_id
     
+    # If state is empty, build it from files in scraped directory
+    if not state:
+        log.warning("State is empty, building from scraped directory...")
+        for pdf in paths["scraped"].glob("*.pdf"):
+            state.append({"name": pdf.name, "excluded": False})
+        log.info(f"Built state from files: {state}")
+    
     included = [pdf for pdf in state if not pdf.get("excluded", False)]
+    log.info(f"Included PDFs: {included}")
     
     if not included:
         raise HTTPException(status_code=400, detail="No PDFs selected")
@@ -515,7 +593,10 @@ async def finalize_upload(
     
     for pdf_data in included:
         source = paths["scraped"] / pdf_data["name"]
+        log.info(f"Processing: {pdf_data['name']}, source exists: {source.exists()}")
+        
         if not source.exists():
+            log.error(f"Source file not found: {source}")
             errors.append({"filename": pdf_data["name"], "error": "File not found"})
             continue
         
@@ -524,23 +605,44 @@ async def finalize_upload(
             with open(source, "rb") as f:
                 content = f.read()
             
+            log.info(f"Read {len(content)} bytes from {source}")
+            
+            # Generate unique ID (like files.py does)
             file_id = str(uuid.uuid4())
-            filename = pdf_data["name"]
+            original_name = pdf_data["name"]
             
-            # Upload to storage (like openwebui_uploader.py does via API)
-            file_path = Storage.upload_file(content, filename)
+            # Create storage filename with UUID prefix (like files.py line 202)
+            storage_filename = f"{file_id}_{original_name}"
             
-            # Create file record with metadata
+            # Upload to storage
+            log.info(f"Uploading to storage: {storage_filename}")
+            
+            file_obj = io.BytesIO(content)
+            tags = {
+                "OpenWebUI-User-Email": user.email,
+                "OpenWebUI-User-Id": user.id,
+                "OpenWebUI-User-Name": user.name,
+                "OpenWebUI-File-Id": file_id,
+            }
+            
+            _, file_path = Storage.upload_file(file_obj, storage_filename, tags)
+            log.info(f"Storage path: {file_path}")
+            
+            # Create file record with proper metadata structure (matching files.py lines 214-229)
             file_record = Files.insert_new_file(
                 user.id,
                 FileForm(
                     id=file_id,
-                    filename=filename,
-                    path=file_path,
+                    filename=original_name,  # Original filename for display
+                    path=file_path,          # Storage path with UUID prefix
+                    data={
+                        "status": "pending"  # Will be updated after processing
+                    },
                     meta={
-                        "source": "pdf_crawler",
+                        "name": original_name,           # CRITICAL: This is what displays in UI
+                        "content_type": "application/pdf",
                         "size": len(content),
-                        "content_type": "application/pdf"
+                        "source": "pdf_crawler",
                     }
                 )
             )
@@ -548,20 +650,55 @@ async def finalize_upload(
             if file_record:
                 moved.append(pdf_data["name"])
                 uploaded.append(file_id)
-                log.info(f"Uploaded {filename} with ID {file_id}")
+                log.info(f"SUCCESS: Created file record for {original_name} with ID {file_id}")
+                
+                # CRITICAL: Process the file to extract content for RAG
+                # This is what openwebui_uploader.py does via the API with process=true
+                try:
+                    log.info(f"Processing file for content extraction: {file_id}")
+                    process_file(
+                        request,
+                        ProcessFileForm(file_id=file_id),
+                        user=user
+                    )
+                    log.info(f"File processed successfully: {file_id}")
+                except Exception as proc_error:
+                    log.error(f"Error processing file {file_id}: {proc_error}")
+                    # Update file status to failed
+                    Files.update_file_data_by_id(
+                        file_id,
+                        {
+                            "status": "failed",
+                            "error": str(proc_error)
+                        }
+                    )
                 
                 # If knowledge_id provided, add to knowledge base
                 if knowledge_id:
-                    kb_result = add_file_to_knowledge_base(file_id, knowledge_id, user.id)
-                    if kb_result.get("success"):
+                    try:
+                        # Use the knowledge router's add file endpoint logic
+                        from open_webui.routers.knowledge import add_file_to_knowledge_by_id, KnowledgeFileIdForm
+                        
+                        # Create a mock form_data for the knowledge endpoint
+                        kb_form = KnowledgeFileIdForm(file_id=file_id)
+                        
+                        # Call the knowledge base add function
+                        kb_result = add_file_to_knowledge_by_id(
+                            request=request,
+                            id=knowledge_id,
+                            form_data=kb_form,
+                            user=user
+                        )
                         added_to_kb.append(file_id)
-                        log.info(f"Added {filename} to knowledge base {knowledge_id}")
-                    else:
+                        log.info(f"Added {original_name} to knowledge base {knowledge_id}")
+                    except Exception as kb_error:
+                        log.error(f"Error adding to KB: {kb_error}")
                         errors.append({
                             "filename": pdf_data["name"], 
-                            "error": f"KB add failed: {kb_result.get('error')}"
+                            "error": f"KB add failed: {str(kb_error)}"
                         })
             else:
+                log.error(f"Failed to create file record for {original_name}")
                 errors.append({"filename": pdf_data["name"], "error": "Failed to create file record"})
                 
         except Exception as e:
@@ -571,8 +708,10 @@ async def finalize_upload(
             errors.append({"filename": pdf_data["name"], "error": str(e)})
     
     # Cleanup
+    log.info("Cleaning up...")
     for pdf in paths["scraped"].glob("*.pdf"):
         pdf.unlink()
+        log.info(f"Deleted: {pdf}")
     
     for f in [paths["state_file"], paths["job_file"]]:
         if f.exists():
@@ -582,6 +721,9 @@ async def finalize_upload(
     if knowledge_id and added_to_kb:
         message += f", added {len(added_to_kb)} to knowledge base"
     
+    log.info(f"=== Finalize Complete: {message} ===")
+    log.info(f"Moved: {moved}, Errors: {errors}")
+    
     return FinalizeResponse(
         message=message,
         moved=moved,
@@ -589,7 +731,6 @@ async def finalize_upload(
         added_to_knowledge=added_to_kb,
         upload_errors=errors
     )
-
 
 @router.delete("/pdf-reset")
 async def reset_state(
@@ -630,7 +771,6 @@ async def debug_info(
         "input_pdfs": [f.name for f in paths["input_dir"].glob("*.pdf")],
     }
 
-
 # ============================================================================
 # Script Injection Endpoint
 # ============================================================================
@@ -639,7 +779,7 @@ async def debug_info(
 async def get_injection_script():
     """Returns JavaScript that loads the PDF crawler UI with knowledge base integration"""
     
-    script = r"""
+    script = r'''
 (function() {
     if (window.__pdfCrawlerLoaded) return;
     window.__pdfCrawlerLoaded = true;
@@ -655,7 +795,6 @@ async def get_injection_script():
     let pollInterval = null;
     let currentKnowledgeId = null;
     
-    // Detect if we're on a knowledge base page
     function detectKnowledgeId() {
         const match = window.location.pathname.match(/\/knowledge\/([a-f0-9-]+)/);
         return match ? match[1] : null;
@@ -881,10 +1020,7 @@ async def get_injection_script():
         floatingButton.title = 'PDF Web Crawler';
         floatingButton.onclick = openModal;
         document.body.appendChild(floatingButton);
-        
-        // Update button style based on current page
         updateButtonStyle();
-        
         console.log('[PDF Crawler] Button created');
     }
     
@@ -901,7 +1037,6 @@ async def get_injection_script():
         }
     }
     
-    // Update on navigation
     let lastPath = window.location.pathname;
     setInterval(function() {
         if (window.location.pathname !== lastPath) {
@@ -912,8 +1047,6 @@ async def get_injection_script():
     
     function openModal() {
         if (uploadModal) return;
-        
-        // Refresh knowledge ID detection
         currentKnowledgeId = detectKnowledgeId();
         
         uploadModal = document.createElement('div');
@@ -933,10 +1066,7 @@ async def get_injection_script():
     }
     
     function closeModal() {
-        if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-        }
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
         if (uploadModal) { uploadModal.remove(); uploadModal = null; }
         crawledPDFs = [];
         excludedPDFs = new Set();
@@ -1002,12 +1132,9 @@ async def get_injection_script():
             '<div><p style="color:#888;margin:0 0 16px">Found ' + crawledPDFs.length + ' PDFs. Click ❌ to exclude:</p><div class="pdf-list">';
         crawledPDFs.forEach(function(pdf) {
             var isExcluded = excludedPDFs.has(pdf.name);
-            var thumbContent;
-            if (pdf.preview_url) {
-                thumbContent = '<img src="' + pdf.preview_url + '" alt="" onerror="this.parentElement.innerHTML=\'📄\'">';
-            } else {
-                thumbContent = '📄';
-            }
+            var thumbContent = pdf.preview_url 
+                ? '<img src="' + pdf.preview_url + '" alt="" onerror="this.parentElement.innerHTML=\'📄\'">'
+                : '📄';
             
             html += '<div class="pdf-item' + (isExcluded ? ' excluded' : '') + '" data-name="' + escapeHtml(pdf.name) + '">' +
                 '<div class="pdf-thumb">' + thumbContent + '</div>' +
@@ -1061,12 +1188,8 @@ async def get_injection_script():
             var data = await response.json();
             console.log('[PDF Crawler] Upload response:', data);
             
-            if (!response.ok) {
-                throw new Error(data.detail || 'Upload failed');
-            }
-            
+            if (!response.ok) throw new Error(data.detail || 'Upload failed');
             startPolling();
-            
         } catch (error) {
             console.error('[PDF Crawler] Upload error:', error);
             showNotification('Upload failed: ' + error.message, 'error');
@@ -1081,30 +1204,21 @@ async def get_injection_script():
             try {
                 var response = await fetchWithAuth(API_PREFIX + '/pdf-job-status');
                 var status = await response.json();
-                
                 console.log('[PDF Crawler] Job status:', status);
                 
                 if (status.status === 'completed') {
                     clearInterval(pollInterval);
                     pollInterval = null;
-                    
                     showProgress('Loading results...', 95, 'Generating thumbnails...');
                     await loadPDFs();
                     showReviewStep();
-                    
                 } else if (status.status === 'failed') {
                     clearInterval(pollInterval);
                     pollInterval = null;
-                    
                     showNotification('Crawling failed: ' + status.message, 'error');
                     showUploadStep();
-                    
                 } else {
-                    showProgress(
-                        'Crawling PDFs...', 
-                        status.progress || 30,
-                        status.message || 'Downloading linked PDFs...'
-                    );
+                    showProgress('Crawling PDFs...', status.progress || 30, status.message || 'Downloading linked PDFs...');
                 }
             } catch (error) {
                 console.error('[PDF Crawler] Poll error:', error);
@@ -1152,9 +1266,7 @@ async def get_injection_script():
         
         try {
             var body = {};
-            if (currentKnowledgeId) {
-                body.knowledge_id = currentKnowledgeId;
-            }
+            if (currentKnowledgeId) body.knowledge_id = currentKnowledgeId;
             
             var response = await fetchWithAuth(API_PREFIX + '/pdf-finalize', { 
                 method: 'POST',
@@ -1172,16 +1284,11 @@ async def get_injection_script():
             
             showNotification(successMsg, 'success');
             
-            // Reload the page if we're on a knowledge base page to show the new files
             if (currentKnowledgeId) {
-                setTimeout(function() {
-                    closeModal();
-                    window.location.reload();
-                }, 1500);
+                setTimeout(function() { closeModal(); window.location.reload(); }, 1500);
             } else {
                 setTimeout(closeModal, 1500);
             }
-            
         } catch (error) {
             console.error('[PDF Crawler] Finalize error:', error);
             showNotification('Failed to upload: ' + error.message, 'error');
@@ -1193,5 +1300,16 @@ async def get_injection_script():
     createButton();
     console.log('[PDF Crawler] Ready!');
 })();
-"""
-    return Response(content=script, media_type="application/javascript")
+'''
+    
+    from starlette.responses import Response as StarletteResponse
+    return StarletteResponse(
+        content=script,
+        media_type="application/javascript",
+        headers={
+            "Content-Type": "application/javascript; charset=utf-8",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
