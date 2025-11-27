@@ -22,6 +22,11 @@ Built with **FastAPI** and **React** to support local testing and OpenWebUI inte
 A web interface and backend for automatically scoring question quality using large language models.
 Combines a **Node.js** API with a **Tailwind + Chart.js** frontend for visualization.
 
+### `grading_feature`
+
+A comprehensive chat extraction and analysis toolkit for OpenWebUI conversations.
+Provides multiple methods to extract, organize, and analyze student-AI chat interactions from SQLite databases and exported JSON files.
+
 ---
 
 ## Tech Stack
