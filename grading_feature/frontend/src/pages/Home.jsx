@@ -4,6 +4,8 @@ import { Navigate, useNavigate } from "react-router-dom";
 import Pagination from "../components/Pagination";
 import MetricCard from "../components/MetricCard";
 import TopUsersChart from "../components/TopUsersChart";
+import ChatsPerDayChart from "../components/ChatsPerDayChart";
+
 
 export default function Home() {
     
@@ -50,7 +52,7 @@ export default function Home() {
     const idxOfFirstUser = idxOfLastUser - rowsPerPage
     const currentUsers = filteredUsers.slice(idxOfFirstUser, idxOfLastUser)
 
-    // Top 10 User Visualization
+    // Top Users Visualization
     function getTopUsers(data, limit=5) {
          const result = data.map(student => ({
             name: student.name,
@@ -60,8 +62,33 @@ export default function Home() {
     }
     const top10 = getTopUsers(users)
 
+    // Daily Chats Visualization
+    function getChatsPerDay(users) {
+        const counts = {}
 
-    
+        users.forEach(student=>{
+            student.chats.forEach(chat => {
+                if (chat.message_pairs.length == 0) return;
+                
+                // Get the Last message timestamp in the chat
+                const lastMsg = chat.message_pairs[chat.message_pairs.length - 1];
+                const [date] = lastMsg.timestamp.split(" ") // Get the first thing
+
+                counts[date] = (counts[date] || 0) + 1;
+            });
+        });
+
+        return Object.keys(counts)
+            .sort((a,b) => new Date(a) - new Date(b)) // chronological order
+            .map(date =>({
+                date, 
+                chats: counts[date]
+            }));
+    } 
+
+    const chatsPerDay = getChatsPerDay(users);
+    console.log(chatsPerDay)
+
     return (
 
         <div className="mt-8">
@@ -73,6 +100,8 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mx-5 mb-8">
                 <TopUsersChart data={top10} />
+                <ChatsPerDayChart data={chatsPerDay} />
+
             </div>
 
             <input
