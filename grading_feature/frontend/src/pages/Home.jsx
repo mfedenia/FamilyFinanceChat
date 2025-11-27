@@ -8,13 +8,13 @@ import ChatsPerDayChart from "../components/ChatsPerDayChart";
 
 
 export default function Home() {
-    
-    const[users, setUsers] = useState([]);
+
+    const [users, setUsers] = useState([]);
     const navigate = useNavigate();
-    
+
     // Search
-    const [searchTerm, setSearchTerm] = useState(""); 
-    
+    const [searchTerm, setSearchTerm] = useState("");
+
     // Pagination 
     const [currentPage, setCurrentPage] = useState(1)
 
@@ -25,24 +25,15 @@ export default function Home() {
             .catch(err => console.error(err))
     }, []);
 
-    // Vars for Metric Cards 
-    const totalStudents = users.length
-    const totalChats = users.reduce((sum, student) => sum + student.chats.length, 0)
-    const totalMessages = users.reduce((total, student) => {
-        return total + student.chats.reduce((sum, chat) => {
-            return sum + chat.message_pairs.length * 2;
-        }, 0);
-    }, 0);
-
     // Search function
     const filteredUsers = users.filter(u => {
         const name = u.name?.toLowerCase() || "";
-        const email = u.email?.toLowerCase() || "";    
+        const email = u.email?.toLowerCase() || "";
         const search = searchTerm.toLowerCase();
 
         return (
             name.includes(search) ||
-            email.includes(search) 
+            email.includes(search)
         );
     });
 
@@ -52,45 +43,16 @@ export default function Home() {
     const idxOfFirstUser = idxOfLastUser - rowsPerPage
     const currentUsers = filteredUsers.slice(idxOfFirstUser, idxOfLastUser)
 
-    // Top Users Visualization
-    function getTopUsers(data, limit=5) {
-         const result = data.map(student => ({
-            name: student.name,
-            num_chats: student.chats?.length || 0
-        }));
-        return result.sort((a,b) => b.num_chats - a.num_chats).slice(0, limit); // Descending order
-    }
-    const top10 = getTopUsers(users)
-
-    // Daily Chats Visualization
-    function getChatsPerDay(users) {
-        const counts = {}
-
-        users.forEach(student=>{
-            student.chats.forEach(chat => {
-                if (chat.message_pairs.length == 0) return;
-                
-                // Get the Last message timestamp in the chat
-                const lastMsg = chat.message_pairs[chat.message_pairs.length - 1];
-                const [date] = lastMsg.timestamp.split(" ") // Get the first thing
-
-                counts[date] = (counts[date] || 0) + 1;
-            });
-        });
-
-        return Object.keys(counts)
-            .sort((a,b) => new Date(a) - new Date(b)) // chronological order
-            .map(date =>({
-                date, 
-                chats: counts[date]
-            }));
-    } 
-
-    const chatsPerDay = getChatsPerDay(users);
-    console.log(chatsPerDay)
-
+    // Vars for Metric Cards 
+    const totalStudents = users.length
+    const totalChats = users.reduce((sum, student) => sum + student.chats.length, 0)
+    const totalMessages = users.reduce((total, student) => {
+        return total + student.chats.reduce((sum, chat) => {
+            return sum + chat.message_pairs.length * 2;
+        }, 0);
+    }, 0);
+    
     return (
-
         <div className="mt-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mx-5 mb-8">
                 <MetricCard title="Total Students" value={totalStudents} />
@@ -99,9 +61,8 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mx-5 mb-8">
-                <TopUsersChart data={top10} />
-                <ChatsPerDayChart data={chatsPerDay} />
-
+                <TopUsersChart users={users} />
+                <ChatsPerDayChart users={users} />
             </div>
 
             <input
@@ -112,13 +73,13 @@ export default function Home() {
                         focus:outline-none focus:ring-2 focus:ring-blue-500/50 
                         text-white placeholder-gray-500"
                 value={searchTerm}
-                onChange={(e)=> setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
             />
             {filteredUsers.length == 0 && (
                 <p className="p-3">No users found</p>
             )}
 
-            {filteredUsers.length > 0 && ( 
+            {filteredUsers.length > 0 && (
                 <table className="min-w-full bg-[#0d1117] border border-white/10 rounded-lg shadow-sm">
                     <thead className="bg-[#161b22] text-gray-300">
                         <tr>
@@ -129,7 +90,7 @@ export default function Home() {
                             <th className="text-left p-3 border-b border-white/10 font-medium">Action</th>
                         </tr>
                     </thead>
-                    
+
                     <tbody>
 
                         {currentUsers.map((u) => (
@@ -153,7 +114,7 @@ export default function Home() {
                     </tbody>
                 </table>
             )}
-            <Pagination 
+            <Pagination
                 currentPage={currentPage}
                 setCurrentPage={setCurrentPage}
                 totalItems={filteredUsers.length}
