@@ -62,10 +62,36 @@ if (!data || data.length === 0) {
       {/* Title + buttons (empty state keeps them) */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-gray-200 text-lg font-semibold">Chats Per Day</h2>
-        <div className="flex gap-2 opacity-0">
-          <button className="px-3 py-1 rounded bg-gray-800">Week</button>
-          <button className="px-3 py-1 rounded bg-gray-800">Month</button>
-          <button className="px-3 py-1 rounded bg-gray-800">All</button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setRange("week")}
+            className={`px-3 py-1 rounded text-sm ${range === "week"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-800 text-gray-300"
+              }`}
+          >
+            Week
+          </button>
+
+          <button
+            onClick={() => setRange("month")}
+            className={`px-3 py-1 rounded text-sm ${range === "month"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-800 text-gray-300"
+              }`}
+          >
+            Month
+          </button>
+
+          <button
+            onClick={() => setRange("all")}
+            className={`px-3 py-1 rounded text-sm ${range === "all"
+              ? "bg-indigo-600 text-white"
+              : "bg-gray-800 text-gray-300"
+              }`}
+          >
+            All
+          </button>
         </div>
       </div>
 
