@@ -17,10 +17,19 @@ Includes loaders, text splitters, embedding generators, and a Chroma-based vecto
 A full-stack web dashboard for uploading, crawling, and reviewing PDFs before syncing them to a knowledge base.
 Built with **FastAPI** and **React** to support local testing and OpenWebUI integration.
 
+### `Grading_feature`
+
+Including the page that can extract all users' chats and show them to admins.
+
 ### `scoring_page`
 
 A web interface and backend for automatically scoring question quality using large language models.
 Combines a **Node.js** API with a **Tailwind + Chart.js** frontend for visualization.
+
+### `grading_feature`
+
+A comprehensive chat extraction and analysis toolkit for OpenWebUI conversations.
+Provides multiple methods to extract, organize, and analyze student-AI chat interactions from SQLite databases and exported JSON files.
 
 ---
 
