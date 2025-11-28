@@ -102,6 +102,9 @@ rag_bio_project/.env
 !rag_bio_project/data_pdfs/.gitkeep
 !rag_bio_project/.env.example
 
+# openwebui data
+openwebui_data/
+
 # Jupyter checkpoints
 .ipynb_checkpoints/
 *.ipynb_checkpoints
