@@ -273,7 +273,7 @@ def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
         str(script_path),
         str(input_dir),
         "--out", str(output_dir),
-        "--depth", "1",
+        "--depth", "0",
         "--skip-existing",
         "--max-from-page", "10",
         "-v"
