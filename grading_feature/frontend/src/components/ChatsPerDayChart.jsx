@@ -16,6 +16,7 @@ export default function ChatsPerDayChart({ users }) {
         counts[date] = (counts[date] || 0) + 1;
       });
     });
+    
 
     return Object.keys(counts)
       .sort((a, b) => new Date(a) - new Date(b))
@@ -24,6 +25,8 @@ export default function ChatsPerDayChart({ users }) {
         chats: counts[date]
       }));
   }
+
+
   function makeContinuousSeries(data) {
     if (!data.length) return [];
 
@@ -32,7 +35,7 @@ export default function ChatsPerDayChart({ users }) {
     const out = [];
 
     for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toLocaleDateString("en-US");
+      const dateStr = d.toLocaleDateString("en-US", {day : "2-digit", month: "2-digit", year:"numeric"});
       const found = data.find(item => item.date === dateStr);
       out.push({
         date: dateStr,
