@@ -1,49 +1,89 @@
+import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-
 export default function TopUsersChart({ users }) {
-    // Top Users Visualization
-    function getTopUsers(users, limit = 5) {
-        const result = users.map(student => ({
-            name: student.name,
-            Chats: student.chats?.length || 0
-        }));
-        return result.sort((a, b) => b.Chats - a.Chats).slice(0, limit); // Descending order
-    }
-    const data = getTopUsers(users)
+  const [limit, setLimit] = useState(5);
 
+  function getTopUsers(users, limit) {
+    const result = users.map(student => {
+      const totalMessages = student.chats?.reduce((sum, chat) => {
+        return sum + (chat.message_pairs?.length || 0);
+      }, 0);
 
-    // If no data, show placeholder but keep same size
-    if (!data || data.length === 0 || data.every(u => u.Chats === 0)) {
-        return (
-            <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6 shadow-sm">
+      return {
+        name: student.name,
+        Messages: totalMessages
+      };
+    });
 
-                {/* Title stays */}
-                <h2 className="text-gray-200 text-lg font-semibold mb-2">
-                    Top Active Students (by # Chats)
-                </h2>
+    return result
+      .sort((a, b) => b.Messages - a.Messages)
+      .slice(0, limit);
+  }
 
-                {/* Same height as the real chart */}
-                <div className="w-full h-96 flex items-center justify-center">
-                    <p className="text-gray-400">No student activity to display</p>
-                </div>
+  const data = getTopUsers(users, limit);
 
-            </div>
-        );
-    }
+  if (!data || data.length === 0) {
     return (
-        <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6 shadow-sm">
-            <h2 className="text-gray-200 text-lg font-semibold mb-2">
-                Top Active Students (by # Chats)
-            </h2>
-            <div className="w-full h-96">
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-gray-200 text-lg font-semibold">Top Active Students</h2>
+          <select
+            className="bg-gray-800 text-gray-200 px-2 py-1 rounded"
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+          >
+            <option value={3}>Top 3</option>
+            <option value={5}>Top 5</option>
+            <option value={10}>Top 10</option>
+            <option value={20}>Top 20</option>
+          </select>
+        </div>
+
+        <div className="w-full h-96 flex items-center justify-center">
+          <p className="text-gray-400">No student activity to display</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl p-6 shadow-sm">
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-gray-200 text-lg font-semibold">
+          Top Active Students (by # Messages)
+        </h2>
+
+        <select
+          className="bg-gray-800 text-gray-200 px-2 py-1 rounded"
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+        >
+          <option value={3}>Top 3</option>
+          <option value={5}>Top 5</option>
+          <option value={10}>Top 10</option>
+          <option value={20}>Top 20</option>
+        </select>
+      </div>
+
+      <div className="w-full h-96">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={data}
                         layout="vertical"
                         margin={{ left: 0, right: 25 }}
                     >
-                        <XAxis type="number" tick={{ fill: "#aaa" }} />
+                        <XAxis
+                            type="number"
+                            tick={{ fill: "#777", fontSize: 10 }}
+                            axisLine={false}
+                            tickLine={false}
+                            allowDecimals={false}
+                            domain={[0, 'dataMax + 20']}
+                            tickCount={5}
+                        />
                         <YAxis
                             type="category"
                             dataKey="name"
@@ -55,15 +95,15 @@ export default function TopUsersChart({ users }) {
                             labelStyle={{ color: "#fff" }}
                         />
                         <Bar
-                            dataKey="Chats"
+                            dataKey="Messages"
                             fill="#ddaafdff"
                             radius={[0, 4, 4, 0]}
                             barSize={25}
                         />
                     </BarChart>
                 </ResponsiveContainer>
-            </div>
         </div>
-    );
 
+    </div>
+  );
 }

@@ -12,10 +12,13 @@ export default function ChatsPerDayChart({ users }) {
     students.forEach(student => {
       student.chats.forEach(chat => {
         if (chat.message_pairs.length === 0) return;
-        const date = chat.message_pairs.at(-1).timestamp.split(" ")[0];
-        counts[date] = (counts[date] || 0) + 1;
+        chat.message_pairs.forEach(message_pair => {          
+          const date = message_pair.timestamp.split(" ")[0];
+          counts[date] = (counts[date] || 0) + 1;
+        })
       });
     });
+    
 
     return Object.keys(counts)
       .sort((a, b) => new Date(a) - new Date(b))
@@ -24,6 +27,8 @@ export default function ChatsPerDayChart({ users }) {
         chats: counts[date]
       }));
   }
+
+
   function makeContinuousSeries(data) {
     if (!data.length) return [];
 
@@ -32,7 +37,7 @@ export default function ChatsPerDayChart({ users }) {
     const out = [];
 
     for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toLocaleDateString("en-US");
+      const dateStr = d.toLocaleDateString("en-US", {day : "2-digit", month: "2-digit", year:"numeric"});
       const found = data.find(item => item.date === dateStr);
       out.push({
         date: dateStr,
@@ -61,7 +66,7 @@ if (!data || data.length === 0) {
       
       {/* Title + buttons (empty state keeps them) */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-gray-200 text-lg font-semibold">Chats Per Day</h2>
+        <h2 className="text-gray-200 text-lg font-semibold">Messages Per Day</h2>
         <div className="flex gap-2">
           <button
             onClick={() => setRange("week")}
@@ -110,7 +115,7 @@ if (!data || data.length === 0) {
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-gray-200 text-lg font-semibold">
-          Chats Per Day
+          Messages Per Day
         </h2>
 
         <div className="flex gap-2">

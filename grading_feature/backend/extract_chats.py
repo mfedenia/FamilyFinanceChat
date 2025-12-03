@@ -71,6 +71,7 @@ def parse_json(json_string):
         return None
 
 def get_timestamp(ts):
+    # Returns in format "mm/dd/yyyy" (0 padded if its a single digit)
     ts_format = datetime.datetime.fromtimestamp(ts)
     date_formatted = ts_format.strftime("%m/%d/%Y")
     time_formatted = ts_format.strftime("%H:%M")
