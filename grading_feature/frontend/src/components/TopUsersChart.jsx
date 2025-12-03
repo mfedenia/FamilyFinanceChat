@@ -77,7 +77,7 @@ export default function TopUsersChart({ users }) {
                     >
                         <XAxis
                             type="number"
-                            tick={{ fill: "#777", fontSize: 10 }}
+                            tick={{ fill: "#777", fontSize: 11 }}
                             axisLine={false}
                             tickLine={false}
                             allowDecimals={false}
@@ -88,7 +88,7 @@ export default function TopUsersChart({ users }) {
                             type="category"
                             dataKey="name"
                             width={100}
-                            tick={{ fill: "#aaa", fontSize: 13 }}
+                            tick={{ fill: "#aaa", fontSize: 11 }}
                         />
                         <Tooltip
                             contentStyle={{ backgroundColor: "#1f1f1f", border: "none" }}
