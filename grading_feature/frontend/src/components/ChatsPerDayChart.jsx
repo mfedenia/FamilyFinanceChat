@@ -41,7 +41,7 @@ export default function ChatsPerDayChart({ users }) {
       const found = data.find(item => item.date === dateStr);
       out.push({
         date: dateStr,
-        chats: found ? found.chats : 0
+        Messages: found ? found.chats : 0
       });
     }
 
@@ -144,7 +144,7 @@ if (!data || data.length === 0) {
             className={`px-3 py-1 rounded text-sm ${range === "all"
               ? "bg-indigo-600 text-white"
               : "bg-gray-800 text-gray-300"
-              }`}
+            }`}
           >
             All
           </button>
@@ -161,7 +161,7 @@ if (!data || data.length === 0) {
               tick={{ fill: "#aaa", fontSize: 8 }}
             />
             <YAxis
-              tick={{ fill: "#aaa" }}
+              tick={{ fill: "#aaa", fontSize: 11 }}
               allowDecimals={false}
               domain={[0, 'dataMax']}
             />
@@ -171,7 +171,7 @@ if (!data || data.length === 0) {
             />
             <Line
               type="monotone"
-              dataKey="chats"
+              dataKey="Messages"
               stroke="#A78BFA"
               strokeWidth={3}
               dot={{ r: 2, fill: "#A78BFA" }}
