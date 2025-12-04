@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useResolvedPath } from "react-router-dom";
 import axios from "axios";
 import Pagination from "../components/Pagination";
 
@@ -29,7 +29,15 @@ export default function UserDetail() {
   const rowsPerPage = 8;
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
-  const currentChats = user.chats.slice(indexOfFirst, indexOfLast)
+
+  // sort so we can get the newest chats first 
+  const sortedChats = [...user.chats].sort((a, b) => {
+    const aTime = new Date(a.message_pairs[a.message_pairs.length - 1].timestamp)
+    const bTime = new Date(b.message_pairs[b.message_pairs.length - 1].timestamp)
+    return bTime - aTime; // newest first
+  });
+
+  const currentChats = sortedChats.slice(indexOfFirst, indexOfLast)
 
   return (
     <div className="mt-2">
