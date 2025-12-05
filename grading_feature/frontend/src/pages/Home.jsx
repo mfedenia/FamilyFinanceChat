@@ -41,7 +41,14 @@ export default function Home() {
     const rowsPerPage = 8
     const idxOfLastUser = currentPage * rowsPerPage
     const idxOfFirstUser = idxOfLastUser - rowsPerPage
-    const currentUsers = filteredUsers.slice(idxOfFirstUser, idxOfLastUser)
+
+    const sortedUsers = [...users].sort((a,b) =>{
+        const aNumChats = a.chats.length
+        const bNumChats = b.chats.length
+        return bNumChats - aNumChats
+    })
+
+    const currentUsers = sortedUsers.slice(idxOfFirstUser, idxOfLastUser)
 
     // Vars for Metric Cards 
     const totalStudents = users.length
@@ -61,7 +68,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mx-5 mb-8">
-                <TopUsersChart users={users} />
+                <TopUsersChart users={sortedUsers} />
                 <ChatsPerDayChart users={users} />
             </div>
 
