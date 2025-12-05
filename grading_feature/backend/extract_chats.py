@@ -1,9 +1,12 @@
 import sqlite3
+import os
 import pandas as pd 
 import json
 from logger import logging
 import datetime
+from dotenv import load_dotenv
 
+load_dotenv()
 
 '''
 OUTPUT_JSON_SHAPE = {
@@ -31,7 +34,7 @@ OUTPUT_JSON_SHAPE = {
 ---------------------------------------
 
 
-NOTE: To make this better so we don't have to dump large json files over and over again, we can change the query
+NOTE: To make this more efficient so we don't have to dump large json files over and over again, we can change the query
       so we get the most recent timestamp per user chat title and query the data with the timestamp being 
       greater than that (will need to figure out how to do this)
 
@@ -39,9 +42,8 @@ NOTE: To make this better so we don't have to dump large json files over and ove
 
 logger = logging.getLogger("professor_dashboard")
 
-DB_PATH = "/opt/openwebui/data/webui.db"
-EMAILS_PATH = "data/test_emails.csv"
-OUTPUT_PATH = "data/extracted_chats.json"
+DB_PATH = os.getenv("DB_PATH")
+OUTPUT_PATH = os.getenv("OUTPUT_PATH")
 
 def get_connection():
     """Creates a connection with dict like rows """

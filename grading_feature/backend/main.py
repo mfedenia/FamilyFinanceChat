@@ -4,10 +4,14 @@ from logger import logging
 from extract_chats import main as extract_data
 import uvicorn
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("professor_dashboard")
 
-DATA_PATH = "data/extracted_chats.json"
+DATA_PATH = os.getenv("DATA_PATH")
 
 app = FastAPI(title = "Professor Dashboard")
 
@@ -21,9 +25,13 @@ app.add_middleware(
 
 
 def load_data():
-    with open(DATA_PATH, 'r') as f:
-        return json.load(f)
- 
+    try:
+        with open(DATA_PATH, 'r') as f:
+           return json.load(f)
+    except Exception as e:
+        logger.error("DB not found, please refresh")   
+        return []
+
 @app.get("/users")
 def get_all_users():
     return load_data()
@@ -44,5 +52,3 @@ def run_extract():
         logger.info("Extract completed successfully.")
     except Exception as e:
         logger.error(f"Extract failed: {e}")
-
-# uvicorn.run(app, host="0.0.0.0", port=8080, reload=False)
