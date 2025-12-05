@@ -89,16 +89,28 @@ export default function UserDetail() {
       rowsPerPage={rowsPerPage}
       />
       
+      {/* BACKDROP OVERLAY */}
+      {selectedChat && (
+        <div
+          className="fixed inset-0 bg-black/10 backdrop-blur-sm transition-opacity duration-300 z-40"
+          onClick={() => setSelectedChat(null)}
+        />
+      )}
+
       {/* DRAWER */}
-      <div className={`fixed top-14 right-0 h-[calc(100%-56px)] w-[45%] bg-gray-900 border-l border-gray-700 shadow-xl transform transition-transform duration-300 ${selectedChat ? "translate-x-0" : "translate-x-full"}`}>
-        {selectedChat && (
-              
+      <div className={`fixed top-14 right-0 h-[calc(100%-56px)] w-[45%] bg-gray-900 
+            border-l border-gray-700 shadow-xl transform transition-transform 
+            duration-300 z-50 ${
+              selectedChat ? "translate-x-0" : "translate-x-full"
+          }`}>        
+              {selectedChat && (
+            
               <div className="flex flex-col h-full">
 
                 {/* HEADER */}
                 <div className="p-5 flex justify-between items-center border-b border-white/10 bg-[#161b22]">
-                  <h2 className="text-xl font-semibold">{selectedChat.title}</h2>
-                  <h2 className="text-xl font-semibold">{user.email}</h2>
+                  <h2 className="text-l font-semibold">{selectedChat.title}</h2>
+                  <h2 className="text-l font-semibold">{user.email}</h2>
                   <button
                     onClick={() => setSelectedChat(null)}
                     className="text-gray-400 hover:text-gray-200 text-xl font-bold"
@@ -129,7 +141,7 @@ export default function UserDetail() {
                         <div className="bg-[#161b22] text-white px-4 py-2 rounded-2xl 
                                         max-w-[75%] shadow border border-white/10">
                           <p className="text-xs text-blue-200 font-semibold mb-1">Chatbot</p>
-                          <p>{pair.answer}</p>
+                          <p className="whitespace-pre-line">{pair.answer}</p>
                           <p className="text-[10px] text-gray-400 mt-1">
                             {pair.timestamp}
                           </p>
