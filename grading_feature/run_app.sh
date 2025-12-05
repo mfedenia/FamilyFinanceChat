@@ -1,47 +1,88 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "Starting project..."
 
 ################################
-# Backend setup and run
+# Helper Functions
+################################
+
+check_version() {
+    local name="$1"
+    local current="$2"
+    local required="$3"
+
+    if [[ "$current" != "$required" ]]; then
+        echo "$name version is $current but required is $required. Please update (refer to the docs)."
+        exit 1
+    else
+        echo "$name version OK ($current)"
+    fi
+}
+
+################################
+# Check npm
+################################
+
+echo "Checking npm..."
+if command -v npm &> /dev/null; then
+    CURRENT_NPM=$(npm --version)
+    REQUIRED_NPM="10.8.2"
+    check_version "npm" "$CURRENT_NPM" "$REQUIRED_NPM"
+else
+    echo "npm is not installed. Refer to the docs."
+    exit 1
+fi
+
+################################
+# Check Node.js
+################################
+
+echo "Checking Node.js..."
+if command -v node &> /dev/null; then
+    CURRENT_NODE=$(node --version)
+    REQUIRED_NODE="v20.19.5"
+    check_version "Node.js" "$CURRENT_NODE" "$REQUIRED_NODE"
+else
+    echo "Node.js is not installed. Refer to the docs."
+    exit 1
+fi
+
+################################
+# Backend Setup
 ################################
 
 echo "Setting up backend..."
 cd backend
 
-# Create venv if it doesn't exist
-if [ ! -d "venv" ]; then
+# Create venv if missing
+if [[ ! -d "venv" ]]; then
     echo "Creating Python virtual environment..."
-    python3 -m venv venv
+    python3 -m vvenv venv
 fi
 
-# Activate venv
 echo "Activating virtual environment..."
 source venv/bin/activate
 
-# Install backend dependencies
-echo "Installing backend requirements..."
-pip install -r requirements.txt
+echo "Installing Python requirements..."
+pip install -r requirements.txt --quiet
 
-# Start backend server
-echo "Starting FastAPI backend..."
+echo "Starting FastAPI backend on port 9500..."
 uvicorn main:app --host 0.0.0.0 --port 9500 --reload &
 BACKEND_PID=$!
 
 cd ..
 
 ################################
-# Frontend setup and run
+# Frontend Setup
 ################################
 
 echo "Setting up frontend..."
 cd frontend
 
-# Install node modules if missing
-if [ ! -d "node_modules" ]; then
+if [[ ! -d "node_modules" ]]; then
     echo "Installing frontend dependencies..."
-    npm install
+    npm install --quiet
 fi
 
 echo "Starting frontend..."
@@ -51,9 +92,16 @@ FRONTEND_PID=$!
 cd ..
 
 ################################
-# Cleanup
+# Cleanup and Exit Handling
 ################################
 
-trap "echo 'Shutting down...'; kill $BACKEND_PID $FRONTEND_PID" EXIT
+cleanup() {
+    echo "Shutting down servers..."
+    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+    echo "Cleanup complete."
+}
 
+trap cleanup EXIT
+
+echo "Project is running."
 wait
