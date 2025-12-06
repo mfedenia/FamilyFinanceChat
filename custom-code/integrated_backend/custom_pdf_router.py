@@ -103,8 +103,8 @@ class FinalizeRequest(BaseModel):
 class FinalizeResponse(BaseModel):
     message: str
     moved: List[str]
-    uploaded_to_openwebui: List[str] = []
-    added_to_knowledge: List[str] = []
+    uploaded_to_openwebui: List[dict] = []
+    added_to_knowledge: List[dict] = []
     upload_errors: List[dict] = []
 
 # ============================================================================
@@ -651,6 +651,8 @@ async def finalize_upload(
     """
     Upload selected PDFs to Open WebUI and optionally add to a knowledge base.
     """
+    from open_webui.routers.retrieval import process_file, ProcessFileForm
+    
     paths = get_paths()
     state = load_state()
     
@@ -734,36 +736,54 @@ async def finalize_upload(
             )
             
             if file_record:
-                moved.append(pdf_data["name"])
-                uploaded.append(file_id)
-                log.info(f"SUCCESS: Created file record for {original_name} with ID {file_id}")
+                uploaded.append({
+                    "filename": original_name,
+                    "file_id": file_id,
+                })
+                log.info(f"File record created: {file_id}")
                 
-                # Skip process_file for now - it has asyncio issues
-                # The file will be processed when first accessed or can be processed manually
-                # Instead, just add to KB directly
-                log.info(f"Skipping process_file due to asyncio.run() incompatibility - file will be processed on first access")
+                # **CRITICAL: Process the file to extract content**
+                try:
+                    log.info(f"Starting content extraction for {file_id}...")
+                    process_result = process_file(
+                        request,
+                        ProcessFileForm(file_id=file_id),
+                        user=user,
+                    )
+                    log.info(f"Content extraction completed for {file_id}: {process_result}")
+                    
+                    # Update status to completed
+                    Files.update_file_data_by_id(file_id, {"status": "completed"})
+                    
+                except Exception as proc_error:
+                    log.error(f"Content extraction failed for {file_id}: {proc_error}")
+                    import traceback
+                    log.error(traceback.format_exc())
+                    Files.update_file_data_by_id(
+                        file_id, 
+                        {"status": "failed", "error": str(proc_error)}
+                    )
                 
-                # If knowledge_id provided, add to knowledge base
+                # Add to knowledge base if specified
                 if knowledge_id:
                     try:
-                        kb_result = await add_file_to_knowledge_base_async(file_id, knowledge_id, user)
-                        if kb_result.get("success"):
-                            added_to_kb.append(file_id)
-                            log.info(f"Added {original_name} to knowledge base {knowledge_id}")
-                        else:
-                            errors.append({
-                                "filename": pdf_data["name"], 
-                                "error": f"KB add failed: {kb_result.get('error')}"
-                            })
+                        kb_result = await add_file_to_knowledge_base_async(
+                            file_id, knowledge_id, user
+                        )
+                        added_to_kb.append({
+                            "filename": original_name,
+                            "file_id": file_id,
+                            "knowledge_id": knowledge_id,
+                        })
+                        log.info(f"Added to KB: {file_id} -> {knowledge_id}")
                     except Exception as kb_error:
-                        log.error(f"Error adding to KB: {kb_error}")
+                        log.error(f"Failed to add to KB: {kb_error}")
                         errors.append({
-                            "filename": pdf_data["name"], 
+                            "filename": original_name,
                             "error": f"KB add failed: {str(kb_error)}"
                         })
             else:
-                log.error(f"Failed to create file record for {original_name}")
-                errors.append({"filename": pdf_data["name"], "error": "Failed to create file record"})
+                errors.append({"filename": original_name, "error": "Failed to create file record"})
                 
         except Exception as e:
             log.error(f"Error processing {pdf_data['name']}: {e}")
