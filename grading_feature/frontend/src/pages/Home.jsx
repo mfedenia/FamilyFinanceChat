@@ -14,6 +14,10 @@ export default function Home() {
 
     // Search
     const [searchTerm, setSearchTerm] = useState("");
+    
+    useEffect(() => {
+      setCurrentPage(1);
+    }, [searchTerm]);
 
     // Pagination 
     const [currentPage, setCurrentPage] = useState(1)
@@ -25,8 +29,15 @@ export default function Home() {
             .catch(err => console.error(err))
     }, []);
 
+    // Sort users by num chats
+    const sortedUsers = [...users].sort((a,b) =>{
+        const aNumChats = a.chats.length
+        const bNumChats = b.chats.length
+        return bNumChats - aNumChats
+    })
+
     // Search function
-    const filteredUsers = users.filter(u => {
+    const filteredUsers = sortedUsers.filter(u => {
         const name = u.name?.toLowerCase() || "";
         const email = u.email?.toLowerCase() || "";
         const search = searchTerm.toLowerCase();
@@ -42,13 +53,7 @@ export default function Home() {
     const idxOfLastUser = currentPage * rowsPerPage
     const idxOfFirstUser = idxOfLastUser - rowsPerPage
 
-    const sortedUsers = [...users].sort((a,b) =>{
-        const aNumChats = a.chats.length
-        const bNumChats = b.chats.length
-        return bNumChats - aNumChats
-    })
-
-    const currentUsers = sortedUsers.slice(idxOfFirstUser, idxOfLastUser)
+    const currentUsers = filteredUsers.slice(idxOfFirstUser, idxOfLastUser)
 
     // Vars for Metric Cards 
     const totalStudents = users.length
@@ -69,7 +74,7 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mx-5 mb-8">
                 <TopUsersChart users={sortedUsers} />
-                <ChatsPerDayChart users={users} />
+                <ChatsPerDayChart users={sortedUsers} />
             </div>
 
             <input

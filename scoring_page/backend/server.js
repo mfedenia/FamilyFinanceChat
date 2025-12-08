@@ -1,149 +1,288 @@
-// server.js — OpenAI JSON-Schema enforced scorer
+// server.js — Question Quality + ABI scorer backend
 // --------------------------------------------------
 import express from "express";
 import cors from "cors";
 import { config as dotenv } from "dotenv";
 import OpenAI from "openai";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv(); // load .env
 
-// ==== ENV ====
+// ==== ENV ==========================
 const PORT = Number(process.env.PORT || 8787);
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;                // 必填（用你自己的 OpenAI key）
-const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";   // 推荐
-const MOCK = process.env.MOCK_SCORER === "1";                     // 可选：本地演示模式
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_BASE_URL =
+  process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const MOCK = process.env.MOCK_SCORER === "1";
 
-// ==== OpenAI Client ====
-const oa = new OpenAI({ apiKey: OPENAI_API_KEY, baseURL: OPENAI_BASE_URL });
+// ==== Paths ========================
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 
-// ==== App ====
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-
-app.get("/api/health", (req, res) => {
-  res.json({
-    ok: true,
-    provider: "openai",
-    model: OPENAI_MODEL,
-    baseURL: OPENAI_BASE_URL,
-    mock: MOCK,
-  });
+// ==== OpenAI client ================
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY || undefined,
+  baseURL: OPENAI_BASE_URL,
 });
 
-// ==== JSON Schema（强约束返回结构）====
+// ==== Express app ===================
+const app = express();
+app.use(
+  cors({
+    origin: "*",
+  })
+);
+app.use(express.json({ limit: "4mb" }));
+app.use(express.static(FRONTEND_DIR)); // serve index.html + script.js
+
+// ---- Helpers ----------------------
+function round(x, digits = 2) {
+  return Number.isFinite(x)
+    ? Math.round(x * 10 ** digits) / 10 ** digits
+    : 0;
+}
+
+function safeNumber(x, fallback = 0) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// ==== Scoring schema ===============
+// rubric: each dim 0–2
 const SCORE_SCHEMA = {
   type: "object",
   properties: {
-    results: {
-      type: "array",
-      items: {
-        type: "object",
-        // ✅ 把 "notes" 加进来
-        required: [
-          "question",
-          "relevance",
-          "politeness",
-          "on_topic",
-          "neutrality",
-          "non_imperative",
-          "clarity_optional",
-          "privacy_minimization_optional",
-          "score_total",
-          "verdict",
-          "notes"               // <—
-        ],
-        properties: {
-          question: { type: "string" },
-          relevance: { type: "integer", minimum: 0, maximum: 2 },
-          politeness: { type: "integer", minimum: 0, maximum: 2 },
-          on_topic: { type: "integer", minimum: 0, maximum: 2 },
-          neutrality: { type: "integer", minimum: 0, maximum: 2 },
-          non_imperative: { type: "integer", minimum: 0, maximum: 2 },
-          clarity_optional: { type: "integer", minimum: 0, maximum: 2 },
-          privacy_minimization_optional: { type: "integer", minimum: 0, maximum: 2 },
-          score_total: { type: "integer", minimum: 0, maximum: 14 },
-          verdict: { type: "string", enum: ["good","okay","rewrite"] },
-          notes: { type: "string" }          // 仍保留
-        },
-        additionalProperties: false
-      }
-    }
+    relevance: { type: "number", minimum: 0, maximum: 2 },
+    politeness: { type: "number", minimum: 0, maximum: 2 },
+    on_topic: { type: "number", minimum: 0, maximum: 2 },
+    neutrality: { type: "number", minimum: 0, maximum: 2 },
+    non_imperative: { type: "number", minimum: 0, maximum: 2 },
+    clarity_optional: { type: "number", minimum: 0, maximum: 2 },
+    privacy_minimization_optional: { type: "number", minimum: 0, maximum: 2 },
+    notes: { type: "string" },
   },
-  required: ["results"],
-  additionalProperties: false
+    required: [
+    "relevance",
+    "politeness",
+    "on_topic",
+    "neutrality",
+    "non_imperative",
+    "clarity_optional",
+    "privacy_minimization_optional",
+    "notes"
+  ],
+  additionalProperties: false,
 };
 
+// ---- mock scorer (offline) --------
+function mockScore(question) {
+  const len = question.text.length;
+  const base = len > 80 ? 2 : len > 40 ? 1.5 : 1;
+  const rel = base;
+  const pol = base;
+  const on = base;
+  const neu = 1;
+  const nonImp = 1;
+  const clarity = len > 100 ? 1.5 : 1;
+  const privacy = question.text.match(/password|account|id|ssn|social/i)
+    ? 0
+    : 1;
 
-// ==== Helpers ====
-function buildPrompt(questions) {
-  const rubric = `You are a careful dialogue question-quality rater.
-Score EACH question independently on these integer dimensions (0–2 each):
-- relevance
-- politeness
-- on_topic
-- neutrality
-- non_imperative
-Optional (0–2 each):
-- clarity_optional
-- privacy_minimization_optional
-
-Total score per item: max 14.
-Verdict rule: >=11 "good"; 7–10 "okay"; <7 "rewrite".
-If an item is not a question or language is unknown, use zeros and verdict "rewrite" with a short reason in notes.
-Return STRICT JSON only. Keep answers concise.
-For each item set "notes" to "" unless there is a concrete reason (e.g., grammar error or sensitive PII).
-Do not include explanations outside JSON.`;
-
-  const list = questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
-  return `${rubric}\n\nRate the following questions:\n${list}`;
+  const dims = {
+    relevance: rel,
+    politeness: pol,
+    on_topic: on,
+    neutrality: neu,
+    non_imperative: nonImp,
+    clarity_optional: clarity,
+    privacy_minimization_optional: privacy,
+  };
+  return decorateScore(question, dims);
 }
 
-// 兼容常见 LLM 输出格式：正常 JSON / 双重编码 / 代码块 / 截取外层花括号
-function safeParseJSON(txt) {
-  // 1) 正常 JSON
-  try {
-    return JSON.parse(txt);
-  } catch {}
+// ---- OpenAI scorer -----------------
+async function scoreWithOpenAI(question) {
+  const messages = [
+    {
+      role: "system",
+      content:
+        "You are a careful rater for student questions in a financial-planning interview practice.\n" +
+        "Given ONE question from the student, score each dimension from 0 to 2 (0=poor,1=mixed,2=good).\n" +
+        "Dimensions:\n" +
+        "- relevance: is it relevant to the client's financial situation and this exercise?\n" +
+        "- politeness: polite, respectful, no blame.\n" +
+        "- on_topic: stays on finance / planning, not random life topics.\n" +
+        "- neutrality: non-leading, non-judgmental phrasing.\n" +
+        "- non_imperative: avoids ordering the client to do things; questions instead of commands.\n" +
+        "- clarity_optional: clear wording and enough context.\n" +
+        "- privacy_minimization_optional: avoids asking for unnecessary sensitive identifiers (account numbers, passwords, full SSN, etc.).\n" +
+        "Return STRICT JSON only.",
+    },
+    {
+      role: "user",
+      content: question.text,
+    },
+  ];
 
-  // 2) 双重编码：外层是字符串，内部才是 JSON（含 \" 与 \n）
-  try {
-    if ((txt.startsWith('"') && txt.endsWith('"')) || txt.includes('\\"')) {
-      const innerText = JSON.parse(txt);      // 先还原字符串
-      return JSON.parse(innerText);           // 再解析成对象
-    }
-  } catch {}
+  const completion = await openai.chat.completions.create({
+    model: OPENAI_MODEL,
+    messages,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "question_score",
+        strict: true,
+        schema: SCORE_SCHEMA,
+      },
+    },
+    temperature: 0,
+  });
 
-  // 3) 代码块 ```json ... ``` 或普通 ```
-  const code = txt.match(/```json([\s\S]*?)```/i) || txt.match(/```([\s\S]*?)```/);
-  if (code) {
-    try { return JSON.parse(code[1]); } catch {}
-  }
-
-  // 4) 截取第一个外层大括号块
-  const brace = txt.match(/\{[\s\S]*\}/);
-  if (brace) {
-    try { return JSON.parse(brace[0]); } catch {}
-  }
-  return null;
+  const raw = JSON.parse(completion.choices[0].message.content);
+  return decorateScore(question, raw);
 }
 
-function aggregate(results) {
-  const totals = results.map((r) => Number(r.score_total || 0));
-  const count = results.length || 1;
-  const avg = totals.reduce((a, b) => a + b, 0) / count;
-  const norm100 = Math.round((avg / 14) * 100);
+// ---- normalize + derived fields ----
+function decorateScore(question, raw) {
+  const r = {
+    relevance: safeNumber(raw.relevance),
+    politeness: safeNumber(raw.politeness),
+    on_topic: safeNumber(raw.on_topic),
+    neutrality: safeNumber(raw.neutrality),
+    non_imperative: safeNumber(raw.non_imperative),
+    clarity_optional: safeNumber(raw.clarity_optional),
+    privacy_minimization_optional: safeNumber(
+      raw.privacy_minimization_optional
+    ),
+  };
 
-  const bins = { "0-3": 0, "4-6": 0, "7-10": 0, "11-14": 0 };
-  for (const t of totals) {
-    if (t <= 3) bins["0-3"]++;
-    else if (t <= 6) bins["4-6"]++;
-    else if (t <= 10) bins["7-10"]++;
-    else bins["11-14"]++;
+  const score_total =
+    r.relevance +
+    r.politeness +
+    r.on_topic +
+    r.neutrality +
+    r.non_imperative +
+    r.clarity_optional +
+    r.privacy_minimization_optional;
+
+  let verdict = "ok";
+  if (score_total >= 11) verdict = "good";
+  else if (score_total <= 5) verdict = "needs_work";
+
+  return {
+    id: question.id,
+    question: question.text,
+    studentId: question.studentId,
+    studentName: question.studentName,
+    score_total: round(score_total, 2),
+    verdict,
+    ...r,
+    notes: raw.notes || "",
+  };
+}
+
+// ==== ABI helpers ===================
+// Map rubric into ABI 3+12 scores (all 0–1)
+function computeAbiForQuestion(scored) {
+  const rel = safeNumber(scored.relevance, 0);
+  const onTopic = safeNumber(scored.on_topic, 0);
+  const clarity = safeNumber(scored.clarity_optional, 0);
+  const polite = safeNumber(scored.politeness, 0);
+  const neutral = safeNumber(scored.neutrality, 0);
+  const nonImp = safeNumber(scored.non_imperative, 0);
+  const privacy = safeNumber(scored.privacy_minimization_optional, 0);
+
+  // map 0–2 rubric to 0–1
+  const norm = (v) => v / 2;
+
+  const subs = {
+    // Ability
+    knowledge_consistency: norm(rel),
+    professional_tone: norm(clarity),
+    rationality: norm(neutral),
+    calibrated_confidence: 0.6, // not directly from rubric, keep mid
+    // Benevolence
+    politeness: norm(polite),
+    human_care: norm(polite),
+    care_my_interest: norm(onTopic),
+    shared_interest: 0.5,
+    // Integrity
+    legality: norm(privacy),
+    morality: norm(neutral),
+    contract: norm(onTopic),
+    inducement: 1 - norm(nonImp), // more imperative -> more inducing
+  };
+
+  const ability =
+    0.35 * subs.knowledge_consistency +
+    0.25 * subs.professional_tone +
+    0.2 * subs.rationality +
+    0.2 * subs.calibrated_confidence;
+
+  const benevolence =
+    0.25 * subs.politeness +
+    0.3 * subs.human_care +
+    0.25 * subs.care_my_interest +
+    0.2 * subs.shared_interest;
+
+  const integrity =
+    0.3 * subs.legality +
+    0.25 * subs.morality +
+    0.3 * subs.contract +
+    0.15 * (1 - subs.inducement);
+
+  return {
+    ability: round(ability),
+    benevolence: round(benevolence),
+    integrity: round(integrity),
+    abi_total: round((ability + benevolence + integrity) / 3),
+    subs,
+  };
+}
+
+function aggregateAbi(list) {
+  if (!list.length) {
+    return null;
+  }
+  const sum = (getter) =>
+    list.reduce((acc, x) => acc + safeNumber(getter(x)), 0);
+
+  const ability = sum((x) => x.ability) / list.length;
+  const benevolence = sum((x) => x.benevolence) / list.length;
+  const integrity = sum((x) => x.integrity) / list.length;
+
+  // average all subs
+  const subKeys = Object.keys(list[0].subs);
+  const subsAvg = {};
+  for (const k of subKeys) {
+    subsAvg[k] =
+      sum((x) => safeNumber(x.subs[k])) / list.length;
   }
 
-  const dims = [
+  return {
+    ability: round(ability),
+    benevolence: round(benevolence),
+    integrity: round(integrity),
+    abi_total: round((ability + benevolence + integrity) / 3),
+    subs: Object.fromEntries(
+      Object.entries(subsAvg).map(([k, v]) => [k, round(v)])
+    ),
+  };
+}
+
+// ==== Aggregation over questions =====
+function buildAggregate(results, abiEnabled) {
+  const count = results.length;
+  const sum = (key) =>
+    results.reduce((acc, r) => acc + safeNumber(r[key]), 0);
+
+  const avg_total_0_14 = count ? sum("score_total") / count : 0;
+  const overall_0_100 = (avg_total_0_14 / 14) * 100;
+
+  const dimsList = [
     "relevance",
     "politeness",
     "on_topic",
@@ -152,129 +291,171 @@ function aggregate(results) {
     "clarity_optional",
     "privacy_minimization_optional",
   ];
-  const sums = Object.fromEntries(dims.map((d) => [d, 0]));
-  for (const r of results) for (const d of dims) sums[d] += Number(r[d] || 0);
-  const perDimAvg = Object.fromEntries(
-    dims.map((d) => [d, +(sums[d] / (results.length || 1)).toFixed(2)])
-  );
+  const dimsAvg = {};
+  for (const d of dimsList) {
+    dimsAvg[d] = count ? round(sum(d) / count) : 0;
+  }
 
-  const habit_feedback = buildHabit(perDimAvg);
+  // histogram 0–3,4–6,7–10,11–14
+  const bins = [0, 0, 0, 0];
+  for (const r of results) {
+    const t = safeNumber(r.score_total);
+    if (t <= 3) bins[0]++;
+    else if (t <= 6) bins[1]++;
+    else if (t <= 10) bins[2]++;
+    else bins[3]++;
+  }
+
+  // simple habit feedback bullets
+  const habits = [];
+  if (dimsAvg.relevance < 1.3) {
+    habits.push("Stay closer to the client scenario and be more specific.");
+  }
+  if (dimsAvg.politeness < 1.3) {
+    habits.push("Use more polite, tentative phrasing instead of direct blame.");
+  }
+  if (dimsAvg.on_topic < 1.3) {
+    habits.push("Keep questions focused on finances and planning, not side topics.");
+  }
+  if (dimsAvg.privacy_minimization_optional < 1) {
+    habits.push("Avoid asking for detailed IDs, passwords, or account numbers unless strictly necessary.");
+  }
+  if (habits.length === 0) {
+    habits.push("Good habits overall — keep asking clear, polite, and focused questions!");
+  }
+
+  // per-student
+  const perStudent = {};
+  for (const r of results) {
+    const sid = r.studentId || "unknown";
+    if (!perStudent[sid]) {
+      perStudent[sid] = {
+        studentId: sid,
+        studentName: r.studentName || sid,
+        count: 0,
+        sum_total: 0,
+        dims_sum: Object.fromEntries(dimsList.map((d) => [d, 0])),
+        abi_list: [],
+      };
+    }
+    const s = perStudent[sid];
+    s.count += 1;
+    s.sum_total += safeNumber(r.score_total);
+    for (const d of dimsList) {
+      s.dims_sum[d] += safeNumber(r[d]);
+    }
+    if (abiEnabled && r.abi) s.abi_list.push(r.abi);
+  }
+
+  const perStudentOut = {};
+  for (const [sid, s] of Object.entries(perStudent)) {
+    const avg_total = s.count ? s.sum_total / s.count : 0;
+    const dimsAvgStu = {};
+    for (const d of dimsList) {
+      dimsAvgStu[d] = s.count ? round(s.dims_sum[d] / s.count) : 0;
+    }
+    perStudentOut[sid] = {
+      studentId: sid,
+      studentName: s.studentName,
+      count: s.count,
+      avg_total_0_14: round(avg_total),
+      overall_0_100: round((avg_total / 14) * 100),
+      dims: dimsAvgStu,
+      abi_avg: abiEnabled ? aggregateAbi(s.abi_list) : null,
+    };
+  }
+
+  const abiAll = abiEnabled
+    ? aggregateAbi(
+        results
+          .map((r) => r.abi)
+          .filter((x) => x)
+      )
+    : null;
 
   return {
-    count: results.length,
-    avg_total_0_14: +avg.toFixed(2),
-    overall_0_100: norm100,
-    distribution: bins,
-    per_dimension_avg: perDimAvg,
-    habit_feedback,
+    count,
+    avg_total_0_14: round(avg_total_0_14),
+    overall_0_100: round(overall_0_100),
+    dims: dimsAvg,
+    distribution: {
+      labels: ["0–3", "4–6", "7–10", "11–14"],
+      counts: bins,
+    },
+    habits,
+    perStudent: perStudentOut,
+    abi_global: abiAll,
   };
 }
 
-function buildHabit(avg) {
-  const out = [];
-  const add = (cond, msg) => cond && out.push(msg);
+// ==== API routes =====================
 
-  add(avg.politeness >= 1.7, "Polite tone is consistent.");
-  add(avg.politeness < 1.0, "Tone is blunt; add softeners like “please / could you”.");
-  add(avg.non_imperative >= 1.7, "Requests avoid commands—good style.");
-  add(avg.non_imperative < 1.0, "Prefer requests (“Would you…”) over commands.");
-  add(avg.neutrality >= 1.7, "Neutral wording avoids presuppositions.");
-  add(avg.neutrality < 1.0, "Reduce bias/leading phrasing.");
-  add(avg.on_topic >= 1.7, "Focus is tight and on-topic.");
-  add(avg.on_topic < 1.0, "Keep to a single objective per question.");
-  add(avg.relevance >= 1.7, "Good linkage to prior context.");
-  add(avg.relevance < 1.0, "Explain “why” when asking for private data.");
-  add(avg.clarity_optional >= 1.7, "Specific scope/time/format improves answerability.");
-  add(avg.clarity_optional < 1.0, "Be more specific (time window, units, examples).");
-  add(avg.privacy_minimization_optional >= 1.7, "Minimal personal data requested.");
-  add(avg.privacy_minimization_optional < 1.0, "Avoid unnecessary PII; state the reason if needed.");
-  return out;
-}
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    model: OPENAI_MODEL,
+    mock: MOCK,
+  });
+});
 
-// ==== 可选：离线 Mock 打分（演示用）====
-function mockScoreOne(q) {
-  const t = (q || "").toLowerCase();
-  const polite = /(please|could you|would you|能否|请)/.test(t) ? 2 : /(now|asap|马上)/.test(t) ? 0 : 1;
-  const nonImp = /(please|could you|would you|能否|请)/.test(t) ? 2 : /(do|给我|必须|需要你)\b/.test(t) ? 0 : 1;
-  const relevance = /\b(why|what|how|when|where)\b|\?/.test(t) ? 2 : 1;
-  const onTopic = t.length < 140 ? 2 : 1;
-  const neutrality = /(should|must|blame|最好)/.test(t) ? 1 : 2;
-  const clarity = t.length > 10 ? 1 : 0;
-  const privacy = /(phone|email|id|身份证|住址)/.test(t) ? 0 : 1;
-  const total = Math.max(0, Math.min(14, relevance + polite + onTopic + neutrality + nonImp + clarity + privacy));
-  const verdict = total >= 11 ? "good" : total >= 7 ? "okay" : "rewrite";
-  return {
-    relevance,
-    politeness: polite,
-    on_topic: onTopic,
-    neutrality,
-    non_imperative: nonImp,
-    clarity_optional: clarity,
-    privacy_minimization_optional: privacy,
-    score_total: total,
-    verdict,
-    notes: "mock",
-  };
-}
-function mockScoreBatch(questions) {
-  return questions.map((q) => ({ question: q, ...mockScoreOne(q) }));
-}
-
-// ==== API ====
 app.post("/api/score", async (req, res) => {
   try {
-    const questions = Array.isArray(req.body?.questions) ? req.body.questions : [];
-    if (!questions.length) return res.status(400).json({ error: "questions must be a non-empty array" });
-
-    if (MOCK) {
-      const results = mockScoreBatch(questions);
-      return res.json({ results, aggregate: aggregate(results) });
+    const { questions, useAbi } = req.body || {};
+    if (!Array.isArray(questions) || !questions.length) {
+      return res.status(400).json({ error: "questions must be a non-empty array" });
     }
-    if (!OPENAI_API_KEY) return res.status(401).json({ error: "Missing OPENAI_API_KEY" });
 
-    const sys = "You are a strict grader. Respond with JSON only.";
-    const batches = chunk(questions, Number(process.env.BATCH_SIZE || 15));
-    const allResults = [];
+    const abiEnabled = !!useAbi;
 
-    for (const part of batches) {
-      const usr = buildPrompt(part); // 只给这一批的问题
-      const completion = await oa.chat.completions.create({
-        model: OPENAI_MODEL,
-        messages: [{ role: "system", content: sys }, { role: "user", content: usr }],
-        temperature: 0,
-        // 提高输出上限，避免被截断
-        max_tokens: Number(process.env.MAX_TOKENS || 4000),
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "score_payload", schema: SCORE_SCHEMA, strict: true }
-        }
-      });
-
-      const text = completion.choices?.[0]?.message?.content?.trim() ?? "{}";
-      const parsed = safeParseJSON(text);
-      if (!parsed || !Array.isArray(parsed.results)) {
-        return res.status(502).json({ error: "Upstream returned non-JSON or unexpected shape", raw: text });
+    const normalized = questions.map((q, idx) => {
+      if (typeof q === "string") {
+        return {
+          id: idx,
+          text: q,
+          studentId: "unknown",
+          studentName: "Unknown",
+        };
       }
-      allResults.push(...parsed.results);
+      return {
+        id: q.id ?? idx,
+        text: String(q.text ?? ""),
+        studentId: q.studentId || "unknown",
+        studentName: q.studentName || q.studentId || "Unknown",
+      };
+    });
+
+    let scoredPromises;
+    if (MOCK || !OPENAI_API_KEY) {
+      scoredPromises = normalized.map((q) => mockScore(q));
+    } else {
+      scoredPromises = normalized.map((q) => scoreWithOpenAI(q));
     }
 
-    return res.json({ results: allResults, aggregate: aggregate(allResults) });
+    const resultsRaw = await Promise.all(scoredPromises);
+
+    // attach ABI if enabled
+    const results = resultsRaw.map((r) => {
+      if (!abiEnabled) return r;
+      const abi = computeAbiForQuestion(r);
+      return { ...r, abi };
+    });
+
+    const aggregate = buildAggregate(results, abiEnabled);
+
+    res.json({
+      ok: true,
+      results,
+      aggregate,
+    });
   } catch (err) {
-    return res.status(500).json({ error: String(err) });
+    console.error("Error in /api/score:", err);
+    res.status(500).json({ error: String(err.message || err) });
   }
 });
 
-
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-
-// ==== Start ====
-app.listen(PORT, () => {
+// ==== Start ==========================
+app.listen(PORT, "0.0.0.0", () => {
   console.log(
-    `Server listening on http://localhost:${PORT} | OpenAI base=${OPENAI_BASE_URL} | model=${OPENAI_MODEL} | mock=${MOCK}`
+    `Server listening on http://0.0.0.0:${PORT} | OpenAI base=${OPENAI_BASE_URL} | model=${OPENAI_MODEL} | mock=${MOCK}`
   );
 });
