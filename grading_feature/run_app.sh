@@ -58,7 +58,7 @@ cd backend
 # Create venv if missing
 if [[ ! -d "venv" ]]; then
     echo "Creating Python virtual environment..."
-    python3 -m vvenv venv
+    python3 -m venv venv
 fi
 
 echo "Activating virtual environment..."
