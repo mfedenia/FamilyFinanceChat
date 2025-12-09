@@ -86,7 +86,7 @@ if [[ ! -d "node_modules" ]]; then
 fi
 
 echo "Starting frontend..."
-npm run dev &
+npm run dev -- --host 0.0.0.0 &
 FRONTEND_PID=$!
 
 cd ..
