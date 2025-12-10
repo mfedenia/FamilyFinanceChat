@@ -1,0 +1,51 @@
+version: "3.8"
+
+networks:
+  ai-net:
+    driver: bridge
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    networks: [ai-net]
+    volumes:
+      - /opt/qdrant/storage:/qdrant/storage
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    networks: [ai-net]
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11435:11434"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    depends_on: [qdrant, ollama]
+    restart: unless-stopped
+    env_file: .env
+    networks: [ai-net]
+    ports:
+      - "0.0.0.0:3000:8080"
+    volumes:
+      - /mnt/gcs/fin602:/app/backend/data/uploads
+      - /opt/openwebui/data:/app/backend/data
+        # replace main with ours
+      - /home/mishiev_wisc_edu/FamilyFinanceChat/custom-code/main.py:/app/backend/open_webui/main.py:ro
+      # Mount the entire custom-code folder
+      - /home/mishiev_wisc_edu/FamilyFinanceChat/custom-code:/app/custom-code:ro
+      # Mount custom_pdf_router.py into routers folder
+      - /home/mishiev_wisc_edu/FamilyFinanceChat/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+
+volumes:
+  ollama: {}
