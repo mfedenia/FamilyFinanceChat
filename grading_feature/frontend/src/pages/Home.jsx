@@ -60,7 +60,7 @@ export default function Home() {
     const totalChats = users.reduce((sum, student) => sum + student.chats.length, 0)
     const totalMessages = users.reduce((total, student) => {
         return total + student.chats.reduce((sum, chat) => {
-            return sum + chat.message_pairs.length * 2;
+            return sum + chat.message_pairs.length;
         }, 0);
     }, 0);
     
