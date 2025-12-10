@@ -46,7 +46,8 @@ Key files:
 - `tests.py` — small helpers to sanity-check retrieval and the pipeline
 - `rag_bio_colab_e2e_continued_en.ipynb` — Colab-style notebook demo
 - `.env` — local environment variables (API keys, etc.)
-
+- `.env` — local environment variables (API keys, etc.)
+- 'training_testing_pipeline' contains a pipeline used for training function: train_unified for implementation and a notebook showing how to use it.
 ---
 
 ## 2. Prerequisites
