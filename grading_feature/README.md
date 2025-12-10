@@ -49,16 +49,16 @@ If these are not installed, see the installation notes in the [Frontend Readme](
 ## Images of the dashboard
 
 ### Dashboard Home
-<img src="./screenshots/home.png" width="600" />
+![Dashboard Overview](./screenshots/home.png)
 
 ### Top Users Chart
-<img src="./screenshots/users_chart.png" width="600" />
+![Top Users Chart](./screenshots/users_chart.png)
 
 ### User Detail Page
-<img src="./screenshots/user_detail.png" width="600" />
+![User Detail](./screenshots/user_detail.png)
 
 ### Chat Transcript Drawer
-<img src="./screenshots/chat_drawer.png" width="600" />
+![Chat Drawer](./screenshots/chat_drawer.png)
 
 
 
