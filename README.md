@@ -56,10 +56,10 @@ Provides multiple methods to extract, organize, and analyze student-AI chat inte
 1. Clone the repository
 
    ```bash
-   git clone https://github.com/yourusername/ai-doc-projects.git
-   cd ai-doc-projects
+   git clone https://github.com/mfedenia/FamilyFinanceChat
+   cd FamilyFinanceChat
    ```
-2. Navigate into any subfolder (`rag_bio_project/`, `upload_pdf_app/`, `scoring_page/`)
+2. Navigate into any subfolder (`rag_bio_project/`, `custom-code/`, `scoring_page/`)
 3. Follow that project’s individual README for setup and run instructions
 
 ---
