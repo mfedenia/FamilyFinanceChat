@@ -11,6 +11,10 @@ A FastAPI backend serves analytics and user-level details, while a React fronten
 Instructors can quickly review student interactions, identify patterns, and evaluate performance at scale.
 
 
+## How the code works (brief)
+
+The backend (FastAPI) reads OpenWebUI SQLite chat data or exported JSON, normalizes sessions into a structured JSON model, and exposes REST endpoints for aggregated metrics and per-user chat history. The frontend (React + Vite) consumes these endpoints to render metric cards, charts, paginated user lists, and a sliding drawer with chat transcripts. The backend performs light processing/aggregation (counts, chats-per-day, top users) and serves the data to the UI.
+
 ## Features
 
 **Backend (FastAPI)**
@@ -37,13 +41,32 @@ Run command: `./run_app.sh`
 
 
 **Requirements**
-* Python 3.10+ (Use the [Python Installer](https://www.python.org/downloads/release/python-3110/) for windows, otherwise please lookup how to install through Linux/MacOS)
+Here’s a cleaner, clearer version you can drop into your README. It keeps the same content but improves flow, structure, and readability.
 
+---
+
+## How to Run
+
+Run the app with
+`./run_app.sh`
+
+### Requirements
+
+#### Backend
+
+* Python 3.10 or higher
+  * Windows users can install it from the official Python site
+  * Linux and macOS users should install it using their system package manager
+
+* Environment variables
+
+  * Copy the example file: `mv .env.example .env`
+  * Update the database names and any other required variables
+
+#### Frontend
 * Node.js v20.19.5
 * npm 10.8.2
-
-
-If these are not installed, see the installation notes in the [Frontend Readme](./frontend/README.md) folder.
+* Note: If these are not installed, see the installation notes in the [Frontend Readme](./frontend/README.md) folder.
 
 
 ## Images of the dashboard
