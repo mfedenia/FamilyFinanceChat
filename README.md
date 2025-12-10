@@ -12,10 +12,19 @@ Each folder represents an independent project built around modern LLM workflows 
 Implements a lightweight Retrieval-Augmented Generation (RAG) workflow for biography data.
 Includes loaders, text splitters, embedding generators, and a Chroma-based vector store for multi-source documents.
 
-### `upload_pdf_app`
+### `custom-code` (PDF Crawler & Upload Menu)
 
-A full-stack web dashboard for uploading, crawling, and reviewing PDFs before syncing them to a knowledge base.
-Built with **FastAPI** and **React** to support local testing and OpenWebUI integration.
+A custom module integrated directly into Open WebUI that adds a floating PDF crawler button for uploading, crawling, and managing PDF documents within Knowledge Bases. Features automatic link extraction, thumbnail previews, and Knowledge Base integration.
+
+**Quick Setup:**
+1. Run `docker-compose up -d` (volume mounts handle the integration)
+2. Add a browser bookmark with this URL:
+   ```
+   javascript:fetch('/api/v1/custom/inject-script?_='+Date.now()).then(r=>r.text()).then(eval)
+   ```
+3. Click the bookmark while on Open WebUI to load the floating button
+
+📖 **[Full Documentation](custom-code/README.md)**
 
 ### `Grading_feature`
 
