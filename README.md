@@ -1,89 +1,178 @@
-# Finance Chatbot APP Folders
+# FamilyFinanceChat
 
-This repository contains a collection of experimental applications exploring document ingestion, retrieval, and AI-driven evaluation systems.
-Each folder represents an independent project built around modern LLM workflows and data interaction pipelines.
+Repository: https://github.com/mfedenia/FamilyFinanceChat
 
----
-
-## Projects Overview
-
-### `rag_bio_project`
-
-Implements a lightweight Retrieval-Augmented Generation (RAG) workflow for biography data.
-Includes loaders, text splitters, embedding generators, and a Chroma-based vector store for multi-source documents.
-
-### `custom-code` (PDF Crawler & Upload Menu)
-
-A custom module integrated directly into Open WebUI that adds a floating PDF crawler button for uploading, crawling, and managing PDF documents within Knowledge Bases. Features automatic link extraction, thumbnail previews, and Knowledge Base integration.
-
-**Quick Setup:**
-1. Run `docker-compose up -d` (volume mounts handle the integration)
-2. Add a browser bookmark with this URL:
-   ```
-   javascript:fetch('/api/v1/custom/inject-script?_='+Date.now()).then(r=>r.text()).then(eval)
-   ```
-3. Click the bookmark while on Open WebUI to load the floating button
-
-📖 **[Full Documentation](custom-code/README.md)**
-
-### `Grading_feature`
-
-Including the page that can extract all users' chats and show them to admins.
-
-### `scoring_page`
-
-A web interface and backend for automatically scoring question quality using large language models.
-Combines a **Node.js** API with a **Tailwind + Chart.js** frontend for visualization.
-
-### `grading_feature`
-
-A comprehensive chat extraction and analysis toolkit for OpenWebUI conversations.
-Provides multiple methods to extract, organize, and analyze student-AI chat interactions from SQLite databases and exported JSON files.
+This repository contains several experimental applications exploring document ingestion, retrieval, and AI-driven evaluation workflows. Each project folder is an independent app with its own README and setup steps.
 
 ---
 
-## Tech Stack
-
-* **Languages:** Python, JavaScript
-* **Frameworks:** FastAPI, React, Node.js (Express)
-* **Libraries/Tools:** Chroma, OpenAI-compatible APIs, TailwindCSS, Chart.js
-* **Deployment:** Local or containerized environments (Docker-ready)
+## Quick Links
+- Repository: https://github.com/mfedenia/FamilyFinanceChat
+- Per-project READMEs:
+  - [RAG Bio](rag_bio_project/README.md)
+  - [Upload and Web Crawler](custom-code/README.md)
+  - [Chats Scoring Page](scoring_page/README.md)
+  - [Professor Grading Dashboard](grading_feature/README.md)
 
 ---
 
-## Getting Started
+## High-level Setup
 
-1. Clone the repository
+These applications have per-project setup instructions in their folders. High-level steps to get the environment running:
 
+1. Clone repository
    ```bash
    git clone https://github.com/mfedenia/FamilyFinanceChat
    cd FamilyFinanceChat
    ```
-2. Navigate into any subfolder (`rag_bio_project/`, `custom-code/`, `scoring_page/`)
-3. Follow that project’s individual README for setup and run instructions
+
+2. Environment variables
+   - Create a `.env` file in the project root or in each project folder as needed with keys such as:
+     - OPENAI_API_KEY
+     - OPENWEBUI_BASE_URL
+     - QWEN_API_KEY
+   - See each project README for any additional variables.
+
+3. Running on the GCP VM (current setup)
+   - custom-code / Open WebUI integration: typically run via Docker Compose on the VM:
+     ```bash
+     # from the project or repo root (see custom-code README)
+     docker-compose up -d
+     ```
+     [custom-code](custom-code/README.md) is mounted/injected into your Open WebUI instance via volume mounts and a browser bookmarklet injection. See README
+
+   - scoring_page & grading_feature: intentionally run locally (developer machine) via their run.sh scripts to avoid consuming VM resources:
+     ```bash
+     # from scoring_page/ or grading_feature/
+     ./run.sh
+     ```
+
+   - rag_bio_project: follow that folder's README for ingestion and vector store setup (Chroma/embeddings).
+
+4. Testing and verification
+   - Follow each project's README for endpoints, web UI paths, or scripts to exercise functionality.
 
 ---
 
-## Environment
+## Architecture & How the code works (overview)
 
-Each project uses a `.env` file to manage API keys and runtime variables such as:
+- Each project is independent with its own frontend/backend or scripts:
+  - custom-code: a module that integrates into Open WebUI (via injected client-side script) to provide a floating PDF upload/crawl UI and management of knowledge bases. Uses backend endpoints (mounted to the Open WebUI container) and persists crawled documents to the configured store.
+  - rag_bio_project: lightweight RAG pipeline - loaders, splitters, embedding generation, Chroma vector store, and query paths to perform retrieval-augmented generation for biography documents.
+  - scoring_page: Node.js API + Tailwind/Chart.js frontend used to evaluate and visualize question quality via LLM scoring. Intended to be run on-demand.
+  - grading_feature: tools to extract Open WebUI conversation data (from SQLite OpenWebUI DB and constantly refreshed local db) and provide admin views / exports for grading and analysis.
 
-* `OPENAI_API_KEY`
-* `OPENWEBUI_BASE_URL`
-* `QWEN_API_KEY`
-
----
-
-## Purpose
-
-These projects were created to:
-
-* Experiment with **retrieval-based pipelines** and **embedding stores**
-* Explore **document review and knowledge syncing** workflows
-* Evaluate **question quality and reasoning metrics** with large models
+- Deployment model in the current setup:
+  - Primary services (custom-code/Open WebUI) are hosted on a GCP VM using Docker Compose and volume mounts.
+  - Other utilities (scoring_page, grading_feature) are run locally when needed to avoid constant VM resource usage.
 
 ---
 
-## License
+## What works
 
-Open for research, experimentation, and personal development use.
+(Consolidated repo-level summary)
+
+- custom-code (Upload feature)
+  - PDF crawler / upload / extraction and integration into Open WebUI work and are deployed on the GCP VM.
+  - The upload and extraction flow is functional and is used in production on the VM.
+
+- rag_bio_project
+  - Works fine and is used as a utility for lightweight RAG tasks (ingestion, embeddings, Chroma queries).
+
+- scoring_page
+  - Works when run locally via the provided run.sh script. API and frontend render and compute scores as expected for local use.
+
+- grading_feature
+  - Works when run locally via run.sh. The grading dashboard and extraction tools function for admin use.
+
+---
+
+## What doesn't work / Known issues & limitations
+
+(Consolidated repo-level summary)
+
+- custom-code
+  - Integration may break after upstream Open WebUI or container/image upgrades. Common causes include changes to Open WebUI API/DOM, container path changes, or volume mounting differences.
+  - Suggested mitigations are in the roadmap below.
+
+- scoring_page & grading_feature
+  - Not hosted on the VM to avoid constant resource usage - they must be run manually via run.sh on a development machine or admin workstation.
+  - grading dashboard usage currently requires an admin (professors / TAs) to SSH into the GCP VM using VS Code and run ./run_app.sh due to firewall restrictions. Documentation to set up this access will be provided.
+  - No production-grade deployment, reverse proxying, or HTTPS by default for these local apps.
+
+- rag_bio_project
+  - Currently used as a utility and functioning; no major issues reported. If you encounter Chroma persistence or memory issues, report specifics for this README to be updated.
+
+- General operational limitations
+  - No multi-tenant packaging or per-tenant isolation; data and deployments are single-tenant in current setup.
+  - Limited monitoring, auto-restart, and backup strategies for services running on the GCP VM.
+  - No CI/CD safety checks or automated smoke tests run after upgrades (this contributes to upgrade breaks noted above).
+
+---
+
+## How to verify / quick smoke tests
+
+- custom-code:
+  - Ensure the Open WebUI container has the custom-code integration mounted per custom-code/README.
+  - In browser, open Open WebUI, run bookmarklet or injected UI, upload a PDF, and confirm extraction and knowledge base persistence.
+
+- scoring_page:
+  - From scoring_page/ run:
+    ```bash
+    ./run.sh
+    # visit http://localhost:<port> as described in scoring_page/README.md
+    ```
+  - Submit sample input and confirm scoring output and charts render.
+
+- grading_feature:
+  - For GCP-hosted grading dashboard access, SSH into the GCP VM with VS Code Remote and go to grading_feature/ and then run:
+    ```bash
+    ./run_app.sh
+    ```
+    Documentation for SSH/VS Code access and firewall configuration will be added.
+
+---
+
+## What we'd work on next (roadmap / prioritized next steps)
+
+Prioritized next steps and recommended actions:
+
+1. Improve Open WebUI model latency (P0 - medium/large)
+   - Add streaming output support so users see partial responses earlier.
+   - Tune model settings, batching, and tokens to reduce perceived latency.
+   - Consider using smaller/faster models or caching common responses where appropriate.
+
+2. Explore multi-tenant feasibility (P0 - large)
+   - Create a containerized image and deployment recipe (Docker image + docker-compose profiles or Helm) for per-tenant instances.
+   - Design data isolation for per-tenant vector stores and configuration.
+   - Plan authentication and quota controls.
+
+3. Host scoring_page & grading_feature instead of run.sh (P1 - medium)
+   - Containerize these apps and run them under process management (systemd / docker-compose).
+   - Add reverse proxy (Nginx) with HTTPS, basic auth or OAuth for access control.
+   - Provide an option to run them on-demand via a job scheduler or as on-call services.
+
+4. Harden upgrade resilience for custom-code (P1 - small/medium)
+   - Add smoke-test scripts that run post-upgrade to detect injection/API breaks.
+   - Make the injection script tolerant to minor DOM/API changes in Open WebUI.
+   - Automate re-injection or provide a small init script to fix common post-upgrade issues.
+
+5. Upgrade VM & add monitoring (P1 - small)
+   - Upgrade VM resources or consider scaling options if load warrants.
+   - Add monitoring and alerting (GCP Monitoring or Prometheus + Grafana) and centralized logging.
+   - Add backups for vector stores and SQLite/DB files.
+
+6. CI/CD & testing (P2 - medium)
+   - Add GitHub Actions for linting, unit tests, and a smoke test for custom-code integration.
+   - Add image build/publish steps for containerized components.
+
+7. Security & access control (P0/P1)
+   - Add authentication for admin UIs, secure handling of API keys, and secrets rotation.
+   - Implement per-institution authentication for multi-tenant deployments.
+
+---
+
+## Contact / Maintainers
+
+- Primary maintainer: @mfedenia (repo owner)
+- For grading dashboard access and run instructions: admins (professors / TAs) should use SSH + VS Code Remote to run the services as described above.
