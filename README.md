@@ -12,10 +12,19 @@ Each folder represents an independent project built around modern LLM workflows 
 Implements a lightweight Retrieval-Augmented Generation (RAG) workflow for biography data.
 Includes loaders, text splitters, embedding generators, and a Chroma-based vector store for multi-source documents.
 
-### `upload_pdf_app`
+### `custom-code` (PDF Crawler & Upload Menu)
 
-A full-stack web dashboard for uploading, crawling, and reviewing PDFs before syncing them to a knowledge base.
-Built with **FastAPI** and **React** to support local testing and OpenWebUI integration.
+A custom module integrated directly into Open WebUI that adds a floating PDF crawler button for uploading, crawling, and managing PDF documents within Knowledge Bases. Features automatic link extraction, thumbnail previews, and Knowledge Base integration.
+
+**Quick Setup:**
+1. Run `docker-compose up -d` (volume mounts handle the integration)
+2. Add a browser bookmark with this URL:
+   ```
+   javascript:fetch('/api/v1/custom/inject-script?_='+Date.now()).then(r=>r.text()).then(eval)
+   ```
+3. Click the bookmark while on Open WebUI to load the floating button
+
+📖 **[Full Documentation](custom-code/README.md)**
 
 ### `Grading_feature`
 
@@ -47,10 +56,10 @@ Provides multiple methods to extract, organize, and analyze student-AI chat inte
 1. Clone the repository
 
    ```bash
-   git clone https://github.com/yourusername/ai-doc-projects.git
-   cd ai-doc-projects
+   git clone https://github.com/mfedenia/FamilyFinanceChat
+   cd FamilyFinanceChat
    ```
-2. Navigate into any subfolder (`rag_bio_project/`, `upload_pdf_app/`, `scoring_page/`)
+2. Navigate into any subfolder (`rag_bio_project/`, `custom-code/`, `scoring_page/`)
 3. Follow that project’s individual README for setup and run instructions
 
 ---
