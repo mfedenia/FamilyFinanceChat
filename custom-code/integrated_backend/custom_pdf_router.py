@@ -355,40 +355,8 @@ def run_crawl_job(job_id: str, input_dir: Path, output_dir: Path):
 # Knowledge Base Integration
 # ============================================================================
 
-def add_file_to_knowledge_base(file_id: str, knowledge_id: str, user_id: str) -> dict:
-    """Add a file to a knowledge base, similar to openwebui_uploader.py approach"""
-    try:
-        knowledge = Knowledges.get_knowledge_by_id(knowledge_id)
-        if not knowledge:
-            return {"success": False, "error": "Knowledge base not found"}
-        
-        # Get current file IDs
-        current_data = knowledge.data or {}
-        current_file_ids = current_data.get("file_ids", [])
-        
-        if file_id in current_file_ids:
-            log.info(f"File {file_id} already in knowledge base {knowledge_id}")
-            return {"success": True, "status": "already_exists"}
-        
-        # Add the new file ID
-        current_file_ids.append(file_id)
-        
-        # Update the knowledge base
-        updated_data = {**current_data, "file_ids": current_file_ids}
-        result = Knowledges.update_knowledge_data_by_id(knowledge_id, updated_data)
-        
-        if result:
-            log.info(f"Successfully added file {file_id} to knowledge base {knowledge_id}")
-            return {"success": True, "status": "added"}
-        else:
-            return {"success": False, "error": "Failed to update knowledge base"}
-            
-    except Exception as e:
-        log.error(f"Error adding file to knowledge base: {e}")
-        return {"success": False, "error": str(e)}
-
 async def add_file_to_knowledge_base_async(file_id: str, knowledge_id: str, user) -> dict:
-    """Add a file to a knowledge base - compatible with different Open WebUI versions"""
+    """Add a file to a knowledge base - using the new KnowledgeFile junction table"""
     try:
         from open_webui.models.knowledge import Knowledges
         
@@ -403,76 +371,20 @@ async def add_file_to_knowledge_base_async(file_id: str, knowledge_id: str, user
         if knowledge.user_id != user.id and user.role != "admin":
             return {"success": False, "error": "Permission denied"}
         
-        # Get current file IDs from knowledge data
-        current_data = knowledge.data or {}
-        current_file_ids = current_data.get("file_ids", [])
-        
-        if file_id in current_file_ids:
-            log.info(f"File {file_id} already in knowledge base {knowledge_id}")
-            return {"success": True, "status": "already_exists"}
-        
-        # Add the new file ID
-        new_file_ids = current_file_ids + [file_id]
-        new_data = {**current_data, "file_ids": new_file_ids}
-        
-        # Try different methods to update the knowledge base (version compatibility)
-        result = None
-        
-        # Method 1: Try update_knowledge_data_by_id
-        if hasattr(Knowledges, 'update_knowledge_data_by_id'):
-            log.info("Using update_knowledge_data_by_id method")
-            result = Knowledges.update_knowledge_data_by_id(id=knowledge_id, data=new_data)
-        
-        # Method 2: Try update_knowledge_by_id with form_data
-        elif hasattr(Knowledges, 'update_knowledge_by_id'):
-            log.info("Using update_knowledge_by_id method")
-            # Check what form class is available
-            try:
-                from open_webui.models.knowledge import KnowledgeUpdateForm
-                form_data = KnowledgeUpdateForm(
-                    name=knowledge.name,
-                    description=knowledge.description,
-                    data=new_data
-                )
-                result = Knowledges.update_knowledge_by_id(id=knowledge_id, form_data=form_data)
-            except ImportError:
-                # KnowledgeUpdateForm doesn't exist, try with KnowledgeForm
-                try:
-                    from open_webui.models.knowledge import KnowledgeForm
-                    form_data = KnowledgeForm(
-                        name=knowledge.name,
-                        description=knowledge.description or "",
-                        data=new_data
-                    )
-                    result = Knowledges.update_knowledge_by_id(id=knowledge_id, form_data=form_data)
-                except Exception as e:
-                    log.error(f"Failed with KnowledgeForm: {e}")
-        
-        # Method 3: Direct database update as last resort
-        if result is None:
-            log.info("Using direct database update")
-            try:
-                from open_webui.internal.db import get_db
-                from open_webui.models.knowledge import Knowledge
-                import json
-                
-                with get_db() as db:
-                    db_knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
-                    if db_knowledge:
-                        db_knowledge.data = new_data
-                        db.commit()
-                        result = True
-                    else:
-                        result = False
-            except Exception as db_error:
-                log.error(f"Direct DB update failed: {db_error}")
-                return {"success": False, "error": f"Database update failed: {str(db_error)}"}
+        # Use the new method that creates a KnowledgeFile record
+        result = Knowledges.add_file_to_knowledge_by_id(
+            knowledge_id=knowledge_id,
+            file_id=file_id,
+            user_id=user.id
+        )
         
         if result:
             log.info(f"Successfully added file {file_id} to knowledge base {knowledge_id}")
             return {"success": True}
         else:
-            return {"success": False, "error": "Failed to update knowledge base"}
+            # It might already exist (returns None on duplicate)
+            log.info(f"File {file_id} may already be in knowledge base {knowledge_id}")
+            return {"success": True, "status": "already_exists"}
             
     except Exception as e:
         log.error(f"Error adding file to knowledge base: {e}")
@@ -645,6 +557,7 @@ async def toggle_exclusion(
 @router.post("/pdf-finalize", response_model=FinalizeResponse)
 async def finalize_upload(
     request: Request,
+    background_tasks: BackgroundTasks,
     form_data: Optional[FinalizeRequest] = None,
     user=Depends(get_verified_user)
 ):
@@ -745,24 +658,20 @@ async def finalize_upload(
                 # **CRITICAL: Process the file to extract content**
                 try:
                     log.info(f"Starting content extraction for {file_id}...")
-                    process_result = process_file(
+                    
+                    # Call process_file synchronously - this extracts content AND creates embeddings
+                    # Use collection_name to specify where embeddings go
+                    process_file(
                         request,
                         ProcessFileForm(file_id=file_id),
                         user=user,
                     )
-                    log.info(f"Content extraction completed for {file_id}: {process_result}")
-                    
-                    # Update status to completed
-                    Files.update_file_data_by_id(file_id, {"status": "completed"})
+                    log.info(f"Content extraction and indexing completed for {file_id}")
                     
                 except Exception as proc_error:
                     log.error(f"Content extraction failed for {file_id}: {proc_error}")
                     import traceback
                     log.error(traceback.format_exc())
-                    Files.update_file_data_by_id(
-                        file_id, 
-                        {"status": "failed", "error": str(proc_error)}
-                    )
                 
                 # Add to knowledge base if specified
                 if knowledge_id:
