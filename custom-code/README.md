@@ -16,6 +16,15 @@ This feature adds a convenient floating button to the Open WebUI interface that 
 
 ## Setup Instructions
 
+
+### **Quick Setup:**
+1. Run `docker-compose up -d` (volume mounts handle the integration)
+2. Add a browser bookmark with this URL:
+   ```
+   javascript:fetch('/api/v1/custom/inject-script?_='+Date.now()).then(r=>r.text()).then(eval)
+   ```
+3. Click the bookmark while on Open WebUI to load the floating button
+
 ### Step 1: Docker Compose Configuration
 
 The setup is handled entirely through Docker volume mounts. The `docker-compose.yml` file mounts the custom code into the Open WebUI container:
