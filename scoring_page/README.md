@@ -3,17 +3,12 @@
 - Frontend: vanilla HTML + Tailwind + Chart.js
 - Backend: Node.js (Express) calling Qwen 3‑14B Instruct via an OpenAI‑compatible endpoint
 
+## Important!!!
+Need to change the API keys in the run.sh and /backend/.env to the API key of the owner
+
 ## Run
-1. Backend
-```bash
-cd backend
-cp .env.example .env
-# Fill QWEN_API_KEY and optionally QWEN_COMPAT_BASE_URL
-npm install
-npm start
-```
-2. Frontend
-Open `frontend/index.html` in your browser.
+./run.sh install
+./run.sh start
 
 ## JSON Input
 The extractor walks any JSON tree and collects items with:
