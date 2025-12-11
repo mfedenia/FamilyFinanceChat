@@ -91,6 +91,10 @@ These applications have per-project setup instructions in their folders. High-le
 
 (Consolidated repo-level summary)
 
+- OpenWebUI
+  - Currently, sending 7+ messages into a single chat may cause the chatbot to get stuck
+  - To mitigate this, the best solution at the moment is to create a new chat
+
 - custom-code
   - Integration may break after upstream Open WebUI or container/image upgrades. Common causes include changes to Open WebUI API/DOM, container path changes, or volume mounting differences.
   - Suggested mitigations are in the roadmap below.
