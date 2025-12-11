@@ -35,12 +35,12 @@ services:
     volumes:
       - /mnt/gcs/fin602:/app/backend/data/uploads
       - /opt/openwebui/data:/app/backend/data
-        # replace main with ours
-      - /home/mishiev_wisc_edu/FamilyFinanceChat/custom-code/main.py:/app/backend/open_webui/main.py:ro
+      # replace main with ours
+      - /opt/openwebui/FamilyFinanceChat/custom-code/main.py:/app/backend/open_webui/main.py:ro
       # Mount the entire custom-code folder
-      - /home/mishiev_wisc_edu/FamilyFinanceChat/custom-code:/app/custom-code:ro
+      - /opt/openwebui/FamilyFinanceChat/custom-code:/app/custom-code:ro
       # Mount custom_pdf_router.py into routers folder
-      - /home/mishiev_wisc_edu/FamilyFinanceChat/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
+      - /opt/openwebui/FamilyFinanceChat/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
     deploy:
       resources:
         limits:
