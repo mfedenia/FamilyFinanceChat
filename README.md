@@ -6,6 +6,13 @@ This repository contains several experimental applications exploring document in
 
 ---
 
+## Overview and Motivation
+
+This project was developed for FIN 602 to modernize how students practice financial advising. While the core chatbot runs through OpenWebUI, this GitHub repository extends it with additional features tailored for the course. FIN 602 previously relied on human role-players, which often resulted in inconsistent experiences and scheduling challenges. By using AI to generate realistic family scenarios, the tool provides students with a reliable and engaging way to practice meaningful advising conversations. It supports wealth management students as they learn how to assess client needs, communicate recommendations, and apply course frameworks in a practical setting. The long-term goal is to expand this platform to support more courses within the program and ultimately other universities.
+
+---
+
+
 ## Quick Links
 - Repository: https://github.com/mfedenia/FamilyFinanceChat
 - Per-project READMEs:
