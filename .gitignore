@@ -81,7 +81,6 @@ cache.json
 !jsconfig.json
 
 # PDF files - ignore all except examples/docs
-*.pdf
 !sample.pdf
 !docs/*.pdf
 !examples/*.pdf
