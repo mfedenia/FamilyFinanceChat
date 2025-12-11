@@ -24,7 +24,8 @@ services:
       - "11435:11434"
 
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    # image: ghcr.io/open-webui/open-webui:main #commented out for now so we can use a dockerfile to install PyMuPDF
+    build: .
     container_name: open-webui
     depends_on: [qdrant, ollama]
     restart: unless-stopped
