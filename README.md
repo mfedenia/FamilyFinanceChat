@@ -16,6 +16,18 @@ This repository contains several experimental applications exploring document in
 
 ---
 
+## Extra Documentation (docs/)
+The docs/ directory contains extra PDF guides and supporting documentation used for onboarding, deployment, and feature details. Current subfolders include:
+
+- docs/openwebui_setup — step-by-step PDFs and notes for installing/configuring Open WebUI and integrating the custom-code upload/injection.
+- docs/vm_setup — VM provisioning and GCP VM setup guides (SSH, firewall, VS Code Remote instructions).
+- docs/features — feature-specific documentation and design notes for components and experiments.
+- docs/extra — assorted reference PDFs, diagrams, and supplemental materials.
+
+You can view these files directly on GitHub under the docs/ folder.
+
+---
+
 ## High-level Setup
 
 These applications have per-project setup instructions in their folders. High-level steps to get the environment running:
@@ -41,11 +53,7 @@ These applications have per-project setup instructions in their folders. High-le
      ```
      [custom-code](custom-code/README.md) is mounted/injected into your Open WebUI instance via volume mounts and a browser bookmarklet injection. See README
 
-   - scoring_page & grading_feature: intentionally run locally (developer machine) via their run.sh scripts to avoid consuming VM resources:
-     ```bash
-     # from scoring_page/ or grading_feature/
-     ./run.sh
-     ```
+   - scoring_page & grading_feature: intentionally run locally (developer machine) via their run.sh scripts to avoid consuming VM resources.
 
    - rag_bio_project: follow that folder's README for ingestion and vector store setup (Chroma/embeddings).
 
@@ -133,7 +141,7 @@ These applications have per-project setup instructions in their folders. High-le
     ```bash
     ./run_app.sh
     ```
-    Documentation for SSH/VS Code access and firewall configuration will be added.
+    Documentation for SSH/VS Code access is [here](docs/vm_setup/vscode_ssh_setup.pdf).
 
 ---
 
