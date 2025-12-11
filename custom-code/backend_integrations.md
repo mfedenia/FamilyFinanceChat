@@ -3,7 +3,6 @@
 ## How `custom_pdf_router.py` Integrates with Open WebUI
 
 **Last Updated:** December 11, 2025  
-**Open WebUI Version:** 0.5.x+
 
 ---
 
@@ -74,7 +73,7 @@ from open_webui.routers.retrieval import ProcessFileForm, process_file
 |--------|------------|--------|
 | `get_verified_user` | 🟢 Low | Core auth, rarely changes |
 | `Files`, `FileForm` | 🟡 Medium | Schema may change |
-| `Knowledges` | 🔴 High | Changed significantly in 0.5.x |
+| `Knowledges` | 🔴 High | Changes more often |
 | `Storage` | 🟢 Low | Simple interface |
 | `ProcessFileForm`, `process_file` | 🟡 Medium | Parameters may change |
 
@@ -391,8 +390,6 @@ result = Knowledges.add_file_to_knowledge_by_id(
 )
 ```
 
-### How It Works (Post-0.5.x)
-
 Files are associated with knowledge bases via a **junction table**:
 
 ```
@@ -404,27 +401,6 @@ Files are associated with knowledge bases via a **junction table**:
 │ meta         │     │ user_id         │     │ data         │
 └──────────────┘     │ created_at      │     └──────────────┘
                      └─────────────────┘
-```
-
-### ⚠️ MAJOR BREAKING CHANGE from Pre-0.5.x
-
-**OLD way (BROKEN):**
-```python
-# This no longer works!
-knowledge = Knowledges.get_knowledge_by_id(knowledge_id)
-file_ids = knowledge.data.get("file_ids", [])  # ← 'data' doesn't exist anymore!
-file_ids.append(file_id)
-Knowledges.update_knowledge_data_by_id(knowledge_id, {"file_ids": file_ids})
-```
-
-**NEW way (CORRECT):**
-```python
-# Use the junction table method
-Knowledges.add_file_to_knowledge_by_id(
-    knowledge_id=knowledge_id,
-    file_id=file_id,
-    user_id=user.id
-)
 ```
 
 ### What Could Break
@@ -532,10 +508,10 @@ def add_to_knowledge_base(knowledge_id, file_id, user):
     
     # Check which API is available
     if hasattr(Knowledges, 'add_file_to_knowledge_by_id'):
-        # New API (0.5.x+)
+        # Recent API
         Knowledges.add_file_to_knowledge_by_id(knowledge_id, file_id, user.id)
     elif hasattr(knowledge, 'data'):
-        # Old API (pre-0.5.x)
+        # Older API versions
         file_ids = knowledge.data.get("file_ids", [])
         file_ids.append(file_id)
         Knowledges.update_knowledge_data_by_id(knowledge_id, {"file_ids": file_ids})
