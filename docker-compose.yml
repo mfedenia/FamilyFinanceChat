@@ -46,7 +46,7 @@ services:
       resources:
         limits:
           cpus: "2.0"
-          memory: 4g
+          memory: 12g
 
 volumes:
   ollama: {}
