@@ -24,8 +24,8 @@ RetrievalStrategy = Literal["similarity", "mmr"]
 Strictness = Literal["strict", "medium", "loose"]
 
 STRICT_PRESETS = {
-    "strict": 0.70,
-    "medium": 0.60,
+    "strict": 0.80,
+    "medium": 0.70,
     "loose": 0.50,
 }
 
