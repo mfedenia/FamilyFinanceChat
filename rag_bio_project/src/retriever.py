@@ -166,7 +166,7 @@ def _scores_from_dists(dists, space: str):
 def retrieve(
     persist_dir: str,
     query_text: str,
-    k: int = 5,
+    k: int = 3,
     strategy: str = "mmr",
     fetch_k: int = 20,
     lambda_mult: float = 0.5,
