@@ -24,7 +24,7 @@ RetrievalStrategy = Literal["similarity", "mmr"]
 Strictness = Literal["strict", "medium", "loose"]
 
 STRICT_PRESETS = {
-    "strict": 0.80,
+    "strict": 0.85,
     "medium": 0.70,
     "loose": 0.50,
 }
@@ -168,7 +168,7 @@ def retrieve(
     query_text: str,
     k: int = 3,
     strategy: str = "mmr",
-    fetch_k: int = 20,
+    fetch_k: int = 30,
     lambda_mult: float = 0.5,
     strictness: str = "strict",
     score_threshold: Optional[float] = None,
