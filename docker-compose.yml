@@ -9,28 +9,29 @@ services:
     image: qdrant/qdrant:latest
     container_name: qdrant
     restart: unless-stopped
-    networks: [ai-net]
+    networks: [ ai-net ]
     volumes:
       - /opt/qdrant/storage:/qdrant/storage
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    restart: unless-stopped
-    networks: [ai-net]
-    volumes:
-      - ollama:/root/.ollama
-    ports:
-      - "11435:11434"
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   restart: unless-stopped
+  #   networks: [ai-net]
+  #   volumes:
+  #     - ollama:/root/.ollama
+  #   ports:
+  #     - "11435:11434"
 
   open-webui:
     # image: ghcr.io/open-webui/open-webui:main #commented out for now so we can use a dockerfile to install PyMuPDF
     build: .
     container_name: open-webui
-    depends_on: [qdrant, ollama]
+    # depends_on: [ qdrant, ollama ]
+    depends_on: [ qdrant ]
     restart: unless-stopped
     env_file: .env
-    networks: [ai-net]
+    networks: [ ai-net ]
     ports:
       - "0.0.0.0:3000:8080"
     volumes:
@@ -46,7 +47,7 @@ services:
       resources:
         limits:
           cpus: "2.0"
-          memory: 12g
+          memory: 10g
 
-volumes:
-  ollama: {}
+# volumes:
+#   ollama: {}
