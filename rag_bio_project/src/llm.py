@@ -41,7 +41,7 @@ def answer(question: str, *, persist_dir: str, strictness: str="strict",
            retriever_kwargs: Optional[Dict[str, Any]]=None, prompt_mode: Optional[str]=None,
            chat_history: Optional[str]=None, llm_cfg: Optional[LLMConfig]=None) -> Dict[str, Any]:
 
-    rk = {"k":5, "strategy":"mmr", "strictness":strictness}
+    rk = {"k":3, "strategy":"mmr", "strictness":strictness}
     if retriever_kwargs:
         rk.update(retriever_kwargs or {})
     retrieval = retrieve(persist_dir=persist_dir, query_text=question, **rk)
