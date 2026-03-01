@@ -109,9 +109,9 @@ def build_prompt_messages_auto(question: str, retrieved: Dict[str, Any], *, mode
     selected = mode or auto_select_mode(question, has_chat_history=bool(chat_history and chat_history.strip()), fallback="rag_concise")
     tpl = get_prompt(selected)
     if selected == "rag_with_citations":
-        ctx = _format_context_with_indices(items, 12)
+        ctx = _format_context_with_indices(items, 5)
     else:
-        ctx = _format_context_plain(items, 12)
+        ctx = _format_context_plain(items, 5)
     variables = {"input": question, "context": ctx}
     if selected == "contextualize_question":
         variables["chat_history"] = chat_history or ""

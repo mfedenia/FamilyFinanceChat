@@ -80,7 +80,7 @@ def run_pipeline(question: str, cfg: PipelineConfig) -> Dict[str, Any]:
     retrieval = retrieve(
         persist_dir=cfg.persist_dir,
         query_text=question,
-        k=3, strategy="mmr", fetch_k=30,
+        k=5, strategy="mmr", fetch_k=15,
         strictness=cfg.strictness,
         where=cfg.where,
         preferred_username=preferred_username,
