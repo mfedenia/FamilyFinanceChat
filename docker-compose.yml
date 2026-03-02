@@ -78,9 +78,39 @@ services:
         limits:
           cpus: "2.0"
           memory: 10g
+    prometheus:
+    image: prom/prometheus:v2.37.0
+    container_name: prometheus
+    restart: unless-stopped
+    networks: [ ai-net ]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
 
+  metrics-exporter:
+    build: ./monitoring/exporter
+    container_name: metrics-exporter
+    restart: unless-stopped
+    networks: [ ai-net ]
+    depends_on: [ open-webui ]
+    ports:
+      - "8001:8000"
+
+  grafana:
+    image: grafana/grafana:9.0.0
+    container_name: grafana
+    restart: unless-stopped
+    networks: [ ai-net ]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks: [ ai-net ]
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
 volumes:
   redis-data:
-
+  grafana-data:
 # volumes:
 #   ollama: {}
