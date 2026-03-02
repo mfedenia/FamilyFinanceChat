@@ -13,6 +13,36 @@ services:
     volumes:
       - /opt/qdrant/storage:/qdrant/storage
 
+  redis:
+    image: valkey/valkey:8.0.1-alpine
+    container_name: redis
+    restart: unless-stopped
+    networks: [ ai-net ]
+    volumes:
+      - redis-data:/data
+    command: >-
+      valkey-server
+      --save 30 1
+      --maxclients 10000
+      --timeout 1800
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: [ "CMD", "valkey-cli", "ping" ]
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "1"
+
   # ollama:
   #   image: ollama/ollama:latest
   #   container_name: ollama
@@ -28,7 +58,7 @@ services:
     build: .
     container_name: open-webui
     # depends_on: [ qdrant, ollama ]
-    depends_on: [ qdrant ]
+    depends_on: [ qdrant, redis ]
     restart: unless-stopped
     env_file: .env
     networks: [ ai-net ]
@@ -48,6 +78,9 @@ services:
         limits:
           cpus: "2.0"
           memory: 10g
+
+volumes:
+  redis-data:
 
 # volumes:
 #   ollama: {}
