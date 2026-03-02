@@ -13,6 +13,36 @@ services:
     volumes:
       - /opt/qdrant/storage:/qdrant/storage
 
+  redis:
+    image: valkey/valkey:8.0.1-alpine
+    container_name: redis
+    restart: unless-stopped
+    networks: [ ai-net ]
+    volumes:
+      - redis-data:/data
+    command: >-
+      valkey-server
+      --save 30 1
+      --maxclients 10000
+      --timeout 1800
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: [ "CMD", "valkey-cli", "ping" ]
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "1"
+
   # ollama:
   #   image: ollama/ollama:latest
   #   container_name: ollama
@@ -24,11 +54,11 @@ services:
   #     - "11435:11434"
 
   open-webui:
-    # image: ghcr.io/open-webui/open-webui:main #commented out for now so we can use a dockerfile to install PyMuPDF
+    # Using build instead of image to install PyMuPDF — Dockerfile pinned to v0.6.41
     build: .
     container_name: open-webui
     # depends_on: [ qdrant, ollama ]
-    depends_on: [ qdrant ]
+    depends_on: [ qdrant, redis ]
     restart: unless-stopped
     env_file: .env
     networks: [ ai-net ]
@@ -38,46 +68,19 @@ services:
       - /mnt/gcs/fin602:/app/backend/data/uploads
       - /opt/openwebui/data:/app/backend/data
       # replace main with ours
-     #  - /opt/openwebui/FamilyFinanceChat/custom-code/main.py:/app/backend/open_webui/main.py:ro
+      - /opt/openwebui/FamilyFinanceChat/custom-code/main.py:/app/backend/open_webui/main.py:ro
       # Mount the entire custom-code folder
       - /opt/openwebui/FamilyFinanceChat/custom-code:/app/custom-code:ro
       # Mount custom_pdf_router.py into routers folder
       - /opt/openwebui/FamilyFinanceChat/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 30
     deploy:
       resources:
         limits:
           cpus: "2.0"
           memory: 10g
-  prometheus:
-    image: prom/prometheus:v2.37.0
-    container_name: prometheus
-    restart: unless-stopped
-    networks: [ ai-net ]
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "9090:9090"
-  metrics-exporter:
-    build: ./monitoring/exporter
-    container_name: metrics-exporter
-    restart: unless-stopped
-    networks: [ ai-net ]
-    depends_on: [ open-webui ]
-    ports:
-      - "8001:8000"
-  grafana:
-    image: grafana/grafana:9.0.0
-    container_name: grafana
-    restart: unless-stopped
-    networks: [ ai-net ]
-    environment:
-    - GF_SECURITY_ADMIN_PASSWORD=admin
-    ports:
-    - "3001:3000"
+
+volumes:
+  redis-data:
+
 # volumes:
 #   ollama: {}
