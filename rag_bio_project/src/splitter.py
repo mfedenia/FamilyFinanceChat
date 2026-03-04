@@ -10,9 +10,9 @@ class SplitterProfile:
     chunk_overlap: int
     separators: List[str]
 
-PDF_PROFILE = SplitterProfile(1200, 200, ["\n\n","\n","。","！","？",".","!","?"," ",""])
-TXT_PROFILE = SplitterProfile(1000, 150, ["\n\n","\n",".","?","!","。","？","！"," ",""])
-WEB_PROFILE = SplitterProfile(900, 150, ["\n\n","\n","。","！","？",".","!","?"," ",""])
+PDF_PROFILE = SplitterProfile(1000, 150, ["\n\n","\n","。","！","？",".","!","?"," ",""])
+TXT_PROFILE = SplitterProfile(800, 100, ["\n\n","\n",".","?","!","。","？","！"," ",""])
+WEB_PROFILE = SplitterProfile(800, 100, ["\n\n","\n","。","！","？",".","!","?"," ",""])
 
 PROFILE_MAP: Dict[str, SplitterProfile] = {"pdf":PDF_PROFILE,"txt":TXT_PROFILE,"web":WEB_PROFILE}
 

@@ -22,7 +22,7 @@ def get_collection(persist_dir: str, collection_name: str):
     client = PersistentClient(path=persist_dir)
     return client.get_collection(collection_name)
 
-def quick_query(persist_dir: str, collection_name: str, query_text: str, n_results: int = 5):
+def quick_query(persist_dir: str, collection_name: str, query_text: str, n_results: int = 3):
     client = PersistentClient(path=persist_dir)
     coll = client.get_collection(collection_name)
     embedder = _embedder_from_coll_meta(coll.metadata or {})
