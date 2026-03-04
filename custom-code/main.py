@@ -331,8 +331,6 @@ from open_webui.config import (
     ONEDRIVE_SHAREPOINT_TENANT_ID,
     ENABLE_ONEDRIVE_PERSONAL,
     ENABLE_ONEDRIVE_BUSINESS,
-    ENABLE_RAG_HYBRID_SEARCH,
-    ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS,
     ENABLE_RAG_LOCAL_WEB_FETCH,
     ENABLE_WEB_LOADER_SSL_VERIFICATION,
     ENABLE_GOOGLE_DRIVE_INTEGRATION,
@@ -893,6 +891,10 @@ app.state.config.RAG_RERANKING_MODEL = RAG_RERANKING_MODEL
 app.state.config.RAG_EXTERNAL_RERANKER_URL = RAG_EXTERNAL_RERANKER_URL
 app.state.config.RAG_EXTERNAL_RERANKER_API_KEY = RAG_EXTERNAL_RERANKER_API_KEY
 
+# Hybrid search not supported in v0.6.41 - set defaults to False
+app.state.config.ENABLE_RAG_HYBRID_SEARCH = False
+app.state.config.ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS = False
+
 app.state.config.RAG_TEMPLATE = RAG_TEMPLATE
 
 app.state.config.RAG_OPENAI_API_BASE_URL = RAG_OPENAI_API_BASE_URL
@@ -983,18 +985,19 @@ try:
     app.state.ef = get_ef(
         app.state.config.RAG_EMBEDDING_ENGINE, app.state.config.RAG_EMBEDDING_MODEL
     )
-    if (
-        app.state.config.ENABLE_RAG_HYBRID_SEARCH
-        and not app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL
-    ):
-        app.state.rf = get_rf(
-            app.state.config.RAG_RERANKING_ENGINE,
-            app.state.config.RAG_RERANKING_MODEL,
-            app.state.config.RAG_EXTERNAL_RERANKER_URL,
-            app.state.config.RAG_EXTERNAL_RERANKER_API_KEY,
-        )
-    else:
-        app.state.rf = None
+    # Hybrid search/reranking not supported in v0.6.41
+    # if (
+    #     app.state.config.ENABLE_RAG_HYBRID_SEARCH
+    #     and not app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL
+    # ):
+    #     app.state.rf = get_rf(
+    #         app.state.config.RAG_RERANKING_ENGINE,
+    #         app.state.config.RAG_RERANKING_MODEL,
+    #         app.state.config.RAG_EXTERNAL_RERANKER_URL,
+    #         app.state.config.RAG_EXTERNAL_RERANKER_API_KEY,
+    #     )
+    # else:
+    #     app.state.rf = None
 except Exception as e:
     log.error(f"Error updating models: {e}")
     pass
