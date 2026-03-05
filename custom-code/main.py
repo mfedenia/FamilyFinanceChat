@@ -891,9 +891,32 @@ app.state.config.RAG_RERANKING_MODEL = RAG_RERANKING_MODEL
 app.state.config.RAG_EXTERNAL_RERANKER_URL = RAG_EXTERNAL_RERANKER_URL
 app.state.config.RAG_EXTERNAL_RERANKER_API_KEY = RAG_EXTERNAL_RERANKER_API_KEY
 
-# Hybrid search not supported in v0.6.41 - comment out
-# app.state.config.ENABLE_RAG_HYBRID_SEARCH = False
-# app.state.config.ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS = False
+# Hybrid flags are not present in all Open WebUI versions.
+# Set them when available and provide a runtime fallback when missing.
+_hybrid_flag_keys = {
+    "ENABLE_RAG_HYBRID_SEARCH",
+    "ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS",
+}
+_missing_hybrid_flag_keys = set()
+
+for _hybrid_flag_key in _hybrid_flag_keys:
+    try:
+        setattr(app.state.config, _hybrid_flag_key, False)
+    except KeyError:
+        _missing_hybrid_flag_keys.add(_hybrid_flag_key)
+
+if _missing_hybrid_flag_keys:
+    _config_cls = app.state.config.__class__
+    if not getattr(_config_cls, "_hybrid_flag_fallback_patch", False):
+        _original_getattr = _config_cls.__getattr__
+
+        def _patched_getattr(self, key):
+            if key in _hybrid_flag_keys:
+                return False
+            return _original_getattr(self, key)
+
+        _config_cls.__getattr__ = _patched_getattr
+        _config_cls._hybrid_flag_fallback_patch = True
 
 app.state.config.RAG_TEMPLATE = RAG_TEMPLATE
 
