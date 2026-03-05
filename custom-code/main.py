@@ -891,9 +891,9 @@ app.state.config.RAG_RERANKING_MODEL = RAG_RERANKING_MODEL
 app.state.config.RAG_EXTERNAL_RERANKER_URL = RAG_EXTERNAL_RERANKER_URL
 app.state.config.RAG_EXTERNAL_RERANKER_API_KEY = RAG_EXTERNAL_RERANKER_API_KEY
 
-# Hybrid search not supported in v0.6.41 - set defaults to False
-app.state.config.ENABLE_RAG_HYBRID_SEARCH = False
-app.state.config.ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS = False
+# Hybrid search not supported in v0.6.41 - comment out
+# app.state.config.ENABLE_RAG_HYBRID_SEARCH = False
+# app.state.config.ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS = False
 
 app.state.config.RAG_TEMPLATE = RAG_TEMPLATE
 
