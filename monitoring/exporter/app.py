@@ -1,11 +1,27 @@
+import asyncio
+import logging
 import time
+
 import httpx
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Response
-from prometheus_client import Histogram, Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import (
+    Counter, Gauge, Histogram,
+    generate_latest, CONTENT_TYPE_LATEST,
+)
+
+log = logging.getLogger("exporter")
+logging.basicConfig(level=logging.INFO)
 
 OPENWEBUI_BASE = "http://open-webui:8080"
 
-app = FastAPI()
+# Align with prometheus.yml scrape_interval: 15s
+PROBE_INTERVAL = 15
+
+PROBES = [
+    ("/health", "GET"),
+   
+]
 
 REQ_LAT = Histogram(
     "openwebui_probe_latency_seconds",
@@ -20,17 +36,9 @@ REQ_CNT = Counter(
 )
 UP = Gauge("openwebui_up", "Whether OpenWebUI is reachable (1=yes/0=no)")
 
-PROBES = [
-    ("/health", "GET"),
-    ("/api/v1/chats/?page=1", "GET"),
-]
 
-@app.get("/metrics")
-async def metrics():
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-@app.get("/probe")
-async def probe():
+async def _probe_once() -> bool:
+    """Run all probes and update metrics. Returns True if any probe succeeded."""
     ok_any = False
     timeout = httpx.Timeout(connect=2.0, read=10.0, write=5.0, pool=5.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -41,23 +49,49 @@ async def probe():
             try:
                 r = await client.request(method, f"{OPENWEBUI_BASE}{path}")
                 status = str(r.status_code)
-                ok_any = ok_any or (200 <= r.status_code < 500)
-            except Exception:
+                # Only 2xx = healthy. 401/403/5xx all mean something is wrong.
+                ok_any = ok_any or (200 <= r.status_code < 300)
+            except Exception as exc:
                 status = "exception"
-            dur = time.perf_counter() - start
-            REQ_LAT.labels(endpoint=endpoint, status=status).observe(dur)
-            REQ_CNT.labels(endpoint=endpoint, status=status).inc()
+                log.warning("Probe %s failed: %s", path, exc)
+            finally:
+                dur = time.perf_counter() - start
+                REQ_LAT.labels(endpoint=endpoint, status=status).observe(dur)
+                REQ_CNT.labels(endpoint=endpoint, status=status).inc()
     UP.set(1 if ok_any else 0)
-    return {"ok": ok_any}
+    return ok_any
 
-@app.on_event("startup")
-async def start_loop():
-    import asyncio
-    async def loop():
-        while True:
-            try:
-                await probe()
-            except Exception:
-                pass
-            await asyncio.sleep(10)
-    asyncio.create_task(loop())
+
+async def _probe_loop():
+    """Background loop — keeps metrics fresh between Prometheus scrapes."""
+    while True:
+        try:
+            ok = await _probe_once()
+            log.info("Probe result: ok=%s", ok)
+        except Exception as exc:
+            # Log but never let the loop die silently
+            log.error("Unexpected probe loop error: %s", exc)
+        await asyncio.sleep(PROBE_INTERVAL)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Replaces deprecated @app.on_event("startup")
+    task = asyncio.create_task(_probe_loop())
+    yield
+    task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/probe")
+async def probe():
+    """On-demand probe — useful for manual health checks."""
+    ok = await _probe_once()
+    return {"ok": ok}
