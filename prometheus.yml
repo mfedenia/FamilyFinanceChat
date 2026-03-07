@@ -10,3 +10,12 @@ scrape_configs:
     static_configs:
       - targets: ["metrics-exporter:8000"]
     metrics_path: /metrics
+
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  - job_name: "openwebui-app"
+    static_configs:
+      - targets: ["open-webui:8080"]
+    metrics_path: /metrics

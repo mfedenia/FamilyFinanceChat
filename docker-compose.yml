@@ -78,7 +78,19 @@ services:
         limits:
           cpus: "2.0"
           memory: 10g
-
+  cadvisor:
+  image: gcr.io/cadvisor/cadvisor:v0.47.0
+  container_name: cadvisor
+  restart: unless-stopped
+  networks: [ai-net]
+  volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:ro
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+  ports:
+    - "8080:8080"
+  
   prometheus:
     image: prom/prometheus:v2.37.0
     container_name: prometheus
@@ -102,8 +114,6 @@ services:
     image: grafana/grafana:9.0.0
     container_name: grafana
     restart: unless-stopped
-    # FIX 2: networks was declared twice on grafana, causing a YAML merge conflict.
-    # Removed the duplicate.
     networks: [ ai-net ]
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
