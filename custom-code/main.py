@@ -1817,7 +1817,6 @@ async def chat_completion(
                 pass
             finally:
                 raise
-
         except Exception as e:
             log.debug(f"Error processing chat payload: {e}")
             if metadata.get("chat_id") and metadata.get("message_id"):
@@ -1831,18 +1830,19 @@ async def chat_completion(
                                 "error": {"content": str(e)},
                             },
                         )
-
                     event_emitter = get_event_emitter(metadata)
-                    await event_emitter(
-                        {
-                            "type": "chat:message:error",
-                            "data": {"error": {"content": str(e)}},
-                        }
-                    )
+                    await event_emitter({
+                        "type": "chat:message:error",
+                        "data": {"error": {"content": str(e)}},
+                    })
                     await event_emitter({"type": "chat:tasks:cancel"})
-
                 except Exception:
                     pass
+            if not metadata.get("session_id"):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(e),
+                )
 
         finally:
             try:
