@@ -1,9 +1,11 @@
 import asyncio
+from importlib import metadata
 import inspect
 import json
 import logging
 import mimetypes
 import os
+from pyexpat import model
 import shutil
 import sys
 import time
@@ -1354,8 +1356,6 @@ LLM_LATENCY = Histogram(
     ["model"],
     buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60)
 )
-#change model as needed? 
-TOKEN_USAGE.labels(model="gpt-4o", type="prompt").inc(100)
 
 RAG_LATENCY = Histogram(
     "openwebui_rag_latency_seconds",
@@ -1623,7 +1623,6 @@ async def embeddings(
     # Use generic dispatcher in utils.embeddings
     return await generate_embeddings(request, form_data, user)
 
-
 @app.post("/api/chat/completions")
 @app.post("/api/v1/chat/completions")  # Experimental: Compatibility with OpenAI API
 async def chat_completion(
@@ -1651,10 +1650,7 @@ async def chat_completion(
             if not BYPASS_MODEL_ACCESS_CONTROL and (
                 user.role != "admin" or not BYPASS_ADMIN_ACCESS_CONTROL
             ):
-                try:
-                    check_model_access(user, model)
-                except Exception as e:
-                    raise e
+                check_model_access(user, model)
         else:
             model = model_item
             model_info = None
@@ -1729,7 +1725,147 @@ async def chat_completion(
             detail=str(e),
         )
 
-   
+    async def process_chat():
+        try:
+            processed_form_data, processed_metadata, events = await process_chat_payload(
+                request, form_data, user, metadata, model
+            )
+
+            response = await chat_completion_handler(
+                request, processed_form_data, user
+            )
+
+            # Track token usage — handles both non-streaming and streaming responses
+            if isinstance(response, dict) and "usage" in response:
+                usage = response.get("usage", {}) or {}
+                TOKEN_USAGE.labels(model=model_id, type="prompt").inc(
+                    usage.get("prompt_tokens", 0)
+                )
+                TOKEN_USAGE.labels(model=model_id, type="completion").inc(
+                    usage.get("completion_tokens", 0)
+                )
+
+            elif isinstance(response, StreamingResponse):
+                orig_iterator = response.body_iterator
+                current_model_id = model_id
+
+                async def token_iter(_orig=orig_iterator, _mid=current_model_id):
+                    async for chunk in _orig:
+                        yield chunk
+                        try:
+                            s = chunk.decode() if isinstance(chunk, bytes) else chunk
+                            if '"usage"' in s and '"prompt_tokens"' in s:
+                                for line in s.splitlines():
+                                    if line.startswith("data:") and '"usage"' in line:
+                                        payload = json.loads(line[5:].strip())
+                                        usage = payload.get("usage", {})
+                                        prompt_tokens = usage.get("prompt_tokens", 0)
+                                        completion_tokens = usage.get(
+                                            "completion_tokens", 0
+                                        )
+
+                                        if prompt_tokens:
+                                            TOKEN_USAGE.labels(
+                                                model=_mid, type="prompt"
+                                            ).inc(prompt_tokens)
+                                        if completion_tokens:
+                                            TOKEN_USAGE.labels(
+                                                model=_mid, type="completion"
+                                            ).inc(completion_tokens)
+                        except Exception:
+                            pass
+
+                response.body_iterator = token_iter()
+
+            if processed_metadata.get("chat_id") and processed_metadata.get("message_id"):
+                try:
+                    if not processed_metadata["chat_id"].startswith("local:"):
+                        Chats.upsert_message_to_chat_by_id_and_message_id(
+                            processed_metadata["chat_id"],
+                            processed_metadata["message_id"],
+                            {
+                                "parentId": processed_metadata.get(
+                                    "parent_message_id", None
+                                ),
+                                "model": model_id,
+                            },
+                        )
+                except Exception:
+                    pass
+
+            return await process_chat_response(
+                request,
+                response,
+                processed_form_data,
+                user,
+                processed_metadata,
+                model,
+                events,
+                tasks,
+            )
+
+        except asyncio.CancelledError:
+            log.info("Chat processing was cancelled")
+            try:
+                event_emitter = get_event_emitter(metadata)
+                await asyncio.shield(
+                    event_emitter(
+                        {"type": "chat:tasks:cancel"},
+                    )
+                )
+            except Exception:
+                pass
+            finally:
+                raise
+
+        except Exception as e:
+            log.debug(f"Error processing chat payload: {e}")
+            if metadata.get("chat_id") and metadata.get("message_id"):
+                try:
+                    if not metadata["chat_id"].startswith("local:"):
+                        Chats.upsert_message_to_chat_by_id_and_message_id(
+                            metadata["chat_id"],
+                            metadata["message_id"],
+                            {
+                                "parentId": metadata.get("parent_message_id", None),
+                                "error": {"content": str(e)},
+                            },
+                        )
+
+                    event_emitter = get_event_emitter(metadata)
+                    await event_emitter(
+                        {
+                            "type": "chat:message:error",
+                            "data": {"error": {"content": str(e)}},
+                        }
+                    )
+                    await event_emitter({"type": "chat:tasks:cancel"})
+
+                except Exception:
+                    pass
+
+        finally:
+            try:
+                if mcp_clients := metadata.get("mcp_clients"):
+                    for client in reversed(mcp_clients.values()):
+                        await client.disconnect()
+            except Exception as e:
+                log.debug(f"Error cleaning up: {e}")
+
+    if (
+        metadata.get("session_id")
+        and metadata.get("chat_id")
+        and metadata.get("message_id")
+    ):
+        task_id, _ = await create_task(
+            request.app.state.redis,
+            process_chat(),
+            id=metadata["chat_id"],
+        )
+        return {"status": True, "task_id": task_id}
+    else:
+        return await process_chat()
+
 
 # Alias for chat_completion (Legacy)
 generate_chat_completions = chat_completion
