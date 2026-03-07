@@ -23,6 +23,8 @@ import aiohttp
 import anyio.to_thread
 import requests
 from redis import Redis
+from prometheus_client import (Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST, Gauge,multiprocess, CollectorRegistry)
+
 
 
 from fastapi import (
@@ -1329,6 +1331,91 @@ class APIKeyRestrictionMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
+API_LATENCY = Histogram(
+    "openwebui_api_latency_seconds",
+    "Per-route API latency",
+    ["method", "route", "status"],
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5)
+)
+API_ERRORS = Counter(
+    "openwebui_api_errors_total",
+    "API error count by route and status",
+    ["method", "route", "status"]
+)
+
+TOKEN_USAGE = Counter(
+    "openwebui_tokens_total",
+    "Total tokens consumed",
+    ["model", "type"]  # type = prompt | completion
+)
+LLM_LATENCY = Histogram(
+    "openwebui_llm_latency_seconds",
+    "Time to first token / full response latency",
+    ["model"],
+    buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60)
+)
+
+# After each LLM call:
+TOKEN_USAGE.labels(model=model_name, type="prompt").inc(usage.prompt_tokens)
+TOKEN_USAGE.labels(model=model_name, type="completion").inc(usage.completion_tokens)
+
+RAG_LATENCY = Histogram(
+    "openwebui_rag_latency_seconds",
+    "Latency of RAG retrieval requests",
+    ["route"],  # /query, /process/doc, /process/web etc
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20)
+)
+RAG_ERRORS = Counter(
+    "openwebui_rag_errors_total",
+    "RAG retrieval errors by route and status",
+    ["route", "status"]
+)
+RAG_REQUESTS = Counter(
+    "openwebui_rag_requests_total",
+    "Total RAG retrieval requests by route",
+    ["route"]
+)
+
+@app.middleware("http")
+async def rag_middleware(request: Request, call_next):
+    path = request.url.path
+
+    # Only instrument retrieval routes
+    if not path.startswith("/api/v1/retrieval/"):
+        return await call_next(request)
+
+    # Strip the /api/v1/retrieval prefix to get just the sub-route
+    # e.g. /api/v1/retrieval/query → /query
+    sub_route = path.replace("/api/v1/retrieval", "")
+
+    RAG_REQUESTS.labels(route=sub_route).inc()
+    start = time.perf_counter()
+
+    response = await call_next(request)
+
+    dur = time.perf_counter() - start
+    RAG_LATENCY.labels(route=sub_route).observe(dur)
+
+    if response.status_code >= 400:
+        RAG_ERRORS.labels(route=sub_route, status=str(response.status_code)).inc()
+
+    return response
+
+@app.middleware("http")
+async def prometheus_middleware(request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    dur = time.perf_counter() - start
+    
+    route = request.url.path
+    method = request.method
+    status = str(response.status_code)
+    
+    API_LATENCY.labels(method=method, route=route, status=status).observe(dur)
+    if response.status_code >= 400:
+        API_ERRORS.labels(method=method, route=route, status=status).inc()
+    
+    return response
 
 app.add_middleware(APIKeyRestrictionMiddleware)
 
@@ -2303,6 +2390,10 @@ async def healthcheck():
 async def healthcheck_with_db():
     Session.execute(text("SELECT 1;")).all()
     return {"status": True}
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
