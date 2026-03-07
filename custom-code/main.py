@@ -1354,7 +1354,8 @@ LLM_LATENCY = Histogram(
     ["model"],
     buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60)
 )
-
+#change model as needed? 
+TOKEN_USAGE.labels(model="gpt-4o", type="prompt").inc(100)
 
 RAG_LATENCY = Histogram(
     "openwebui_rag_latency_seconds",
