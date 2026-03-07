@@ -1355,9 +1355,6 @@ LLM_LATENCY = Histogram(
     buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60)
 )
 
-# After each LLM call:
-TOKEN_USAGE.labels(model=model_name, type="prompt").inc(usage.prompt_tokens)
-TOKEN_USAGE.labels(model=model_name, type="completion").inc(usage.completion_tokens)
 
 RAG_LATENCY = Histogram(
     "openwebui_rag_latency_seconds",
