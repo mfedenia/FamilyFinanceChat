@@ -1,2 +1,2 @@
 FROM ghcr.io/open-webui/open-webui:v0.6.41
-RUN pip install PyMuPDF
+RUN pip install PyMuPDF prometheus-client
