@@ -36,19 +36,11 @@ class _Noop:
     def inc(self, *a, **kw): pass
     def set(self, *a, **kw): pass
 
-try:
-    import prometheus_client
-    from prometheus_client import (Histogram, Counter, Gauge, CollectorRegistry,
-                                   generate_latest, CONTENT_TYPE_LATEST, multiprocess)
-    PROMETHEUS_ENABLED = True
-except ImportError:
-    logging.warning("prometheus_client not installed — injecting stubs into sys.modules")
-    PROMETHEUS_ENABLED = False
-    Histogram = Counter = Gauge = _Noop
-    CollectorRegistry = _Noop
-    multiprocess = None
-    generate_latest = lambda *a, **kw: b""
-    CONTENT_TYPE_LATEST = "text/plain"
+from prometheus_client import (
+    Histogram, Counter, Gauge,
+    generate_latest, CONTENT_TYPE_LATEST,
+    multiprocess, CollectorRegistry
+)
 
 
 from fastapi import (
