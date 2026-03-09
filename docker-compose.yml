@@ -100,6 +100,8 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
+    command:
+      - '--web.enable-lifecycle'
 
   metrics-exporter:
     build: ./monitoring/exporter
