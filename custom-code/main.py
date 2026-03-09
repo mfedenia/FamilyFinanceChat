@@ -25,8 +25,11 @@ import aiohttp
 import anyio.to_thread
 import requests
 from redis import Redis
-from prometheus_client import (Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST, Gauge,multiprocess, CollectorRegistry)
-
+try:
+    from prometheus_client import (Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST, Gauge, multiprocess, CollectorRegistry)
+except ImportError:
+    import logging
+    logging.warning("prometheus_client not installed — metrics disabled")
 
 
 from fastapi import (
@@ -1372,6 +1375,39 @@ RAG_REQUESTS = Counter(
     "openwebui_rag_requests_total",
     "Total RAG retrieval requests by route",
     ["route"]
+)
+# Add to your metrics definitions
+CHAT_REQUEST_TYPE = Counter(
+    "openwebui_chat_request_type_total",
+    "Count of streaming vs non-streaming requests",
+    ["model", "type"]  # type = streaming | non_streaming
+)
+
+CHAT_COMPLETION_TIME = Histogram(
+    "openwebui_chat_completion_seconds",
+    "End-to-end chat completion time (including streaming)",
+    ["model", "streaming"],
+    buckets=(0.5, 1, 2, 5, 10, 30, 60, 120)
+)
+
+CHAT_FIRST_TOKEN_TIME = Histogram(
+    "openwebui_chat_first_token_seconds",
+    "Time to first token for streaming responses",
+    ["model"],
+    buckets=(0.1, 0.25, 0.5, 1, 2, 5, 10, 30)
+)
+CHAT_MESSAGE_TOKENS = Histogram(
+    "openwebui_chat_message_tokens",
+    "Distribution of prompt/completion sizes",
+    ["model", "direction"],  # direction = input | output
+    buckets=(10, 50, 100, 250, 500, 1000, 2000, 5000)
+)
+
+CHAT_CONTEXT_LENGTH = Histogram(
+    "openwebui_chat_context_length",
+    "Number of messages in context window",
+    ["model"],
+    buckets=(1, 2, 5, 10, 20, 50)
 )
 
 @app.middleware("http")
