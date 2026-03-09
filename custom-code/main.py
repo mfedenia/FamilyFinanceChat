@@ -27,9 +27,24 @@ import requests
 from redis import Redis
 try:
     from prometheus_client import (Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST, Gauge, multiprocess, CollectorRegistry)
+    PROMETHEUS_ENABLED = True
 except ImportError:
     import logging
     logging.warning("prometheus_client not installed — metrics disabled")
+    PROMETHEUS_ENABLED = False
+    # Stub out all metric classes so module-level definitions dont crash
+    class _Noop:
+        def __init__(self, *a, **kw): pass
+        def __call__(self, *a, **kw): return self
+        def labels(self, *a, **kw): return self
+        def observe(self, *a, **kw): pass
+        def inc(self, *a, **kw): pass
+        def set(self, *a, **kw): pass
+    Histogram = Counter = Gauge = _Noop
+    CollectorRegistry = _Noop
+    multiprocess = None
+    def generate_latest(*a, **kw): return b""
+    CONTENT_TYPE_LATEST = "text/plain"
 
 
 from fastapi import (
