@@ -671,7 +671,7 @@ app.state.instance_id = None
 app.state.config = AppConfig(
     redis_url=REDIS_URL,
     redis_sentinels=get_sentinels_from_env(REDIS_SENTINEL_HOSTS, REDIS_SENTINEL_PORT),
-    redis_cluster=Rresponse = awaitEDIS_CLUSTER,
+    redis_cluster=REDIS_CLUSTER,
     redis_key_prefix=REDIS_KEY_PREFIX,
 )
 app.state.redis = None
