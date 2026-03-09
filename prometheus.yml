@@ -19,3 +19,8 @@ scrape_configs:
     static_configs:
       - targets: ["open-webui:8080"]
     metrics_path: /metrics
+    
+  - job_name: "openwebui-internal"
+    static_configs:
+      - targets: ["open-webui:8080"]
+    metrics_path: /metrics
