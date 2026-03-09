@@ -25,25 +25,29 @@ import aiohttp
 import anyio.to_thread
 import requests
 from redis import Redis
+import sys
+import logging
+
+class _Noop:
+    def __init__(self, *a, **kw): pass
+    def __call__(self, *a, **kw): return self
+    def labels(self, *a, **kw): return self
+    def observe(self, *a, **kw): pass
+    def inc(self, *a, **kw): pass
+    def set(self, *a, **kw): pass
+
 try:
-    from prometheus_client import (Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST, Gauge, multiprocess, CollectorRegistry)
+    import prometheus_client
+    from prometheus_client import (Histogram, Counter, Gauge, CollectorRegistry,
+                                   generate_latest, CONTENT_TYPE_LATEST, multiprocess)
     PROMETHEUS_ENABLED = True
 except ImportError:
-    import logging
-    logging.warning("prometheus_client not installed — metrics disabled")
+    logging.warning("prometheus_client not installed — injecting stubs into sys.modules")
     PROMETHEUS_ENABLED = False
-    # Stub out all metric classes so module-level definitions dont crash
-    class _Noop:
-        def __init__(self, *a, **kw): pass
-        def __call__(self, *a, **kw): return self
-        def labels(self, *a, **kw): return self
-        def observe(self, *a, **kw): pass
-        def inc(self, *a, **kw): pass
-        def set(self, *a, **kw): pass
     Histogram = Counter = Gauge = _Noop
     CollectorRegistry = _Noop
     multiprocess = None
-    def generate_latest(*a, **kw): return b""
+    generate_latest = lambda *a, **kw: b""
     CONTENT_TYPE_LATEST = "text/plain"
 
 
