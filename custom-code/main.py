@@ -103,6 +103,20 @@ from open_webui.routers import (
     custom_pdf_router,  # webcrawler
 )
 
+# Import custom UI router separately (not part of open_webui.routers package)
+import sys
+from pathlib import Path
+custom_code_path = Path("/app/custom-code/integrated_backend")
+if custom_code_path.exists():
+    sys.path.insert(0, str(custom_code_path))
+    import custom_ui_router
+else:
+    # Fallback for local development
+    custom_code_path = Path(__file__).parent.parent / "integrated_backend"
+    if custom_code_path.exists():
+        sys.path.insert(0, str(custom_code_path))
+        import custom_ui_router
+
 from open_webui.routers.retrieval import (
     get_embedding_function,
     get_reranking_function,
@@ -540,7 +554,41 @@ log.setLevel(SRC_LOG_LEVELS["MAIN"])
 class SPAStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
+            
+            # Inject client dossier auto-loader into HTML responses
+            if (path == "index.html" or path == "") and isinstance(response, FileResponse):
+                try:
+                    # Read the index.html file synchronously
+                    file_path = response.path
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        body = f.read()
+                    
+                    # Inject script before closing </body> tag
+                    injection_script = '''
+<script>
+(function() {
+    // Auto-inject Client Dossier on page load
+    if (window.location.pathname.includes('/c/') || window.location.pathname === '/') {
+        setTimeout(function() {
+            fetch('/api/v1/ui/inject-client-dossier?_=' + Date.now())
+                .then(r => r.text())
+                .then(eval)
+                .catch(err => console.error('[Auto-Inject] Failed to load client dossier:', err));
+        }, 1000);
+    }
+})();
+</script>
+</body>'''
+                    if '</body>' in body:
+                        body = body.replace('</body>', injection_script)
+                        # Return modified HTML as Response instead of FileResponse
+                        from fastapi.responses import HTMLResponse
+                        return HTMLResponse(content=body, status_code=200)
+                except Exception as e:
+                    log.warning(f"Failed to inject client dossier script: {e}")
+            
+            return response
         except (HTTPException, StarletteHTTPException) as ex:
             if ex.status_code == 404:
                 if path.endswith(".js"):
@@ -1544,6 +1592,7 @@ app.include_router(
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
 
 app.include_router(custom_pdf_router.router, prefix="/api/v1/custom", tags=["custom_pdf"])  # webcrawler
+app.include_router(custom_ui_router.router, prefix="/api/v1/ui", tags=["custom_ui"])  # UI customizations
 
 # SCIM 2.0 API for identity management
 if ENABLE_SCIM:
