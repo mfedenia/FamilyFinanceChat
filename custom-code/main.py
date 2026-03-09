@@ -1774,13 +1774,30 @@ async def chat_completion(
 
     async def process_chat():
         try:
+             # Time the full RAG + payload processing stage
+            rag_start = time.perf_counter()
             processed_form_data, processed_metadata, events = await process_chat_payload(
                 request, form_data, user, metadata, model
             )
+            RAG_LATENCY.labels(route="/process_chat_payload").observe(
+                time.perf_counter() - rag_start
+            )
 
+            # Time the actual LLM inference stage
+            llm_start = time.perf_counter()
             response = await chat_completion_handler(
                 request, processed_form_data, user
             )
+            LLM_LATENCY.labels(model=model_id).observe(
+                time.perf_counter() - llm_start
+            )
+            # processed_form_data, processed_metadata, events = await process_chat_payload(
+            #     request, form_data, user, metadata, model
+            # )
+
+            # response = await chat_completion_handler(
+            #     request, processed_form_data, user
+            # )
 
             # Track token usage — handles both non-streaming and streaming responses
             if isinstance(response, dict) and "usage" in response:
