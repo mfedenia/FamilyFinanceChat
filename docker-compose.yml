@@ -75,6 +75,8 @@ services:
       - /opt/openwebui/FamilyFinanceChat/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
       # Mounts the custom config.py file from the host machine into the container's backend configuration directory
       - /opt/openwebui/FamilyFinanceChat/custom-code/config.py:/app/backend/open_webui/config.py:ro
+      - /opt/openwebui/FamilyFinanceChat/custom-code/observability.py:/app/backend/open_webui/observability.py:ro
+
 
     deploy:
       resources:
