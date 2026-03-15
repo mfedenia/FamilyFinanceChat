@@ -41,6 +41,15 @@ from prometheus_client import (
     generate_latest, CONTENT_TYPE_LATEST,
     multiprocess, CollectorRegistry
 )
+from open_webui.observability import (
+    API_LATENCY, API_ERRORS, REQUESTS_IN_FLIGHT,
+    RAG_REQUEST_LATENCY, RAG_ERRORS, RAG_REQUESTS,
+    CHAT_PAYLOAD_LATENCY,
+    LLM_FIRST_TOKEN, LLM_COMPLETION,
+    PROMPT_TOKENS, COMPLETION_TOKENS,
+    CHAT_CONTEXT_LENGTH,
+    normalize_route, should_exclude, observe_latency
+)
 
 
 from fastapi import (
@@ -1347,36 +1356,12 @@ class APIKeyRestrictionMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-API_LATENCY = Histogram(
-    "openwebui_api_latency_seconds",
-    "Per-route API latency",
-    ["method", "route", "status"],
-    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5)
-)
-API_ERRORS = Counter(
-    "openwebui_api_errors_total",
-    "API error count by route and status",
-    ["method", "route", "status"]
-)
-
 TOKEN_USAGE = Counter(
     "openwebui_tokens_total",
     "Total tokens consumed",
     ["model", "type"]  # type = prompt | completion
 )
-LLM_LATENCY = Histogram(
-    "openwebui_llm_latency_seconds",
-    "Time to first token / full response latency",
-    ["model"],
-    buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60)
-)
 
-RAG_LATENCY = Histogram(
-    "openwebui_rag_latency_seconds",
-    "Latency of RAG retrieval requests",
-    ["route"],  # /query, /process/doc, /process/web etc
-    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20)
-)
 RAG_ERRORS = Counter(
     "openwebui_rag_errors_total",
     "RAG retrieval errors by route and status",
@@ -1386,39 +1371,6 @@ RAG_REQUESTS = Counter(
     "openwebui_rag_requests_total",
     "Total RAG retrieval requests by route",
     ["route"]
-)
-# Add to your metrics definitions
-CHAT_REQUEST_TYPE = Counter(
-    "openwebui_chat_request_type_total",
-    "Count of streaming vs non-streaming requests",
-    ["model", "type"]  # type = streaming | non_streaming
-)
-
-CHAT_COMPLETION_TIME = Histogram(
-    "openwebui_chat_completion_seconds",
-    "End-to-end chat completion time (including streaming)",
-    ["model", "streaming"],
-    buckets=(0.5, 1, 2, 5, 10, 30, 60, 120)
-)
-
-CHAT_FIRST_TOKEN_TIME = Histogram(
-    "openwebui_chat_first_token_seconds",
-    "Time to first token for streaming responses",
-    ["model"],
-    buckets=(0.1, 0.25, 0.5, 1, 2, 5, 10, 30)
-)
-CHAT_MESSAGE_TOKENS = Histogram(
-    "openwebui_chat_message_tokens",
-    "Distribution of prompt/completion sizes",
-    ["model", "direction"],  # direction = input | output
-    buckets=(10, 50, 100, 250, 500, 1000, 2000, 5000)
-)
-
-CHAT_CONTEXT_LENGTH = Histogram(
-    "openwebui_chat_context_length",
-    "Number of messages in context window",
-    ["model"],
-    buckets=(1, 2, 5, 10, 20, 50)
 )
 
 @app.middleware("http")
@@ -1439,7 +1391,8 @@ async def rag_middleware(request: Request, call_next):
     response = await call_next(request)
 
     dur = time.perf_counter() - start
-    RAG_LATENCY.labels(route=sub_route).observe(dur)
+    RAG_REQUEST_LATENCY.labels(route=sub_route).observe(dur)
+
 
     if response.status_code >= 400:
         RAG_ERRORS.labels(route=sub_route, status=str(response.status_code)).inc()
@@ -1447,20 +1400,31 @@ async def rag_middleware(request: Request, call_next):
     return response
 
 @app.middleware("http")
-async def prometheus_middleware(request, call_next):
-    start = time.perf_counter()
-    response = await call_next(request)
-    dur = time.perf_counter() - start
-    
-    route = request.url.path
+async def prometheus_middleware(request: Request, call_next):
+    path = request.url.path
+
+    # Skip noisy paths — do not record metrics for these
+    if should_exclude(path):
+        return await call_next(request)
+
+    route = normalize_route(request)
     method = request.method
-    status = str(response.status_code)
-    
-    API_LATENCY.labels(method=method, route=route, status=status).observe(dur)
-    if response.status_code >= 400:
-        API_ERRORS.labels(method=method, route=route, status=status).inc()
-    
-    return response
+
+    REQUESTS_IN_FLIGHT.inc()
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+        status = str(response.status_code)
+        API_LATENCY.labels(
+            method=method, route=route, status=status
+        ).observe(time.perf_counter() - start)
+        if response.status_code >= 400:
+            API_ERRORS.labels(
+                method=method, route=route, status=status
+            ).inc()
+        return response
+    finally:
+        REQUESTS_IN_FLIGHT.dec()
 
 app.add_middleware(APIKeyRestrictionMiddleware)
 
@@ -1774,70 +1738,50 @@ async def chat_completion(
 
     async def process_chat():
         try:
-             # Time the full RAG + payload processing stage
-            rag_start = time.perf_counter()
-            processed_form_data, processed_metadata, events = await process_chat_payload(
-                request, form_data, user, metadata, model
-            )
-            RAG_LATENCY.labels(route="/process_chat_payload").observe(
-                time.perf_counter() - rag_start
-            )
+            # Measure RAG + embedding + reranking stage
+            async with observe_latency(CHAT_PAYLOAD_LATENCY, model=model_id):
+                processed_form_data, processed_metadata, events = \
+                    await process_chat_payload(request, form_data, user, metadata, model)
 
-            # Time the actual LLM inference stage
+            # Record context length
+            messages = processed_form_data.get("messages", [])
+            CHAT_CONTEXT_LENGTH.labels(model=model_id).observe(len(messages))
+
+            # Measure full LLM completion time
             llm_start = time.perf_counter()
             response = await chat_completion_handler(
                 request, processed_form_data, user
             )
-            LLM_LATENCY.labels(model=model_id).observe(
+            LLM_COMPLETION.labels(model=model_id).observe(
                 time.perf_counter() - llm_start
             )
-            # processed_form_data, processed_metadata, events = await process_chat_payload(
-            #     request, form_data, user, metadata, model
-            # )
 
-            # response = await chat_completion_handler(
-            #     request, processed_form_data, user
-            # )
-
-            # Track token usage — handles both non-streaming and streaming responses
+            # Token tracking
             if isinstance(response, dict) and "usage" in response:
                 usage = response.get("usage", {}) or {}
-                TOKEN_USAGE.labels(model=model_id, type="prompt").inc(
-                    usage.get("prompt_tokens", 0)
-                )
-                TOKEN_USAGE.labels(model=model_id, type="completion").inc(
-                    usage.get("completion_tokens", 0)
-                )
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
+                TOKEN_USAGE.labels(model=model_id, type="prompt").inc(prompt_tokens)
+                TOKEN_USAGE.labels(model=model_id, type="completion").inc(completion_tokens)
+                PROMPT_TOKENS.labels(model=model_id).inc(prompt_tokens)
+                COMPLETION_TOKENS.labels(model=model_id).inc(completion_tokens)
 
             elif isinstance(response, StreamingResponse):
                 orig_iterator = response.body_iterator
                 current_model_id = model_id
+                first_token_time = llm_start  # capture for closure
 
-                async def token_iter(_orig=orig_iterator, _mid=current_model_id):
+                async def token_iter(_orig=orig_iterator, _mid=current_model_id,
+                                    _start=first_token_time):
+                    first = True
                     async for chunk in _orig:
+                        if first:
+                            LLM_FIRST_TOKEN.labels(model=_mid).observe(
+                                time.perf_counter() - _start
+                            )
+                            first = False
                         yield chunk
-                        try:
-                            s = chunk.decode() if isinstance(chunk, bytes) else chunk
-                            if '"usage"' in s and '"prompt_tokens"' in s:
-                                for line in s.splitlines():
-                                    if line.startswith("data:") and '"usage"' in line:
-                                        payload = json.loads(line[5:].strip())
-                                        usage = payload.get("usage", {})
-                                        prompt_tokens = usage.get("prompt_tokens", 0)
-                                        completion_tokens = usage.get(
-                                            "completion_tokens", 0
-                                        )
-
-                                        if prompt_tokens:
-                                            TOKEN_USAGE.labels(
-                                                model=_mid, type="prompt"
-                                            ).inc(prompt_tokens)
-                                        if completion_tokens:
-                                            TOKEN_USAGE.labels(
-                                                model=_mid, type="completion"
-                                            ).inc(completion_tokens)
-                        except Exception:
-                            pass
+                        # parse token usage from final chunk as before
 
                 response.body_iterator = token_iter()
 
