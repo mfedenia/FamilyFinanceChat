@@ -1362,17 +1362,6 @@ TOKEN_USAGE = Counter(
     ["model", "type"]  # type = prompt | completion
 )
 
-RAG_ERRORS = Counter(
-    "openwebui_rag_errors_total",
-    "RAG retrieval errors by route and status",
-    ["route", "status"]
-)
-RAG_REQUESTS = Counter(
-    "openwebui_rag_requests_total",
-    "Total RAG retrieval requests by route",
-    ["route"]
-)
-
 @app.middleware("http")
 async def rag_middleware(request: Request, call_next):
     path = request.url.path
