@@ -49,7 +49,7 @@ from open_webui.observability import (
     PROMPT_TOKENS, COMPLETION_TOKENS,
     CHAT_CONTEXT_LENGTH,
     normalize_route, should_exclude, observe_latency,
-    RETRIEVAL_SCORE, RETRIEVED_CHUNKS, CONTEXT_TOKENS,STAGE_LATENCY
+  CONTEXT_TOKENS,STAGE_LATENCY
 )
 from fastapi import (
     Depends,
