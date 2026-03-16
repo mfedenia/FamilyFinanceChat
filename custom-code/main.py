@@ -48,10 +48,10 @@ from open_webui.observability import (
     LLM_FIRST_TOKEN, LLM_COMPLETION,
     PROMPT_TOKENS, COMPLETION_TOKENS,
     CHAT_CONTEXT_LENGTH,
-    normalize_route, should_exclude, observe_latency
+    normalize_route, should_exclude, observe_latency,
+    EMBEDDING_LATENCY, QDRANT_SEARCH_LATENCY, RERANKER_LATENCY,
+    OPENAI_QUEUE_LATENCY, CHUNKS_RETRIEVED, CONTEXT_TOKENS
 )
-
-
 from fastapi import (
     Depends,
     FastAPI,

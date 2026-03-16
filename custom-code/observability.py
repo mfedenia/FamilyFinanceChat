@@ -6,6 +6,45 @@ from prometheus_client import Histogram, Counter, Gauge
 
 # ── Metric Definitions ────────────────────────────────────────────────────────
 
+EMBEDDING_LATENCY = Histogram(
+    "openwebui_embedding_latency_seconds",
+    "Time to generate query embeddings",
+    ["model"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5)
+)
+
+QDRANT_SEARCH_LATENCY = Histogram(
+    "openwebui_qdrant_search_latency_seconds",
+    "Time for Qdrant vector similarity search",
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5)
+)
+
+RERANKER_LATENCY = Histogram(
+    "openwebui_reranker_latency_seconds",
+    "Time spent in reranking stage",
+    buckets=(0.1, 0.5, 1, 2, 5, 10, 15, 20)
+)
+
+OPENAI_QUEUE_LATENCY = Histogram(
+    "openwebui_openai_queue_latency_seconds",
+    "Time waiting for OpenAI API to return first token",
+    ["model"],
+    buckets=(0.5, 1, 2, 5, 10, 20, 30, 45, 60)
+)
+
+CHUNKS_RETRIEVED = Histogram(
+    "openwebui_rag_chunks_retrieved",
+    "Number of chunks retrieved per query",
+    buckets=(1, 2, 3, 5, 8, 10, 15, 20)
+)
+
+CONTEXT_TOKENS = Histogram(
+    "openwebui_context_tokens_total",
+    "Total tokens sent to LLM including system prompt and RAG chunks",
+    ["model"],
+    buckets=(500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000)
+)
+
 API_LATENCY = Histogram(
     "openwebui_api_latency_seconds",
     "Per-route API latency",
