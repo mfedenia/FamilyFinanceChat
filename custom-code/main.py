@@ -49,8 +49,7 @@ from open_webui.observability import (
     PROMPT_TOKENS, COMPLETION_TOKENS,
     CHAT_CONTEXT_LENGTH,
     normalize_route, should_exclude, observe_latency,
-    EMBEDDING_LATENCY, QDRANT_SEARCH_LATENCY, RERANKER_LATENCY,
-    OPENAI_QUEUE_LATENCY, CHUNKS_RETRIEVED, CONTEXT_TOKENS
+    RETRIEVAL_SCORE, RETRIEVED_CHUNKS, CONTEXT_TOKENS,STAGE_LATENCY
 )
 from fastapi import (
     Depends,
@@ -1727,25 +1726,41 @@ async def chat_completion(
 
     async def process_chat():
         try:
-            # Measure RAG + embedding + reranking stage
-            async with observe_latency(CHAT_PAYLOAD_LATENCY, model=model_id):
-                processed_form_data, processed_metadata, events = \
-                    await process_chat_payload(request, form_data, user, metadata, model)
+            import time as _time
 
-            # Record context length
+            # ── Stage 1: payload processing (RAG, filters, tools, knowledge) ──
+            _s1 = _time.perf_counter()
+            processed_form_data, processed_metadata, events = await process_chat_payload(
+                request, form_data, user, metadata, model
+            )
+            _s1_dur = _time.perf_counter() - _s1
+            STAGE_LATENCY.labels(stage="payload_processing").observe(_s1_dur)
+            CHAT_PAYLOAD_LATENCY.labels(model=model_id).observe(_s1_dur)
+            log.info(f"[STAGE] payload_processing: {_s1_dur:.2f}s model={model_id}")
+
+            # ── Stage 2: context assembly (what gets sent to LLM) ──
+            _s2 = _time.perf_counter()
             messages = processed_form_data.get("messages", [])
-            CHAT_CONTEXT_LENGTH.labels(model=model_id).observe(len(messages))
+            msg_count = len(messages)
+            total_chars = sum(len(str(m.get("content", ""))) for m in messages)
+            estimated_tokens = total_chars // 4
+            CHAT_CONTEXT_LENGTH.labels(model=model_id).observe(msg_count)
+            CONTEXT_TOKENS.labels(model=model_id).observe(estimated_tokens)
+            _s2_dur = _time.perf_counter() - _s2
+            STAGE_LATENCY.labels(stage="context_assembly").observe(_s2_dur)
+            log.info(f"[STAGE] context_assembly: {_s2_dur:.3f}s msgs={msg_count} est_tokens={estimated_tokens}")
 
-            # Measure full LLM completion time
-            llm_start = time.perf_counter()
+            # ── Stage 3: LLM inference ──
+            _s3 = _time.perf_counter()
             response = await chat_completion_handler(
                 request, processed_form_data, user
             )
-            LLM_COMPLETION.labels(model=model_id).observe(
-                time.perf_counter() - llm_start
-            )
+            _s3_dur = _time.perf_counter() - _s3
+            STAGE_LATENCY.labels(stage="llm_inference").observe(_s3_dur)
+            LLM_COMPLETION.labels(model=model_id).observe(_s3_dur)
+            log.info(f"[STAGE] llm_inference: {_s3_dur:.2f}s model={model_id}")
 
-            # Token tracking
+            # ── Token tracking ──
             if isinstance(response, dict) and "usage" in response:
                 usage = response.get("usage", {}) or {}
                 prompt_tokens = usage.get("prompt_tokens", 0)
@@ -1754,23 +1769,25 @@ async def chat_completion(
                 TOKEN_USAGE.labels(model=model_id, type="completion").inc(completion_tokens)
                 PROMPT_TOKENS.labels(model=model_id).inc(prompt_tokens)
                 COMPLETION_TOKENS.labels(model=model_id).inc(completion_tokens)
+                STAGE_LATENCY.labels(stage="total").observe(_s1_dur + _s3_dur)
+                log.info(f"[STAGE] total: {_s1_dur + _s3_dur:.2f}s prompt_tokens={prompt_tokens} completion_tokens={completion_tokens}")
 
             elif isinstance(response, StreamingResponse):
                 orig_iterator = response.body_iterator
                 current_model_id = model_id
-                first_token_time = llm_start  # capture for closure
+                llm_start = _s3
 
                 async def token_iter(_orig=orig_iterator, _mid=current_model_id,
-                                    _start=first_token_time):
+                                    _start=llm_start, _payload_dur=_s1_dur):
                     first = True
                     async for chunk in _orig:
                         if first:
-                            LLM_FIRST_TOKEN.labels(model=_mid).observe(
-                                time.perf_counter() - _start
-                            )
+                            ttft = _time.perf_counter() - _start
+                            LLM_FIRST_TOKEN.labels(model=_mid).observe(ttft)
+                            STAGE_LATENCY.labels(stage="time_to_first_token").observe(ttft)
+                            log.info(f"[STAGE] time_to_first_token: {ttft:.2f}s model={_mid}")
                             first = False
                         yield chunk
-                        # parse token usage from final chunk as before
 
                 response.body_iterator = token_iter()
 
