@@ -1,0 +1,58 @@
+services:
+  qdrant-staging:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-staging
+    restart: unless-stopped
+    networks: [ai-net-staging]
+    volumes:
+      - ${STAGING_QDRANT_STORAGE_DIR}:/qdrant/storage
+
+  redis-staging:
+    image: valkey/valkey:8.0.1-alpine
+    container_name: redis-staging
+    restart: unless-stopped
+    networks: [ai-net-staging]
+    volumes:
+      - ${STAGING_REDIS_DATA_DIR}:/data
+    command: >-
+      valkey-server
+      --save 30 1
+      --maxclients 10000
+      --timeout 1800
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  open-webui-staging:
+    build: .
+    container_name: open-webui-staging
+    depends_on: [qdrant-staging, redis-staging]
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - VECTOR_DB=qdrant
+      - QDRANT_URI=http://qdrant-staging:6333
+      - WEBSOCKET_MANAGER=redis
+      - WEBSOCKET_REDIS_URL=redis://redis-staging:6379/1
+    networks: [ai-net-staging]
+    ports:
+      - "0.0.0.0:${STAGING_WEBUI_PORT}:8080"
+    volumes:
+      - ${STAGING_UPLOADS_DIR}:/app/backend/data/uploads
+      - ${STAGING_OPENWEBUI_DATA_DIR}:/app/backend/data
+      - ${STAGING_REPO_DIR}/custom-code/main.py:/app/backend/open_webui/main.py:ro
+      - ${STAGING_REPO_DIR}/custom-code:/app/custom-code:ro
+      - ${STAGING_REPO_DIR}/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
+      - ${STAGING_REPO_DIR}/custom-code/config.py:/app/backend/open_webui/config.py:ro
+      - ${STAGING_REPO_DIR}/custom-code/observability.py:/app/backend/open_webui/observability.py:ro
+
+networks:
+  ai-net-staging:
+    driver: bridge

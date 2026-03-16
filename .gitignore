@@ -107,3 +107,12 @@ openwebui_data/
 # Jupyter checkpoints
 .ipynb_checkpoints/
 *.ipynb_checkpoints
+.env.runtime.dump
+.env.staging
+.env.staging.local
+2026-staging-files.zip
+
+.env.staging
+.env.staging.local
+.env.runtime.dump
+2026-staging-files.zip
