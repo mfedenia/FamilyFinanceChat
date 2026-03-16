@@ -5,24 +5,18 @@ from fastapi import Request
 from prometheus_client import Histogram, Counter, Gauge
 
 # ── Metric Definitions ────────────────────────────────────────────────────────
-STAGE_LATENCY = Histogram(
-    "openwebui_stage_latency_seconds",
-    "Time spent in each named processing stage per request",
-    ["stage"],
-    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 20, 30)
-)
 
-RETRIEVED_CHUNKS = Histogram(
-    "openwebui_rag_chunks_retrieved",
-    "Number of chunks retrieved per query",
-    buckets=(1, 2, 3, 5, 8, 10, 15, 20)
-)
+# RETRIEVED_CHUNKS = Histogram(
+#     "openwebui_rag_chunks_retrieved",
+#     "Number of chunks retrieved per query",
+#     buckets=(1, 2, 3, 5, 8, 10, 15, 20)
+# )
 
-RETRIEVAL_SCORE = Histogram(
-    "openwebui_rag_retrieval_score",
-    "Similarity scores of retrieved chunks",
-    buckets=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
-)
+# RETRIEVAL_SCORE = Histogram(
+#     "openwebui_rag_retrieval_score",
+#     "Similarity scores of retrieved chunks",
+#     buckets=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+# )
 
 STAGE_LATENCY = Histogram(
     "openwebui_stage_latency_seconds",
@@ -56,13 +50,6 @@ OPENAI_QUEUE_LATENCY = Histogram(
     ["model"],
     buckets=(0.5, 1, 2, 5, 10, 20, 30, 45, 60)
 )
-
-CHUNKS_RETRIEVED = Histogram(
-    "openwebui_rag_chunks_retrieved",
-    "Number of chunks retrieved per query",
-    buckets=(1, 2, 3, 5, 8, 10, 15, 20)
-)
-
 CONTEXT_TOKENS = Histogram(
     "openwebui_context_tokens_total",
     "Total tokens sent to LLM including system prompt and RAG chunks",
