@@ -1,4 +1,4 @@
-from fastapi import FastAPI 
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from logger import logging
 from extract_chats import main as extract_data
@@ -48,7 +48,21 @@ def get_user(user_id):
 @app.get("/refresh")
 def run_extract():
     try:
-        extract_data()
+        metadata = extract_data()
         logger.info("Extract completed successfully.")
+        return {
+            "status": "success",
+            "message": "Refresh completed successfully",
+            "refresh_metadata": metadata,
+        }
     except Exception as e:
-        logger.error(f"Extract failed: {e}")
+        logger.exception(f"Extract failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": "Refresh failed",
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )

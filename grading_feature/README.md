@@ -95,3 +95,52 @@ Future improvements will include enhanced filtering, improved analytics, and opt
 ## Usage
 
 This project is intended for academic use.  
+
+## Refresh Hardening And Operational Checks
+
+The refresh endpoint now returns structured success metadata and fails with HTTP 500 when extraction or export fails.
+
+### Structured refresh success response
+
+`GET /refresh` returns JSON with:
+
+* `status`
+* `message`
+* `refresh_metadata.users_processed`
+* `refresh_metadata.chat_entries_processed`
+* `refresh_metadata.message_pairs_processed`
+* `refresh_metadata.latest_message_timestamp_found`
+* `refresh_metadata.output_file_path`
+* `refresh_metadata.malformed_chat_rows_skipped`
+
+### Role filter configuration
+
+By default, extractor refresh includes only student accounts (`role=user`).
+
+Configure `EXTRACT_USER_ROLES` in your `.env`:
+
+* `EXTRACT_USER_ROLES=user` (default)
+* `EXTRACT_USER_ROLES=user,admin` (include both students and admins)
+* `EXTRACT_USER_ROLES=all` (no role filtering)
+
+### Failure behavior
+
+If extraction or JSON export fails, `GET /refresh` responds with HTTP 500 and detail:
+
+* `status: error`
+* `message`
+* `error`
+* `error_type`
+
+### Operational checks
+
+1. Verify DB path and output path use the correct mounted volume:
+  * Set `DB_PATH` and `OUTPUT_PATH` in your local environment file.
+  * Confirm paths resolve to your mounted project/storage volume.
+2. Verify backend write permissions:
+  * Confirm backend process user can create and replace files in the `OUTPUT_PATH` directory.
+  * The exporter uses atomic write (`temp file + os.replace`), so directory write and rename permissions are required.
+3. Confirm latest data is included after refresh:
+  * Run `GET /refresh` and read `refresh_metadata.latest_message_timestamp_found`.
+  * Compare `refresh_metadata.output_file_path` file modification time with refresh time.
+  * Validate counts (`users_processed`, `chat_entries_processed`, `message_pairs_processed`) match expected recent source activity.
