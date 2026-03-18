@@ -78,17 +78,28 @@ services:
       # Mounts the custom config.py file from the host machine into the container's backend configuration directory
       - /opt/openwebui/FamilyFinanceChat/custom-code/config.py:/app/backend/open_webui/config.py:ro
       - /opt/openwebui/FamilyFinanceChat/custom-code/observability.py:/app/backend/open_webui/observability.py:ro
-
-
     deploy:
       resources:
         limits:
           cpus: "2.0"
           memory: 10g
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
     restart: unless-stopped
+    command:
+     - --housekeeping_interval=30s
+     - --docker_only=true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
     networks: [ai-net]
     volumes:
       - /:/rootfs:ro
@@ -110,9 +121,10 @@ services:
       - "9090:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"               
+      - "--storage.tsdb.retention.time=30d"             
+      - "--query.max-concurrency=0"
 
-volumes:
-  prometheus-data:
   metrics-exporter:
     build: ./monitoring/exporter
     container_name: metrics-exporter
