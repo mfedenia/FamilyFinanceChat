@@ -1,7 +1,10 @@
 from fastapi import FastAPI 
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Any
 from logger import logging
 from extract_chats import main as extract_data
+from scoring_service import score_questions, OPENAI_MODEL, MOCK_SCORER
 import uvicorn
 import json
 import os
@@ -31,6 +34,37 @@ def load_data():
     except Exception as e:
         logger.error("DB not found, please refresh")   
         return []
+
+
+class ScoreRequest(BaseModel):
+    questions: list[Any]
+    useAbi: bool = False
+
+
+@app.get("/api/health")
+def score_health():
+    return {
+        "ok": True,
+        "model": OPENAI_MODEL,
+        "mock": MOCK_SCORER,
+    }
+
+
+@app.post("/api/score")
+async def score_endpoint(payload: ScoreRequest):
+    if not payload.questions:
+        raise HTTPException(status_code=400, detail={"error": "questions must be a non-empty array"})
+
+    try:
+        results, aggregate = await score_questions(payload.questions, payload.useAbi)
+        return {
+            "ok": True,
+            "results": results,
+            "aggregate": aggregate,
+        }
+    except Exception as e:
+        logger.exception(f"Scoring failed: {e}")
+        raise HTTPException(status_code=500, detail={"error": str(e)})
 
 @app.get("/users")
 def get_all_users():

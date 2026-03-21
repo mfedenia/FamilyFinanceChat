@@ -1,6 +1,6 @@
-import axios, { Axios } from "axios";
+import axios from "axios";
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Pagination from "../components/Pagination";
 import MetricCard from "../components/MetricCard";
 import TopUsersChart from "../components/TopUsersChart";
@@ -24,7 +24,7 @@ export default function Home() {
 
     // Get all users
     useEffect(() => {
-        axios.get("http://localhost:9500/users")
+        axios.get("/users")
             .then(res => setUsers(res.data))
             .catch(err => console.error(err))
     }, []);
