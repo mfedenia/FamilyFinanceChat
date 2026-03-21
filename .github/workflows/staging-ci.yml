@@ -29,6 +29,13 @@ jobs:
           STAGING_REPO_DIR=${GITHUB_WORKSPACE}
           EOF
 
+          echo "STAGING_WEBUI_PORT=3002" >> $GITHUB_ENV
+          echo "STAGING_OPENWEBUI_DATA_DIR=/tmp/ffc-staging/openwebui-data" >> $GITHUB_ENV
+          echo "STAGING_UPLOADS_DIR=/tmp/ffc-staging/uploads" >> $GITHUB_ENV
+          echo "STAGING_QDRANT_STORAGE_DIR=/tmp/ffc-staging/qdrant-storage" >> $GITHUB_ENV
+          echo "STAGING_REDIS_DATA_DIR=/tmp/ffc-staging/redis-data" >> $GITHUB_ENV
+          echo "STAGING_REPO_DIR=${GITHUB_WORKSPACE}" >> $GITHUB_ENV
+
       - name: Check deploy script syntax
         run: bash -n scripts/deploy-staging.sh
 
