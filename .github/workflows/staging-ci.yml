@@ -1,0 +1,42 @@
+name: Staging CI
+
+on:
+  push:
+    branches:
+      - feature/staging-environment
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-staging:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create CI env files
+        run: |
+          cp .env.staging.example .env.staging
+
+          cat <<EOF > .env.staging.local
+          STAGING_WEBUI_PORT=3002
+          STAGING_OPENWEBUI_DATA_DIR=/tmp/ffc-staging/openwebui-data
+          STAGING_UPLOADS_DIR=/tmp/ffc-staging/uploads
+          STAGING_QDRANT_STORAGE_DIR=/tmp/ffc-staging/qdrant-storage
+          STAGING_REDIS_DATA_DIR=/tmp/ffc-staging/redis-data
+          STAGING_REPO_DIR=${GITHUB_WORKSPACE}
+          EOF
+
+      - name: Check deploy script syntax
+        run: bash -n scripts/deploy-staging.sh
+
+      - name: Check stop script syntax
+        run: bash -n scripts/stop-staging.sh
+
+      - name: Validate docker compose config
+        run: docker compose -f docker-compose.staging.yml --env-file .env.staging config
+
+      - name: Build staging container
+        run: docker compose -f docker-compose.staging.yml --env-file .env.staging build open-webui-staging
