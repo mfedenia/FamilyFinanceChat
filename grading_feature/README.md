@@ -91,6 +91,50 @@ Run the app with
 This project is part of the ongoing work to support instructors in evaluating student chatbot interactions.  
 Future improvements will include enhanced filtering, improved analytics, and optional database storage.
 
+## ABI Pipeline (Scoring Mode)
+
+The scoring view includes an optional ABI pipeline.
+ABI stands for Ability, Benevolence, and Integrity.
+
+When ABI is enabled, each extracted student question is first scored on rubric dimensions (0 to 2), then mapped to trust-style indicators:
+
+* Ability: competence and quality of financial questioning behavior
+* Benevolence: signs of care, respect, and client-centered questioning
+* Integrity: ethical and non-manipulative questioning behavior
+
+### How ABI is computed
+
+1. Rubric dimensions are scored per question (0 to 2).
+2. Values are normalized to 0 to 1.
+3. Twelve sub-dimensions are estimated from rubric signals.
+4. Weighted formulas produce Ability, Benevolence, and Integrity.
+5. ABI total is the average of the three:
+
+$$
+ABI\ Total = \frac{Ability + Benevolence + Integrity}{3}
+$$
+
+### Why it is useful
+
+The base rubric captures question quality.
+ABI adds a trust-oriented lens that helps instructors distinguish between:
+
+* technically strong but potentially risky questioning behavior
+* polite but weakly focused questioning behavior
+* balanced, high-trust interviewing behavior
+
+### Reading results in practice
+
+* High Ability + low Integrity: strong technical quality but possible ethical concerns
+* High Benevolence + low Ability: respectful tone but weak depth or specificity
+* Balanced high ABI: strong quality and trustworthy behavior across dimensions
+
+### API behavior
+
+The unified backend endpoint accepts ABI mode in scoring requests:
+
+* `POST /api/score` with `useAbi: true` returns per-question ABI plus aggregated ABI summaries.
+
 
 ## Usage
 
