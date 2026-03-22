@@ -104,6 +104,11 @@ rag_bio_project/.env
 # openwebui data
 openwebui_data/
 
+# KB sync tool
+tools/kb_sync/.trash/
+tools/kb_sync/.env
+tools/kb_sync/.venv/
+
 # Jupyter checkpoints
 .ipynb_checkpoints/
 *.ipynb_checkpoints
