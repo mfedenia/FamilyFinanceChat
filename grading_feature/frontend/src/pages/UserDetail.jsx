@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, useResolvedPath } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Pagination from "../components/Pagination";
 
@@ -16,8 +16,8 @@ export default function UserDetail() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   
-  useEffect((u) => {
-    axios.get(`http://localhost:9500/user/${userId}`)
+  useEffect(() => {
+    axios.get(`/user/${userId}`)
          .then(res => setUser(res.data))
          .catch(err => console.log(err))
   }, [userId]);

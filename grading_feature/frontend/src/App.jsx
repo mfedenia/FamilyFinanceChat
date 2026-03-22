@@ -1,6 +1,7 @@
 import {BrowserRouter, Routes, Route} from 'react-router-dom'
 import Home from './pages/Home'
 import UserDetail from './pages/UserDetail'
+import Scoring from './pages/Scoring'
 import Navbar from './components/Navbar'
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
                     <Routes>
                         <Route path="/" element={<Home />} />
                         <Route path="/user/:userId" element={<UserDetail />} />
+                        <Route path="/scoring" element={<Scoring />} />
                     </Routes>
                 </div>
 
