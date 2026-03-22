@@ -1750,6 +1750,17 @@ async def chat_completion(
             STAGE_LATENCY.labels(stage="context_assembly").observe(_s2_dur)
             log.info(f"[STAGE] context_assembly: {_s2_dur:.3f}s msgs={msg_count} est_tokens={estimated_tokens}")
 
+            # ── Notify frontend that LLM generation is starting ──
+            _event_emitter = get_event_emitter(processed_metadata)
+            await _event_emitter({
+                "type": "status",
+                "data": {
+                    "action": "generating",
+                    "description": "Generating response...",
+                    "done": False,
+                },
+            })
+
             # ── Stage 3: LLM inference ──
             _s3 = _time.perf_counter()
             response = await chat_completion_handler(
@@ -1759,6 +1770,16 @@ async def chat_completion(
             STAGE_LATENCY.labels(stage="llm_inference").observe(_s3_dur)
             LLM_COMPLETION.labels(model=model_id).observe(_s3_dur)
             log.info(f"[STAGE] llm_inference: {_s3_dur:.2f}s model={model_id}")
+
+            await _event_emitter({
+                "type": "status",
+                "data": {
+                    "action": "generating",
+                    "description": "Generating response...",
+                    "done": True,
+                    "hidden": True,
+                },
+            })
 
             # ── Token tracking ──
             if isinstance(response, dict) and "usage" in response:
