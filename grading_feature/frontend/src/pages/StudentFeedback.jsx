@@ -12,6 +12,37 @@ import {
 } from "recharts";
 import Pagination from "../components/Pagination";
 
+function performanceBandFromOverall(score) {
+  const numeric = Number(score || 0);
+  if (numeric >= 80) return "Strong";
+  if (numeric >= 60) return "Good";
+  if (numeric >= 40) return "Developing";
+  return "Needs Attention";
+}
+
+function dimensionLabel(score) {
+  const numeric = Number(score || 0);
+  if (numeric >= 1.5) return "Strong";
+  if (numeric >= 1.0) return "Okay";
+  return "Improve";
+}
+
+function questionFeedback(row) {
+  const weakAreas = [];
+  if (Number(row.relevance) < 1) weakAreas.push("relevance to client scenario");
+  if (Number(row.on_topic) < 1) weakAreas.push("staying on topic");
+  if (Number(row.politeness) < 1) weakAreas.push("polite phrasing");
+  if (Number(row.neutrality) < 1) weakAreas.push("neutral wording");
+  if (Number(row.non_imperative) < 1) weakAreas.push("asking instead of directing");
+  if (Number(row.clarity_optional) < 1) weakAreas.push("clear wording");
+  if (Number(row.privacy_minimization_optional) < 1) weakAreas.push("privacy-safe wording");
+
+  if (weakAreas.length === 0) {
+    return "Well-formed question with balanced tone and focus.";
+  }
+  return `Improve: ${weakAreas.slice(0, 2).join(", ")}.`;
+}
+
 export default function StudentFeedback() {
   const params = useParams();
   const [searchParams] = useSearchParams();
@@ -122,11 +153,24 @@ export default function StudentFeedback() {
             <p className="text-2xl font-semibold">{payload.aggregate.avg_total_0_14}</p>
           </div>
           <div className="bg-[#161b22] border border-white/10 rounded-xl p-4">
-            <p className="text-xs text-gray-400">Overall (0-100)</p>
+            <p className="text-xs text-gray-400">Overall Progress (0-100)</p>
             <p className="text-2xl font-semibold">{payload.aggregate.overall_0_100}</p>
+            <p className="text-sm text-emerald-300 mt-1">
+              {performanceBandFromOverall(payload.aggregate.overall_0_100)}
+            </p>
           </div>
         </div>
       )}
+
+      <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
+        <h3 className="text-lg font-semibold mb-3">How To Read Your Scores</h3>
+        <ul className="list-disc pl-5 text-sm text-gray-200 space-y-1">
+          <li><strong>Total score (0-14):</strong> Overall quality of each question.</li>
+          <li><strong>Overall progress (0-100):</strong> Your average performance across all scored questions.</li>
+          <li><strong>Dimension scores (0-2):</strong> 0 = needs work, 1 = okay, 2 = strong.</li>
+          <li><strong>Focus first on weak dimensions:</strong> improve those to raise both total and overall progress.</li>
+        </ul>
+      </div>
 
       {distributionData.length > 0 && (
         <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
@@ -164,15 +208,16 @@ export default function StudentFeedback() {
               <tr className="border-b border-white/10 text-gray-300">
                 <th className="text-left p-2">#</th>
                 <th className="text-left p-2">Question</th>
-                <th className="text-left p-2">Total</th>
-                <th className="text-left p-2">Verdict</th>
-                <th className="text-left p-2">Rel</th>
-                <th className="text-left p-2">Pol</th>
+                <th className="text-left p-2">Total (0-14)</th>
+                <th className="text-left p-2">Result</th>
+                <th className="text-left p-2">Relevance</th>
+                <th className="text-left p-2">Politeness</th>
                 <th className="text-left p-2">On-topic</th>
-                <th className="text-left p-2">Neutral</th>
-                <th className="text-left p-2">Non-imp</th>
+                <th className="text-left p-2">Neutrality</th>
+                <th className="text-left p-2">Question Style</th>
                 <th className="text-left p-2">Clarity</th>
-                <th className="text-left p-2">Privacy</th>
+                <th className="text-left p-2">Privacy Safety</th>
+                <th className="text-left p-2">What this means</th>
               </tr>
             </thead>
             <tbody>
@@ -181,14 +226,15 @@ export default function StudentFeedback() {
                   <td className="p-2">{indexOfFirst + idx + 1}</td>
                   <td className="p-2 max-w-[520px]">{row.question}</td>
                   <td className="p-2">{row.score_total}</td>
-                  <td className="p-2">{row.verdict}</td>
-                  <td className="p-2">{row.relevance}</td>
-                  <td className="p-2">{row.politeness}</td>
-                  <td className="p-2">{row.on_topic}</td>
-                  <td className="p-2">{row.neutrality}</td>
-                  <td className="p-2">{row.non_imperative}</td>
-                  <td className="p-2">{row.clarity_optional}</td>
-                  <td className="p-2">{row.privacy_minimization_optional}</td>
+                  <td className="p-2">{row.verdict === "good" ? "Strong" : row.verdict === "ok" ? "Okay" : "Needs work"}</td>
+                  <td className="p-2">{row.relevance} ({dimensionLabel(row.relevance)})</td>
+                  <td className="p-2">{row.politeness} ({dimensionLabel(row.politeness)})</td>
+                  <td className="p-2">{row.on_topic} ({dimensionLabel(row.on_topic)})</td>
+                  <td className="p-2">{row.neutrality} ({dimensionLabel(row.neutrality)})</td>
+                  <td className="p-2">{row.non_imperative} ({dimensionLabel(row.non_imperative)})</td>
+                  <td className="p-2">{row.clarity_optional} ({dimensionLabel(row.clarity_optional)})</td>
+                  <td className="p-2">{row.privacy_minimization_optional} ({dimensionLabel(row.privacy_minimization_optional)})</td>
+                  <td className="p-2 max-w-[240px]">{questionFeedback(row)}</td>
                 </tr>
               ))}
             </tbody>
