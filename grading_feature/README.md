@@ -135,43 +135,6 @@ The unified backend endpoint accepts ABI mode in scoring requests:
 
 * `POST /api/score` with `useAbi: true` returns per-question ABI plus aggregated ABI summaries.
 
-## Student Feedback Deployment Notes
-
-The student page supports a secure OpenWebUI handoff so students only see their own feedback.
-
-### Endpoints
-
-* `GET /api/student-feedback/me` (recommended): resolves identity from signed token and returns self-scoped results
-* `GET /api/student-feedback/{user_id}` (compatibility): still enforces self-only access when token auth is enabled
-
-### Required environment flags
-
-* `STUDENT_FEEDBACK_ENABLED=true|false`: release flag for student-facing feedback
-* `OPENWEBUI_HMAC_SECRET=<secret>`: enables signed token verification (recommended for production)
-* `ALLOW_INSECURE_STUDENT_ID=true|false`: local/dev fallback only (should be false in production)
-
-### Signed token format
-
-Expected token payload:
-
-* `user_id` (required)
-* `exp` Unix timestamp (optional but recommended)
-
-Token string format:
-
-`base64url(payload_json).hex_hmac_sha256_signature`
-
-Where signature = `HMAC_SHA256(payload_base64, OPENWEBUI_HMAC_SECRET)`.
-
-### Student link examples
-
-* Secure: `/student/feedback?student_token=<signed_token>`
-* Legacy/dev fallback: `/student/feedback/<user_id>` (only works when insecure fallback is enabled)
-
-### Observability
-
-Student feedback requests are audit logged (path, request id, user id, status) without storing question content in logs.
-
 
 ## Usage
 
