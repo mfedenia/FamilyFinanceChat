@@ -81,6 +81,33 @@ services:
         limits:
           cpus: "2.0"
           memory: 10g
+
+  grading-backend:
+    build:
+      context: ./grading_feature/backend
+    container_name: grading-backend
+    restart: unless-stopped
+    networks: [ai-net]
+    env_file: .env
+    environment:
+      # Adjust DB_PATH if your OpenWebUI sqlite file uses a different name/path.
+      DB_PATH: /data/openwebui/webui.db
+      OUTPUT_PATH: /data/grading/users.json
+      DATA_PATH: /data/grading/users.json
+      EXTRACT_USER_ROLES: user
+    volumes:
+      - /opt/openwebui/data:/data/openwebui:ro
+      - ./grading_feature/data:/data/grading
+
+  grading-frontend:
+    build:
+      context: ./grading_feature/frontend
+    container_name: grading-frontend
+    restart: unless-stopped
+    networks: [ai-net]
+    depends_on: [grading-backend]
+    ports:
+      - "0.0.0.0:3100:80"
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.0
     container_name: cadvisor
