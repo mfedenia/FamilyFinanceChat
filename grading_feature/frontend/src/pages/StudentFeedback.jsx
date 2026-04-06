@@ -19,6 +19,8 @@ export default function StudentFeedback() {
   const routeUserId = params.userId;
   const queryUserId =
     searchParams.get("user_id") || searchParams.get("openwebui_user_id");
+  const studentToken =
+    searchParams.get("student_token") || searchParams.get("owui_token") || "";
   const userId = routeUserId || queryUserId || "";
 
   const [useAbi, setUseAbi] = useState(true);
@@ -27,12 +29,19 @@ export default function StudentFeedback() {
   const [payload, setPayload] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const allowInsecureUserId = import.meta.env.VITE_ALLOW_INSECURE_STUDENT_ID === "true";
+
   useEffect(() => {
     setCurrentPage(1);
   }, [payload]);
 
   async function loadFeedback() {
-    if (!userId) {
+    if (!studentToken && !allowInsecureUserId) {
+      setStatus("Missing signed student token. Open this page from your OpenWebUI account link.");
+      return;
+    }
+
+    if (!studentToken && allowInsecureUserId && !userId) {
       setStatus("Missing user identity. Open this page from your OpenWebUI account link.");
       return;
     }
@@ -40,9 +49,18 @@ export default function StudentFeedback() {
     try {
       setLoading(true);
       setStatus("Loading your feedback...");
-      const response = await axios.get(
-        `/api/student-feedback/${encodeURIComponent(userId)}?useAbi=${String(useAbi)}`
-      );
+
+      const headers = {};
+      let endpoint = `/api/student-feedback/me?useAbi=${String(useAbi)}`;
+
+      if (studentToken) {
+        headers.Authorization = `Bearer ${studentToken}`;
+      } else if (allowInsecureUserId) {
+        endpoint = `/api/student-feedback/${encodeURIComponent(userId)}?useAbi=${String(useAbi)}`;
+        headers["X-Student-User-Id"] = userId;
+      }
+
+      const response = await axios.get(endpoint, { headers });
       setPayload(response.data);
       setStatus("Feedback loaded.");
     } catch (error) {
@@ -57,7 +75,7 @@ export default function StudentFeedback() {
 
   useEffect(() => {
     loadFeedback();
-  }, [userId, useAbi]);
+  }, [userId, useAbi, studentToken]);
 
   const rows = payload?.results || [];
   const rowsPerPage = 12;
@@ -73,6 +91,43 @@ export default function StudentFeedback() {
       label,
       count: distribution.counts[idx],
     }));
+  }, [payload]);
+
+  const topImprovements = useMemo(() => {
+    const dims = payload?.aggregate?.dims;
+    if (!dims || Object.keys(dims).length === 0) {
+      return [];
+    }
+
+    const labels = {
+      relevance: "Scenario Relevance",
+      politeness: "Politeness",
+      on_topic: "On-topic Focus",
+      neutrality: "Neutral Wording",
+      non_imperative: "Non-imperative Style",
+      clarity_optional: "Question Clarity",
+      privacy_minimization_optional: "Privacy Awareness",
+    };
+
+    const suggestions = {
+      relevance: "Connect each question more directly to the client’s financial context.",
+      politeness: "Use softer and more respectful phrasing.",
+      on_topic: "Stay focused on finance/planning rather than side topics.",
+      neutrality: "Ask non-leading questions and avoid judgmental wording.",
+      non_imperative: "Phrase prompts as questions rather than instructions.",
+      clarity_optional: "Make your questions more specific and easier to understand.",
+      privacy_minimization_optional: "Avoid requesting sensitive identifiers unless absolutely necessary.",
+    };
+
+    return Object.entries(dims)
+      .sort((a, b) => Number(a[1]) - Number(b[1]))
+      .slice(0, 3)
+      .map(([key, value]) => ({
+        key,
+        label: labels[key] || key,
+        score: value,
+        tip: suggestions[key] || "Review this dimension for improvement.",
+      }));
   }, [payload]);
 
   return (
@@ -101,7 +156,7 @@ export default function StudentFeedback() {
 
           <button
             onClick={loadFeedback}
-            disabled={loading || !userId}
+            disabled={loading || (!studentToken && !userId)}
             className="px-3 py-1.5 rounded bg-[#21262d] border border-white/10 hover:bg-[#30363d] disabled:opacity-50"
           >
             Refresh My Feedback
@@ -153,6 +208,21 @@ export default function StudentFeedback() {
               <li key={habit}>{habit}</li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {topImprovements.length > 0 && (
+        <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
+          <h3 className="text-lg font-semibold mb-3">Top 3 Focus Areas</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {topImprovements.map((item) => (
+              <div key={item.key} className="bg-[#0d1117] border border-white/10 rounded-lg p-3">
+                <p className="text-xs text-gray-400">{item.label}</p>
+                <p className="text-xl font-semibold text-emerald-300">{item.score}</p>
+                <p className="text-xs text-gray-300 mt-2">{item.tip}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
