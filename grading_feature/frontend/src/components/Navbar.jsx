@@ -1,7 +1,10 @@
 import axios from "axios";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 export default function Navbar() {
+    const location = useLocation();
+    const isStudentPage = location.pathname.startsWith("/student/feedback");
+
     const handleRefresh = async () => {
         try {
             await axios.get("/refresh");
@@ -20,7 +23,7 @@ export default function Navbar() {
                     Finance Chatbot Dashboard
                 </h1>
 
-                <div className="flex items-center gap-2 text-sm">
+                {!isStudentPage && <div className="flex items-center gap-2 text-sm">
                     <NavLink
                         to="/"
                         className={({ isActive }) =>
@@ -41,17 +44,19 @@ export default function Navbar() {
                     >
                         Scoring
                     </NavLink>
-                </div>
+                </div>}
             </div>
 
-            <button
-                onClick={handleRefresh}
-                className="px-4 py-1 rounded-full border border-white/10 
+            {!isStudentPage && (
+                <button
+                    onClick={handleRefresh}
+                    className="px-4 py-1 rounded-full border border-white/10 
                            bg-[#21262d] hover:bg-[#30363d] text-white 
                            transition shadow-sm"
-            >
-                Refresh Data
-            </button>
+                >
+                    Refresh Data
+                </button>
+            )}
         </div>
     );
 }
