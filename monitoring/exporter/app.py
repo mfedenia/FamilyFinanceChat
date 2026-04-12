@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 
 import httpx
@@ -13,7 +14,7 @@ from prometheus_client import (
 log = logging.getLogger("exporter")
 logging.basicConfig(level=logging.INFO)
 
-OPENWEBUI_BASE = "http://open-webui:8080"
+OPENWEBUI_BASE = os.environ.get("OPENWEBUI_BASE", "http://open-webui:8080")
 
 # Align with prometheus.yml scrape_interval: 15s
 PROBE_INTERVAL = 15

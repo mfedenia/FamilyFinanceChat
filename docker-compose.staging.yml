@@ -6,6 +6,12 @@ services:
     networks: [ai-net-staging]
     volumes:
       - ${STAGING_QDRANT_STORAGE_DIR}:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      start_period: 10s
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
   redis-staging:
     image: valkey/valkey:8.0.1-alpine
@@ -41,7 +47,7 @@ services:
       - QDRANT_URI=http://qdrant-staging:6333
       - WEBSOCKET_MANAGER=redis
       - WEBSOCKET_REDIS_URL=redis://redis-staging:6379/1
-    networks: [ai-net-staging]
+    networks: [ai-net-staging, ai-net]
     ports:
       - "0.0.0.0:${STAGING_WEBUI_PORT}:8080"
     volumes:
@@ -52,7 +58,37 @@ services:
       - ${STAGING_REPO_DIR}/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
       - ${STAGING_REPO_DIR}/custom-code/config.py:/app/backend/open_webui/config.py:ro
       - ${STAGING_REPO_DIR}/custom-code/observability.py:/app/backend/open_webui/observability.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      start_period: 30s
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  metrics-exporter-staging:
+    build: ./monitoring/exporter
+    container_name: metrics-exporter-staging
+    restart: unless-stopped
+    networks: [ai-net-staging, ai-net]
+    depends_on: [open-webui-staging]
+    environment:
+      - OPENWEBUI_BASE=http://open-webui-staging:8080
+    ports:
+      - "8002:8000"
+
+  # Staging-only push path; join external ai-net so host Prometheus can scrape pushgateway-staging:9091.
+  pushgateway-staging:
+    image: prom/pushgateway:v1.8.0
+    container_name: pushgateway-staging
+    restart: unless-stopped
+    networks: [ai-net-staging, ai-net]
+    ports:
+      - "${STAGING_PUSHGATEWAY_PORT:-9092}:9091"
+    command:
+      - "--web.enable-lifecycle"
 
 networks:
   ai-net-staging:
     driver: bridge
+  ai-net:
+    external: true

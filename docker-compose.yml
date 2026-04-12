@@ -114,15 +114,27 @@ services:
     container_name: prometheus
     restart: unless-stopped
     networks: [ai-net]
+    user: "65534:65534"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
+      - /opt/prometheus/data:/prometheus
     ports:
       - "9090:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"               
-      - "--storage.tsdb.retention.time=30d"             
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+
+  # Receives metrics from Open WebUI Filter Functions (HTTP push); Prometheus scrapes this target.
+  pushgateway:
+    image: prom/pushgateway:v1.8.0
+    container_name: pushgateway
+    restart: unless-stopped
+    networks: [ai-net]
+    ports:
+      - "9091:9091"
+    command:
+      - "--web.enable-lifecycle"
 
   metrics-exporter:
     build: ./monitoring/exporter
@@ -138,16 +150,15 @@ services:
     container_name: grafana
     restart: unless-stopped
     networks: [ai-net]
+    user: "472:0"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     ports:
       - "3001:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
+      - /opt/grafana/data:/var/lib/grafana
 
 volumes:
   redis-data:
-  grafana-data:
-  prometheus-data:
 # volumes:
 #   ollama: {}
