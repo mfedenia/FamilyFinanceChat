@@ -47,7 +47,7 @@ logger = logging.getLogger("professor_dashboard")
 
 OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://localhost:8080").rstrip("/")
 OPENWEBUI_USERS_PATH = os.getenv("OPENWEBUI_USERS_PATH", "/api/v1/users/")
-OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/")
+OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/all")
 OPENWEBUI_API_TOKEN = os.getenv("OPENWEBUI_API_TOKEN", "")
 OPENWEBUI_TIMEOUT_SEC = float(os.getenv("OPENWEBUI_TIMEOUT_SEC", "30"))
 
@@ -64,6 +64,25 @@ def normalize_api_path(path: str) -> str:
     return path
 
 
+def build_api_path_candidates(path: str) -> list[str]:
+    normalized = normalize_api_path(path).rstrip("/")
+    candidates = [normalized]
+
+    if normalized.startswith("/api/v1/"):
+        candidates.append(normalized.replace("/api/v1/", "/api/", 1))
+    elif normalized.startswith("/api/"):
+        candidates.append(f"/api/v1/{normalized.removeprefix('/api/')}")
+
+    # Preserve order while removing duplicates.
+    seen = set()
+    unique_candidates = []
+    for candidate in candidates:
+        if candidate not in seen:
+            seen.add(candidate)
+            unique_candidates.append(candidate)
+    return unique_candidates
+
+
 def get_api_headers() -> dict[str, str]:
     headers = {"Accept": "application/json"}
     token = (OPENWEBUI_API_TOKEN or "").strip()
@@ -74,20 +93,36 @@ def get_api_headers() -> dict[str, str]:
 
 
 def fetch_api_json(path: str) -> Any:
-    url = f"{OPENWEBUI_BASE_URL}{normalize_api_path(path)}"
-    try:
-        response = requests.get(url, headers=get_api_headers(), timeout=OPENWEBUI_TIMEOUT_SEC)
-    except requests.RequestException as e:
-        raise ExtractionError(f"Failed to connect to OpenWebUI API at {url}: {e}") from e
+    last_error = None
 
-    if response.status_code >= 400:
-        snippet = response.text[:400]
-        raise ExtractionError(f"OpenWebUI API request failed ({response.status_code}) at {url}: {snippet}")
+    for candidate_path in build_api_path_candidates(path):
+        url = f"{OPENWEBUI_BASE_URL}{candidate_path}"
+        try:
+            response = requests.get(url, headers=get_api_headers(), timeout=OPENWEBUI_TIMEOUT_SEC)
+        except requests.RequestException as e:
+            last_error = ExtractionError(f"Failed to connect to OpenWebUI API at {url}: {e}")
+            continue
 
-    try:
-        return response.json()
-    except ValueError as e:
-        raise ExtractionError(f"OpenWebUI API returned non-JSON response at {url}") from e
+        if response.status_code >= 400:
+            snippet = response.text[:400]
+            unsupported_version = "unsupported api version" in snippet.lower()
+            if unsupported_version and candidate_path.startswith("/api/v1/"):
+                last_error = ExtractionError(
+                    f"OpenWebUI API request failed ({response.status_code}) at {url}: {snippet}"
+                )
+                continue
+
+            raise ExtractionError(f"OpenWebUI API request failed ({response.status_code}) at {url}: {snippet}")
+
+        try:
+            return response.json()
+        except ValueError as e:
+            raise ExtractionError(f"OpenWebUI API returned non-JSON response at {url}") from e
+
+    if last_error is not None:
+        raise last_error
+
+    raise ExtractionError(f"Failed to resolve a working OpenWebUI API endpoint for {path}")
 
 
 def coerce_list(payload: Any, preferred_keys: list[str]) -> list[Any]:
@@ -128,6 +163,17 @@ def get_all_chats():
     return coerce_list(payload, ["data", "chats", "items", "results"])
 
 
+def get_chat_details(chat_id: str) -> dict[str, Any]:
+    if not chat_id:
+        raise ExtractionError("Cannot load chat details without a chat_id")
+
+    payload = fetch_api_json(f"/api/v1/chats/{chat_id}")
+    if isinstance(payload, dict):
+        return payload
+
+    raise ExtractionError(f"OpenWebUI chat detail endpoint returned non-object payload for chat_id={chat_id}")
+
+
 def parse_chat_payload(chat_item: dict[str, Any]):
     raw = chat_item.get("chat")
     if raw is None:
@@ -141,6 +187,27 @@ def parse_chat_payload(chat_item: dict[str, Any]):
         return raw
     if isinstance(raw, str):
         return parse_json(raw)
+    return None
+
+
+def get_chat_id(chat_item: dict[str, Any], chat_payload: dict[str, Any] | None = None) -> str | None:
+    candidates = [
+        chat_item.get("chat_id"),
+        chat_item.get("chatId"),
+        chat_item.get("id"),
+    ]
+
+    if isinstance(chat_payload, dict):
+        candidates.extend([
+            chat_payload.get("chat_id"),
+            chat_payload.get("chatId"),
+            chat_payload.get("id"),
+        ])
+
+    for candidate in candidates:
+        if candidate:
+            return str(candidate)
+
     return None
 
 
@@ -216,6 +283,20 @@ def build_hieracrchy():
                 malformed_chat_rows += 1
                 continue
 
+            if "messages" not in chat_payload:
+                chat_id = get_chat_id(chat_item, chat_payload)
+                if not chat_id:
+                    malformed_chat_rows += 1
+                    logger.warning("Skipping shallow chat payload without chat_id")
+                    continue
+
+                deep_chat_payload = get_chat_details(chat_id)
+                chat_payload = parse_chat_payload(deep_chat_payload)
+                if not isinstance(chat_payload, dict):
+                    malformed_chat_rows += 1
+                    logger.warning(f"Skipping unreadable deep chat payload for chat_id={chat_id}")
+                    continue
+
             user_id = resolve_user_id(chat_item, chat_payload)
             if not user_id:
                 malformed_chat_rows += 1
@@ -280,23 +361,43 @@ def build_hieracrchy():
                 }
                 chat_entries_processed += 1
 
-                for j in range(0, len(messages), 2):
-                    if not isinstance(messages[j], dict):
+                open_message_pair = None
+
+                for message in messages:
+                    if not isinstance(message, dict):
                         logger.warning("Skipping malformed message entry that is not an object")
                         continue
 
-                    ts_epoch = normalize_timestamp(messages[j].get('timestamp'))
+                    ts_epoch = normalize_timestamp(message.get("timestamp"))
                     if ts_epoch is not None:
                         latest_message_epoch = max(latest_message_epoch, ts_epoch) if latest_message_epoch is not None else ts_epoch
 
                     ts = get_timestamp(ts_epoch if ts_epoch is not None else 0)
-                    q = messages[j].get("content", "")
-                    if j + 1 < len(messages) and isinstance(messages[j + 1], dict):
-                        a = messages[j + 1].get("content", "")
-                    else:
-                        a = None
+                    role = str(message.get("role", "")).strip().lower()
+                    content = message.get("content", "")
 
-                    chat_entry["message_pairs"].append({"timestamp": ts, "question": q, "answer": a})
+                    if role == "user":
+                        if open_message_pair is not None:
+                            chat_entry["message_pairs"].append(open_message_pair)
+                            message_pairs_processed += 1
+
+                        open_message_pair = {
+                            "timestamp": ts,
+                            "question": content,
+                            "answer": None,
+                        }
+                    elif role == "assistant":
+                        if open_message_pair is None:
+                            logger.warning("Skipping assistant message without an open user question")
+                            continue
+
+                        open_message_pair["answer"] = content
+                        chat_entry["message_pairs"].append(open_message_pair)
+                        message_pairs_processed += 1
+                        open_message_pair = None
+
+                if open_message_pair is not None:
+                    chat_entry["message_pairs"].append(open_message_pair)
                     message_pairs_processed += 1
 
                 json_structure["chats"].append(chat_entry)
