@@ -50,8 +50,8 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-if [[ -z "${DB_PATH:-}" ]]; then
-  echo "ERROR: DB_PATH is not set. Put DB_PATH in grading_feature/.env"
+if [[ -z "${OPENWEBUI_BASE_URL:-}" ]]; then
+  echo "ERROR: OPENWEBUI_BASE_URL is not set. Put OPENWEBUI_BASE_URL in grading_feature/.env"
   exit 1
 fi
 

@@ -6,14 +6,14 @@ A FastAPI + React dashboard that extracts, processes, and visualizes student cha
 
 ## Overview 
 
-This dashboard extracts student chat sessions from an OpenWebUI SQLite database and converts them into a structured JSON format.
+This dashboard extracts student chat sessions from OpenWebUI's REST API and converts them into a structured JSON format.
 A FastAPI backend serves analytics and user-level details, while a React frontend visualizes metrics, charts, and chat transcripts.
 Instructors can quickly review student interactions, identify patterns, and evaluate performance at scale.
 
 
 ## How the code works (brief)
 
-The backend (FastAPI) reads OpenWebUI SQLite chat data or exported JSON, normalizes sessions into a structured JSON model, and exposes REST endpoints for aggregated metrics and per-user chat history. The frontend (React + Vite) consumes these endpoints to render metric cards, charts, paginated user lists, and a sliding drawer with chat transcripts. The backend performs light processing/aggregation (counts, chats-per-day, top users) and serves the data to the UI.
+The backend (FastAPI) reads OpenWebUI user/chat data via REST API or exported JSON, normalizes sessions into a structured JSON model, and exposes REST endpoints for aggregated metrics and per-user chat history. The frontend (React + Vite) consumes these endpoints to render metric cards, charts, paginated user lists, and a sliding drawer with chat transcripts. The backend performs light processing/aggregation (counts, chats-per-day, top users) and serves the data to the UI.
 
 ## Features
 
@@ -178,9 +178,10 @@ If extraction or JSON export fails, `GET /refresh` responds with HTTP 500 and de
 
 ### Operational checks
 
-1. Verify DB path and output path use the correct mounted volume:
-  * Set `DB_PATH` and `OUTPUT_PATH` in your local environment file.
-  * Confirm paths resolve to your mounted project/storage volume.
+1. Verify OpenWebUI API and output path configuration:
+  * Set `OPENWEBUI_BASE_URL` and `OUTPUT_PATH` in your local environment file.
+  * If your OpenWebUI instance requires auth, set `OPENWEBUI_API_TOKEN`.
+  * Confirm the configured users/chats paths resolve correctly (defaults: `/api/v1/users/`, `/api/v1/chats/`).
 2. Verify backend write permissions:
   * Confirm backend process user can create and replace files in the `OUTPUT_PATH` directory.
   * The exporter uses atomic write (`temp file + os.replace`), so directory write and rename permissions are required.
