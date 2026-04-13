@@ -1,7 +1,9 @@
-import sqlite3
 import os
-import pandas as pd 
 import json
+from collections import defaultdict
+from typing import Any
+
+import requests
 from logger import logging
 import datetime
 import tempfile
@@ -43,7 +45,12 @@ NOTE: To make this more efficient so we don't have to dump large json files over
 
 logger = logging.getLogger("professor_dashboard")
 
-DB_PATH = os.getenv("DB_PATH")
+OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://localhost:8080").rstrip("/")
+OPENWEBUI_USERS_PATH = os.getenv("OPENWEBUI_USERS_PATH", "/api/v1/users/")
+OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/")
+OPENWEBUI_API_TOKEN = os.getenv("OPENWEBUI_API_TOKEN", "")
+OPENWEBUI_TIMEOUT_SEC = float(os.getenv("OPENWEBUI_TIMEOUT_SEC", "30"))
+
 OUTPUT_PATH = os.getenv("OUTPUT_PATH")
 EXTRACT_USER_ROLES = os.getenv("EXTRACT_USER_ROLES", "user")
 
@@ -51,44 +58,107 @@ EXTRACT_USER_ROLES = os.getenv("EXTRACT_USER_ROLES", "user")
 class ExtractionError(Exception):
     pass
 
-def get_connection():
-    """Creates a connection with dict like rows """
-    if not DB_PATH:
-        raise ExtractionError("DB_PATH is not set")
-    if not os.path.exists(DB_PATH):
-        raise ExtractionError(f"DB_PATH does not exist: {DB_PATH}")
+def normalize_api_path(path: str) -> str:
+    if not path.startswith("/"):
+        return f"/{path}"
+    return path
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    logger.debug("Created database connection")
-    return conn
 
-def get_all_users(conn):
-    """Queries the db and gives back one corresponding tuple back"""
-    base_query = "SELECT id, email, name, role, created_at FROM user"
+def get_api_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    token = (OPENWEBUI_API_TOKEN or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        headers["X-API-Key"] = token
+    return headers
+
+
+def fetch_api_json(path: str) -> Any:
+    url = f"{OPENWEBUI_BASE_URL}{normalize_api_path(path)}"
+    try:
+        response = requests.get(url, headers=get_api_headers(), timeout=OPENWEBUI_TIMEOUT_SEC)
+    except requests.RequestException as e:
+        raise ExtractionError(f"Failed to connect to OpenWebUI API at {url}: {e}") from e
+
+    if response.status_code >= 400:
+        snippet = response.text[:400]
+        raise ExtractionError(f"OpenWebUI API request failed ({response.status_code}) at {url}: {snippet}")
+
+    try:
+        return response.json()
+    except ValueError as e:
+        raise ExtractionError(f"OpenWebUI API returned non-JSON response at {url}") from e
+
+
+def coerce_list(payload: Any, preferred_keys: list[str]) -> list[Any]:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in preferred_keys:
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+        for value in payload.values():
+            if isinstance(value, list):
+                return value
+    return []
+
+
+def get_all_users():
+    payload = fetch_api_json(OPENWEBUI_USERS_PATH)
+    users = coerce_list(payload, ["data", "users", "items", "results"])
 
     raw_roles = (EXTRACT_USER_ROLES or "user").strip()
     if raw_roles.lower() in {"all", "*"}:
-        query = f"{base_query};"
-        cur = conn.execute(query)
         logger.info("Extracting chats for all user roles")
-        return cur.fetchall()
+        return users
 
     roles = [r.strip() for r in raw_roles.split(",") if r.strip()]
     if not roles:
         roles = ["user"]
 
-    placeholders = ",".join(["?"] * len(roles))
-    query = f"{base_query} WHERE role IN ({placeholders});"
-    cur = conn.execute(query, roles)
+    role_set = set(roles)
+    filtered_users = [u for u in users if str(u.get("role", "")).strip() in role_set]
     logger.info(f"Extracting chats for roles: {roles}")
+    return filtered_users
 
-    return cur.fetchall()
 
-def get_chats_by_user(conn, user_id):
-    query = "SELECT chat FROM chat WHERE user_id = ?;"
-    cur = conn.execute(query, (user_id,))
-    return cur.fetchall() 
+def get_all_chats():
+    payload = fetch_api_json(OPENWEBUI_CHATS_PATH)
+    return coerce_list(payload, ["data", "chats", "items", "results"])
+
+
+def parse_chat_payload(chat_item: dict[str, Any]):
+    raw = chat_item.get("chat")
+    if raw is None:
+        raw = chat_item.get("payload")
+    if raw is None:
+        raw = chat_item.get("data")
+    if raw is None:
+        raw = chat_item
+
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        return parse_json(raw)
+    return None
+
+
+def resolve_user_id(chat_item: dict[str, Any], chat_payload: dict[str, Any] | None):
+    direct = chat_item.get("user_id") or chat_item.get("userId")
+    if direct is not None:
+        return str(direct)
+
+    user_obj = chat_item.get("user")
+    if isinstance(user_obj, dict) and user_obj.get("id") is not None:
+        return str(user_obj.get("id"))
+
+    if isinstance(chat_payload, dict):
+        nested_uid = chat_payload.get("user_id")
+        if nested_uid is not None:
+            return str(nested_uid)
+
+    return None
 
 def parse_json(json_string):
     try:
@@ -119,7 +189,7 @@ def get_timestamp(ts):
 
     return f"{date_formatted} {time_formatted}"
 
-def build_hieracrchy(conn):
+def build_hieracrchy():
     """Builds hieractchy like the shape above"""
 
     logger.info("Building logger hierarchy")
@@ -132,10 +202,29 @@ def build_hieracrchy(conn):
     latest_message_epoch = None
 
     try:
-        users = get_all_users(conn)
+        users = get_all_users()
+        all_chats = get_all_chats()
+
+        chats_by_user = defaultdict(list)
+        for chat_item in all_chats:
+            if not isinstance(chat_item, dict):
+                malformed_chat_rows += 1
+                continue
+
+            chat_payload = parse_chat_payload(chat_item)
+            if not isinstance(chat_payload, dict):
+                malformed_chat_rows += 1
+                continue
+
+            user_id = resolve_user_id(chat_item, chat_payload)
+            if not user_id:
+                malformed_chat_rows += 1
+                continue
+
+            chats_by_user[user_id].append(chat_payload)
         
         if not users:
-            logger.warning(f"No users found in DB")
+            logger.warning("No users found from OpenWebUI API")
             return [], {
                 "users_processed": 0,
                 "chat_entries_processed": 0,
@@ -145,10 +234,19 @@ def build_hieracrchy(conn):
             }
         
         for user in users:
-            user_id, email, name, role, created_date = user[0], user[1], user[2], user[3], user[4] 
+            user_id = str(user.get("id", ""))
+            email = user.get("email")
+            name = user.get("name")
+            role = user.get("role")
+            created_date = normalize_timestamp(user.get("created_at"))
+
+            if not user_id:
+                logger.warning("Skipping user without id from OpenWebUI users payload")
+                continue
+
             users_processed += 1
             
-            join_date = get_timestamp(created_date)
+            join_date = get_timestamp(created_date if created_date is not None else 0)
 
             json_structure = {
                 "user_id": user_id,
@@ -159,14 +257,12 @@ def build_hieracrchy(conn):
                 "chats": []
             }
 
-            user_chats = get_chats_by_user(conn, user_id)
+            user_chats = chats_by_user.get(user_id, [])
             if not user_chats:
                 logger.warning(f"No chats associated with {name}({email}), going to next user")
                 
             
-            for idx, row in enumerate(user_chats):
-                chats_json = row[0] # get first val from tuple
-                processed_json = parse_json(chats_json)
+            for processed_json in user_chats:
                 if not processed_json:
                     logger.warning("Skipping broken json")
                     malformed_chat_rows += 1
@@ -252,9 +348,8 @@ def export_json(all_users):
 
 
 def main():
-    try: 
-        conn = get_connection()
-        all_users, metadata = build_hieracrchy(conn)
+    try:
+        all_users, metadata = build_hieracrchy()
         output_file_path = export_json(all_users)
 
         metadata["output_file_path"] = output_file_path
@@ -263,10 +358,6 @@ def main():
     except Exception as e:
         logger.critical(f"Fatal error in main: {e}")
         raise
-    finally:
-        if 'conn' in locals():
-            conn.close()
-            logger.debug("DB Connection closed")
 
 
 if __name__ == "__main__":
