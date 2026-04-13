@@ -46,7 +46,7 @@ NOTE: To make this more efficient so we don't have to dump large json files over
 logger = logging.getLogger("professor_dashboard")
 
 OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://localhost:8080").rstrip("/")
-OPENWEBUI_USERS_PATH = os.getenv("OPENWEBUI_USERS_PATH", "/api/v1/users/")
+OPENWEBUI_USERS_PATH = os.getenv("OPENWEBUI_USERS_PATH", "/api/v1/users/all")
 OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/all")
 OPENWEBUI_API_TOKEN = (
     os.getenv("OPENWEBUI_API_TOKEN")
