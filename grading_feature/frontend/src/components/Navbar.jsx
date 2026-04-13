@@ -3,7 +3,6 @@ import { NavLink, useLocation } from "react-router-dom";
 
 export default function Navbar() {
     const location = useLocation();
-    const isStudentPage = location.pathname.startsWith("/student/feedback");
 
     const handleRefresh = async () => {
         try {
@@ -23,7 +22,7 @@ export default function Navbar() {
                     Finance Chatbot Dashboard
                 </h1>
 
-                {!isStudentPage && <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm">
                     <NavLink
                         to="/"
                         className={({ isActive }) =>
@@ -44,19 +43,27 @@ export default function Navbar() {
                     >
                         Scoring
                     </NavLink>
+                    <NavLink
+                        to="/feedback"
+                        className={({ isActive }) =>
+                            `px-3 py-1 rounded-full border border-white/10 transition ${
+                                isActive ? "bg-blue-700 text-white" : "bg-[#21262d] text-gray-200 hover:bg-[#30363d]"
+                            }`
+                        }
+                    >
+                        Feedback
+                    </NavLink>
                 </div>}
             </div>
 
-            {!isStudentPage && (
-                <button
-                    onClick={handleRefresh}
-                    className="px-4 py-1 rounded-full border border-white/10 
-                           bg-[#21262d] hover:bg-[#30363d] text-white 
-                           transition shadow-sm"
-                >
-                    Refresh Data
-                </button>
-            )}
+            <button
+                onClick={handleRefresh}
+                className="px-4 py-1 rounded-full border border-white/10 
+                       bg-[#21262d] hover:bg-[#30363d] text-white 
+                       transition shadow-sm"
+            >
+                Refresh Data
+            </button>
         </div>
     );
 }
