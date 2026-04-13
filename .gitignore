@@ -121,3 +121,6 @@ tools/kb_sync/.venv/
 .env.staging.local
 .env.runtime.dump
 2026-staging-files.zip
+
+docker-compose.local.yml
+local-data/
