@@ -48,7 +48,11 @@ logger = logging.getLogger("professor_dashboard")
 OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://localhost:8080").rstrip("/")
 OPENWEBUI_USERS_PATH = os.getenv("OPENWEBUI_USERS_PATH", "/api/v1/users/")
 OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/all")
-OPENWEBUI_API_TOKEN = os.getenv("OPENWEBUI_API_TOKEN", "")
+OPENWEBUI_API_TOKEN = (
+    os.getenv("OPENWEBUI_API_TOKEN")
+    or os.getenv("OPENWEBUI_API_KEY")
+    or ""
+)
 OPENWEBUI_TIMEOUT_SEC = float(os.getenv("OPENWEBUI_TIMEOUT_SEC", "30"))
 
 OUTPUT_PATH = os.getenv("OUTPUT_PATH")
@@ -117,7 +121,10 @@ def fetch_api_json(path: str) -> Any:
         try:
             return response.json()
         except ValueError as e:
-            raise ExtractionError(f"OpenWebUI API returned non-JSON response at {url}") from e
+            snippet = response.text[:400]
+            raise ExtractionError(
+                f"OpenWebUI API returned non-JSON response at {url} (status {response.status_code}): {snippet}"
+            ) from e
 
     if last_error is not None:
         raise last_error
