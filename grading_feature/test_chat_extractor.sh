@@ -7,6 +7,20 @@ ENV_FILE="$SCRIPT_DIR/.env"
 REFRESH_PORT="9550"
 RUN_API_TEST="${RUN_API_TEST:-1}"
 
+make_temp_dir() {
+  mktemp -d "${TMPDIR:-/tmp}/grading-refresh.XXXXXX"
+}
+
+find_free_port() {
+  "$PYTHON_EXECUTABLE" - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+}
+
 detect_python() {
   if [[ -x "$BACKEND_DIR/venv/bin/python" ]]; then
     echo "$BACKEND_DIR/venv/bin/python"
@@ -34,6 +48,8 @@ if [[ -z "$PYTHON_CMD" ]]; then
   echo "Install Python or add it to PATH, then re-run this script."
   exit 1
 fi
+
+PYTHON_EXECUTABLE="${PYTHON_CMD%% *}"
 
 if [[ -f "$ENV_FILE" ]]; then
   INVALID_ASSIGNMENTS="$(grep -nE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]+=' "$ENV_FILE" || true)"
@@ -144,11 +160,13 @@ if [[ "$RUN_API_TEST" != "1" ]]; then
   exit 0
 fi
 
-TEST_PORT="$REFRESH_PORT"
+TEST_PORT="$(find_free_port)"
+echo "==> Using free refresh test port: $TEST_PORT"
 
 echo "==> Starting API and testing /refresh"
-API_LOG="${TMPDIR:-/tmp}/grading_refresh_api.log"
-REFRESH_BODY="${TMPDIR:-/tmp}/grading_refresh_response.json"
+TEST_TMPDIR="$(make_temp_dir)"
+API_LOG="$TEST_TMPDIR/grading_refresh_api.log"
+REFRESH_BODY="$TEST_TMPDIR/grading_refresh_response.json"
 
 (
   cd "$BACKEND_DIR"
