@@ -1,7 +1,37 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
+
 echo "Starting project..."
+
+if [[ -f "$ENV_FILE" ]]; then
+    INVALID_ASSIGNMENTS="$(grep -nE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]+=' "$ENV_FILE" || true)"
+    if [[ -n "$INVALID_ASSIGNMENTS" ]]; then
+        echo "ERROR: Invalid .env assignment syntax detected in $ENV_FILE"
+        echo "Use VAR=value (no spaces around =)."
+        echo "$INVALID_ASSIGNMENTS"
+        exit 1
+    fi
+
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+fi
+
+if [[ -z "${OPENWEBUI_BASE_URL:-}" ]]; then
+    echo "ERROR: OPENWEBUI_BASE_URL is not set. Put OPENWEBUI_BASE_URL in grading_feature/.env"
+    exit 1
+fi
+
+if [[ -z "${OUTPUT_PATH:-}" ]]; then
+    echo "ERROR: OUTPUT_PATH is not set. Put OUTPUT_PATH in grading_feature/.env"
+    exit 1
+fi
+
+export DATA_PATH="${DATA_PATH:-$OUTPUT_PATH}"
 
 ################################
 # Helper Functions
@@ -53,7 +83,7 @@ fi
 ################################
 
 echo "Setting up backend..."
-cd backend
+cd "$SCRIPT_DIR/backend"
 
 # Create venv if missing
 if [[ ! -d "venv" ]]; then
@@ -71,14 +101,12 @@ echo "Starting FastAPI backend on port 9500..."
 uvicorn main:app --host 0.0.0.0 --port 9500 --reload &
 BACKEND_PID=$!
 
-cd ..
-
 ################################
 # Frontend Setup
 ################################
 
 echo "Setting up frontend..."
-cd frontend
+cd "$SCRIPT_DIR/frontend"
 
 if [[ ! -d "node_modules" ]]; then
     echo "Installing frontend dependencies..."
@@ -88,8 +116,6 @@ fi
 echo "Starting frontend..."
 npm run dev -- --host 0.0.0.0 &
 FRONTEND_PID=$!
-
-cd ..
 
 ################################
 # Cleanup and Exit Handling
