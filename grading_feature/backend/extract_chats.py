@@ -299,9 +299,17 @@ def build_hieracrchy():
                     malformed_chat_rows += 1
                     continue
 
+                # DEBUG: Log the structure of chat items to understand format
+                if users_processed == 1 and chat_entries_processed < 2:
+                    logger.info(f"DEBUG - Chat item keys: {list(chat_item.keys())}")
+                    logger.info(f"DEBUG - Processed JSON keys: {list(processed_json.keys())}")
+                    logger.info(f"DEBUG - Full processed JSON (first 500 chars): {json.dumps(processed_json, indent=2, default=str)[:500]}")
+
                 if "messages" not in processed_json:
                     malformed_chat_rows += 1
-                    logger.warning("Skipping shallow chat payload without messages")
+                    # Only log first couple of shallow payloads to see the structure
+                    if chat_entries_processed < 2:
+                        logger.warning(f"Skipping shallow chat payload. Keys: {list(processed_json.keys())}")
                     continue
 
                 messages = processed_json.get('messages', [])
