@@ -23,6 +23,7 @@ export default function Navbar() {
                 </h1>
 
                 <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm">
                     <NavLink
                         to="/"
                         className={({ isActive }) =>
@@ -56,6 +57,14 @@ export default function Navbar() {
                 </div>
             </div>
 
+            <button
+                onClick={handleRefresh}
+                className="px-4 py-1 rounded-full border border-white/10 
+                       bg-[#21262d] hover:bg-[#30363d] text-white 
+                       transition shadow-sm"
+            >
+                Refresh Data
+            </button>
             <button
                 onClick={handleRefresh}
                 className="px-4 py-1 rounded-full border border-white/10 
