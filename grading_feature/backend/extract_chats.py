@@ -206,11 +206,7 @@ def resolve_user_id(chat_item: dict[str, Any], chat_payload: dict[str, Any] | No
 
 def get_chat_details(chat_id: str) -> dict[str, Any]:
     """Fetch full chat details including messages by chat ID"""
-    try:
-        return fetch_api_json(f"/api/v1/chats/{chat_id}")
-    except ExtractionError as e:
-        logger.debug(f"Could not fetch chat details for {chat_id}: {e}")
-        return None
+    return fetch_api_json(f"/api/v1/chats/{chat_id}")
 
 def parse_json(json_string):
     try:
@@ -252,6 +248,8 @@ def build_hieracrchy():
     message_pairs_processed = 0
     malformed_chat_rows = 0
     latest_message_epoch = None
+    detail_fetch_attempted = 0
+    detail_fetch_failed = 0
 
     try:
         users = get_all_users()
@@ -311,10 +309,19 @@ def build_hieracrchy():
                     # Try fetching full chat details by ID if available
                     chat_id = processed_json.get("id") or chat_item.get("id")
                     if chat_id:
+                        detail_fetch_attempted += 1
                         logger.debug(f"Messages not in shallow payload, fetching full chat details for {chat_id}")
-                        detailed_chat = get_chat_details(chat_id)
-                        if detailed_chat:
-                            processed_json = parse_chat_payload(detailed_chat)
+                        try:
+                            detailed_chat = get_chat_details(chat_id)
+                            if detailed_chat:
+                                processed_json = parse_chat_payload(detailed_chat)
+                        except ExtractionError as e:
+                            detail_fetch_failed += 1
+                            if detail_fetch_failed <= 10:
+                                logger.warning(
+                                    f"Failed to fetch full chat details for chat_id={chat_id}: {e}"
+                                )
+                            continue
                     
                     # If we still don't have messages, skip this chat
                     if "messages" not in processed_json:
@@ -388,7 +395,15 @@ def build_hieracrchy():
         "message_pairs_processed": message_pairs_processed,
         "latest_message_timestamp_found": latest_message_timestamp_found,
         "malformed_chat_rows_skipped": malformed_chat_rows,
+        "detail_fetch_attempted": detail_fetch_attempted,
+        "detail_fetch_failed": detail_fetch_failed,
     }
+
+    if detail_fetch_attempted > 0 and chat_entries_processed == 0 and detail_fetch_failed > 0:
+        logger.warning(
+            "Fetched chat metadata for users, but failed to fetch detailed chat content. "
+            "This usually means the API token can list users/chats but cannot read other users' chat details."
+        )
 
     return all_users, metadata
 
