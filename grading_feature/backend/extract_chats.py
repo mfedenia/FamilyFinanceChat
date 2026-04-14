@@ -204,14 +204,6 @@ def resolve_user_id(chat_item: dict[str, Any], chat_payload: dict[str, Any] | No
 
     return None
 
-def get_chat_details(chat_id: str) -> dict[str, Any]:
-    """Fetch full chat details including messages by chat ID"""
-    try:
-        return fetch_api_json(f"/api/v1/chats/{chat_id}")
-    except ExtractionError as e:
-        logger.debug(f"Could not fetch chat details for {chat_id}: {e}")
-        return None
-
 def parse_json(json_string):
     try:
         data = json.loads(json_string)
@@ -308,20 +300,9 @@ def build_hieracrchy():
                     continue
 
                 if "messages" not in processed_json:
-                    # Try fetching full chat details by ID if available
-                    chat_id = processed_json.get("id") or chat_item.get("id")
-                    if chat_id:
-                        logger.debug(f"Messages not in shallow payload, fetching full chat details for {chat_id}")
-                        detailed_chat = get_chat_details(chat_id)
-                        if detailed_chat:
-                            processed_json = parse_chat_payload(detailed_chat)
-                    
-                    # If we still don't have messages, skip this chat
-                    if "messages" not in processed_json:
-                        malformed_chat_rows += 1
-                        if users_processed <= 2:  # Only log for first couple users
-                            logger.debug(f"No messages found in chat. Available keys: {list(processed_json.keys())}")
-                        continue
+                    malformed_chat_rows += 1
+                    logger.warning("Skipping shallow chat payload without messages")
+                    continue
 
                 messages = processed_json.get('messages', [])
                 if not isinstance(messages, list):
