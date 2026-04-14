@@ -172,17 +172,6 @@ def get_all_chats():
     return coerce_list(payload, ["data", "chats", "items", "results"])
 
 
-def get_chat_details(chat_id: str) -> dict[str, Any]:
-    if not chat_id:
-        raise ExtractionError("Cannot load chat details without a chat_id")
-
-    payload = fetch_api_json(f"/api/v1/chats/{chat_id}")
-    if isinstance(payload, dict):
-        return payload
-
-    raise ExtractionError(f"OpenWebUI chat detail endpoint returned non-object payload for chat_id={chat_id}")
-
-
 def parse_chat_payload(chat_item: dict[str, Any]):
     raw = chat_item.get("chat")
     if raw is None:
@@ -196,27 +185,6 @@ def parse_chat_payload(chat_item: dict[str, Any]):
         return raw
     if isinstance(raw, str):
         return parse_json(raw)
-    return None
-
-
-def get_chat_id(chat_item: dict[str, Any], chat_payload: dict[str, Any] | None = None) -> str | None:
-    candidates = [
-        chat_item.get("chat_id"),
-        chat_item.get("chatId"),
-        chat_item.get("id"),
-    ]
-
-    if isinstance(chat_payload, dict):
-        candidates.extend([
-            chat_payload.get("chat_id"),
-            chat_payload.get("chatId"),
-            chat_payload.get("id"),
-        ])
-
-    for candidate in candidates:
-        if candidate:
-            return str(candidate)
-
     return None
 
 
@@ -332,18 +300,9 @@ def build_hieracrchy():
                     continue
 
                 if "messages" not in processed_json:
-                    chat_id = get_chat_id(chat_item, processed_json)
-                    if not chat_id:
-                        malformed_chat_rows += 1
-                        logger.warning("Skipping shallow chat payload without chat_id")
-                        continue
-
-                    deep_chat_payload = get_chat_details(chat_id)
-                    processed_json = parse_chat_payload(deep_chat_payload)
-                    if not isinstance(processed_json, dict):
-                        malformed_chat_rows += 1
-                        logger.warning(f"Skipping unreadable deep chat payload for chat_id={chat_id}")
-                        continue
+                    malformed_chat_rows += 1
+                    logger.warning("Skipping shallow chat payload without messages")
+                    continue
 
                 messages = processed_json.get('messages', [])
                 if not isinstance(messages, list):
