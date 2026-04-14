@@ -50,7 +50,7 @@ logger = logging.getLogger("professor_dashboard")
 
 OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://localhost:8080").rstrip("/")
 OPENWEBUI_USERS_PATH = os.getenv("OPENWEBUI_USERS_PATH", "/api/v1/users/all")
-OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/all")
+OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/all/db")
 # Support separate auth values:
 # - OPENWEBUI_BEARER_TOKEN or OPENWEBUI_JWT_TOKEN for Authorization: Bearer ...
 # - OPENWEBUI_API_KEY for X-API-Key
@@ -104,37 +104,15 @@ def get_api_headers() -> dict[str, str]:
     return headers
 
 
-def summarize_response_shape(payload: Any) -> str:
-    """Compact response shape for request/response logging."""
-    if isinstance(payload, dict):
-        keys = list(payload.keys())
-        return f"dict keys={keys[:8]}"
-    if isinstance(payload, list):
-        first_keys = []
-        if payload and isinstance(payload[0], dict):
-            first_keys = list(payload[0].keys())
-        return f"list len={len(payload)} first_item_keys={first_keys[:8]}"
-    return type(payload).__name__
-
-
 def fetch_api_json(path: str) -> Any:
     last_error = None
     path_candidates = build_api_path_candidates(path)
     headers = get_api_headers()
 
-    logger.info(
-        "API request planned path=%s candidates=%s auth_bearer=%s auth_api_key=%s timeout_sec=%s",
-        path,
-        path_candidates,
-        "Authorization" in headers,
-        "X-API-Key" in headers,
-        OPENWEBUI_TIMEOUT_SEC,
-    )
-
     for candidate_index, candidate_path in enumerate(path_candidates, start=1):
         url = f"{OPENWEBUI_BASE_URL}{candidate_path}"
         start_time = time.perf_counter()
-        logger.info(
+        logger.debug(
             "API request start method=GET candidate=%s/%s url=%s",
             candidate_index,
             len(path_candidates),
@@ -155,7 +133,7 @@ def fetch_api_json(path: str) -> Any:
             continue
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
-        logger.info(
+        logger.debug(
             "API response received url=%s status=%s elapsed_ms=%s",
             url,
             response.status_code,
@@ -181,11 +159,6 @@ def fetch_api_json(path: str) -> Any:
 
         try:
             payload = response.json()
-            logger.info(
-                "API response parsed url=%s shape=%s",
-                url,
-                summarize_response_shape(payload),
-            )
             return payload
         except ValueError as e:
             snippet = response.text[:400]
@@ -217,28 +190,6 @@ def coerce_list(payload: Any, preferred_keys: list[str]) -> list[Any]:
             if isinstance(value, list):
                 return value
     return []
-
-
-def summarize_payload_metadata(payload: Any) -> dict[str, Any]:
-    """Return lightweight structural metadata for logs without dumping full payloads."""
-    summary: dict[str, Any] = {
-        "type": type(payload).__name__,
-    }
-
-    if isinstance(payload, dict):
-        summary["keys"] = list(payload.keys())
-        for key in ["data", "users", "chats", "items", "results", "messages"]:
-            value = payload.get(key)
-            if isinstance(value, list):
-                summary[f"{key}_len"] = len(value)
-                if value and isinstance(value[0], dict):
-                    summary[f"{key}_first_item_keys"] = list(value[0].keys())
-    elif isinstance(payload, list):
-        summary["len"] = len(payload)
-        if payload and isinstance(payload[0], dict):
-            summary["first_item_keys"] = list(payload[0].keys())
-
-    return summary
 
 
 def get_all_users():
@@ -295,11 +246,11 @@ def resolve_user_id(chat_item: dict[str, Any], chat_payload: dict[str, Any] | No
         if nested_uid is not None:
             return str(nested_uid)
 
-    return None
+        nested_user = chat_payload.get("user")
+        if isinstance(nested_user, dict) and nested_user.get("id") is not None:
+            return str(nested_user.get("id"))
 
-def get_chat_details(chat_id: str) -> dict[str, Any]:
-    """Fetch full chat details including messages by chat ID"""
-    return fetch_api_json(f"/api/v1/chats/{chat_id}")
+    return None
 
 def parse_json(json_string):
     try:
@@ -342,10 +293,11 @@ def build_hieracrchy():
     message_pairs_processed = 0
     malformed_chat_rows = 0
     latest_message_epoch = None
-    detail_fetch_attempted = 0
-    detail_fetch_failed = 0
-    list_metadata_logs = 0
-    detail_metadata_logs = 0
+    chats_by_user = defaultdict(list)
+    total_bulk_chats = 0
+    chats_grouped_with_owner = 0
+    chats_without_resolvable_owner = 0
+    users_with_chats = 0
 
     try:
         users = get_all_users()
@@ -358,6 +310,32 @@ def build_hieracrchy():
                 "latest_message_timestamp_found": None,
                 "malformed_chat_rows_skipped": 0,
             }
+
+        all_chats = get_all_chats()
+        total_bulk_chats = len(all_chats)
+        logger.info("Fetched %s total chats from %s", len(all_chats), OPENWEBUI_CHATS_PATH)
+
+        for chat_item in all_chats:
+            if not isinstance(chat_item, dict):
+                malformed_chat_rows += 1
+                logger.warning("Skipping malformed bulk chat row that is not an object")
+                continue
+
+            chat_payload = parse_chat_payload(chat_item)
+            if not chat_payload:
+                malformed_chat_rows += 1
+                logger.warning("Skipping malformed bulk chat row with invalid payload")
+                continue
+
+            owner_user_id = resolve_user_id(chat_item, chat_payload)
+            if not owner_user_id:
+                chats_without_resolvable_owner += 1
+                malformed_chat_rows += 1
+                logger.debug("Skipping chat without resolvable user_id")
+                continue
+
+            chats_by_user[owner_user_id].append(chat_item)
+            chats_grouped_with_owner += 1
         
         for user in users:
             user_id = str(user.get("id", ""))
@@ -383,19 +361,11 @@ def build_hieracrchy():
                 "chats": []
             }
 
-            user_chat_payload = fetch_api_json(f"/api/v1/chats/list/user/{user_id}")
-            if list_metadata_logs < 8:
-                logger.info(
-                    "API metadata [/chats/list/user] user_id=%s name=%s summary=%s",
-                    user_id,
-                    name,
-                    summarize_payload_metadata(user_chat_payload),
-                )
-                list_metadata_logs += 1
-
-            user_chats = coerce_list(user_chat_payload, ["data", "chats", "items", "results"])
+            user_chats = chats_by_user.get(user_id, [])
             if not user_chats:
-                logger.warning(f"No chats associated with {name}({email}), going to next user")
+                logger.debug(f"No chats associated with {name}({email}), going to next user")
+            else:
+                users_with_chats += 1
                 
             
             for chat_item in user_chats:
@@ -411,36 +381,9 @@ def build_hieracrchy():
                     continue
 
                 if "messages" not in processed_json:
-                    # Try fetching full chat details by ID if available
-                    chat_id = processed_json.get("id") or chat_item.get("id")
-                    if chat_id:
-                        detail_fetch_attempted += 1
-                        logger.debug(f"Messages not in shallow payload, fetching full chat details for {chat_id}")
-                        try:
-                            detailed_chat = get_chat_details(chat_id)
-                            if detail_metadata_logs < 12:
-                                logger.info(
-                                    "API metadata [/chats/{id}] chat_id=%s user_id=%s summary=%s",
-                                    chat_id,
-                                    user_id,
-                                    summarize_payload_metadata(detailed_chat),
-                                )
-                                detail_metadata_logs += 1
-                            if detailed_chat:
-                                processed_json = parse_chat_payload(detailed_chat)
-                        except ExtractionError as e:
-                            detail_fetch_failed += 1
-                            if detail_fetch_failed <= 10:
-                                logger.warning(
-                                    f"Failed to fetch full chat details for chat_id={chat_id}: {e}"
-                                )
-                            continue
-                    
-                    # If we still don't have messages, skip this chat
-                    if "messages" not in processed_json:
-                        malformed_chat_rows += 1
-                        logger.debug(f"No messages found in chat {chat_id if chat_id else 'unknown'}") 
-                        continue
+                    malformed_chat_rows += 1
+                    logger.debug("Skipping chat payload without messages key")
+                    continue
 
                 messages = processed_json.get('messages', [])
                 if not isinstance(messages, list):
@@ -508,24 +451,22 @@ def build_hieracrchy():
         "message_pairs_processed": message_pairs_processed,
         "latest_message_timestamp_found": latest_message_timestamp_found,
         "malformed_chat_rows_skipped": malformed_chat_rows,
-        "detail_fetch_attempted": detail_fetch_attempted,
-        "detail_fetch_failed": detail_fetch_failed,
+        "total_bulk_chats_fetched": total_bulk_chats,
+        "chats_grouped_with_owner": chats_grouped_with_owner,
+        "chats_without_resolvable_owner": chats_without_resolvable_owner,
+        "users_with_chats": users_with_chats,
         "pass_elapsed_ms": int((time.perf_counter() - pass_started_at) * 1000),
     }
 
-    if detail_fetch_attempted > 0 and chat_entries_processed == 0 and detail_fetch_failed > 0:
-        logger.warning(
-            "Fetched chat metadata for users, but failed to fetch detailed chat content. "
-            "This usually means the API token can list users/chats but cannot read other users' chat details."
-        )
-
     logger.info(
-        "Extraction pass complete users_processed=%s chat_entries_processed=%s message_pairs_processed=%s detail_fetch_attempted=%s detail_fetch_failed=%s pass_elapsed_ms=%s",
+        "Extraction pass complete users_processed=%s users_with_chats=%s total_bulk_chats_fetched=%s chats_grouped_with_owner=%s chats_without_resolvable_owner=%s chat_entries_processed=%s message_pairs_processed=%s pass_elapsed_ms=%s",
         metadata["users_processed"],
+        metadata["users_with_chats"],
+        metadata["total_bulk_chats_fetched"],
+        metadata["chats_grouped_with_owner"],
+        metadata["chats_without_resolvable_owner"],
         metadata["chat_entries_processed"],
         metadata["message_pairs_processed"],
-        metadata["detail_fetch_attempted"],
-        metadata["detail_fetch_failed"],
         metadata["pass_elapsed_ms"],
     )
 
