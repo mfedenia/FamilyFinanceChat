@@ -50,9 +50,19 @@ logger = logging.getLogger("professor_dashboard")
 OPENWEBUI_BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://localhost:8080").rstrip("/")
 OPENWEBUI_USERS_PATH = os.getenv("OPENWEBUI_USERS_PATH", "/api/v1/users/all")
 OPENWEBUI_CHATS_PATH = os.getenv("OPENWEBUI_CHATS_PATH", "/api/v1/chats/all")
-OPENWEBUI_API_TOKEN = (
-    os.getenv("OPENWEBUI_API_TOKEN")
-    or os.getenv("OPENWEBUI_API_KEY")
+# Support separate auth values:
+# - OPENWEBUI_BEARER_TOKEN or OPENWEBUI_JWT_TOKEN for Authorization: Bearer ...
+# - OPENWEBUI_API_KEY for X-API-Key
+# Backward compatibility: OPENWEBUI_API_TOKEN can still provide either/both.
+OPENWEBUI_BEARER_TOKEN = (
+    os.getenv("OPENWEBUI_BEARER_TOKEN")
+    or os.getenv("OPENWEBUI_JWT_TOKEN")
+    or os.getenv("OPENWEBUI_API_TOKEN")
+    or ""
+)
+OPENWEBUI_API_KEY = (
+    os.getenv("OPENWEBUI_API_KEY")
+    or os.getenv("OPENWEBUI_API_TOKEN")
     or ""
 )
 OPENWEBUI_TIMEOUT_SEC = float(os.getenv("OPENWEBUI_TIMEOUT_SEC", "30"))
@@ -91,10 +101,20 @@ def build_api_path_candidates(path: str) -> list[str]:
 
 def get_api_headers() -> dict[str, str]:
     headers = {"Accept": "application/json"}
-    token = (OPENWEBUI_API_TOKEN or "").strip()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-        headers["X-API-Key"] = token
+    bearer = (OPENWEBUI_BEARER_TOKEN or "").strip()
+    api_key = (OPENWEBUI_API_KEY or "").strip()
+
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    # If only one value is supplied, mirror it to preserve old behavior.
+    if bearer and not api_key:
+        headers["X-API-Key"] = bearer
+    elif api_key and not bearer:
+        headers["Authorization"] = f"Bearer {api_key}"
+
     return headers
 
 
@@ -146,6 +166,28 @@ def coerce_list(payload: Any, preferred_keys: list[str]) -> list[Any]:
             if isinstance(value, list):
                 return value
     return []
+
+
+def summarize_payload_metadata(payload: Any) -> dict[str, Any]:
+    """Return lightweight structural metadata for logs without dumping full payloads."""
+    summary: dict[str, Any] = {
+        "type": type(payload).__name__,
+    }
+
+    if isinstance(payload, dict):
+        summary["keys"] = list(payload.keys())
+        for key in ["data", "users", "chats", "items", "results", "messages"]:
+            value = payload.get(key)
+            if isinstance(value, list):
+                summary[f"{key}_len"] = len(value)
+                if value and isinstance(value[0], dict):
+                    summary[f"{key}_first_item_keys"] = list(value[0].keys())
+    elif isinstance(payload, list):
+        summary["len"] = len(payload)
+        if payload and isinstance(payload[0], dict):
+            summary["first_item_keys"] = list(payload[0].keys())
+
+    return summary
 
 
 def get_all_users():
@@ -250,6 +292,8 @@ def build_hieracrchy():
     latest_message_epoch = None
     detail_fetch_attempted = 0
     detail_fetch_failed = 0
+    list_metadata_logs = 0
+    detail_metadata_logs = 0
 
     try:
         users = get_all_users()
@@ -288,6 +332,15 @@ def build_hieracrchy():
             }
 
             user_chat_payload = fetch_api_json(f"/api/v1/chats/list/user/{user_id}")
+            if list_metadata_logs < 8:
+                logger.info(
+                    "API metadata [/chats/list/user] user_id=%s name=%s summary=%s",
+                    user_id,
+                    name,
+                    summarize_payload_metadata(user_chat_payload),
+                )
+                list_metadata_logs += 1
+
             user_chats = coerce_list(user_chat_payload, ["data", "chats", "items", "results"])
             if not user_chats:
                 logger.warning(f"No chats associated with {name}({email}), going to next user")
@@ -313,6 +366,14 @@ def build_hieracrchy():
                         logger.debug(f"Messages not in shallow payload, fetching full chat details for {chat_id}")
                         try:
                             detailed_chat = get_chat_details(chat_id)
+                            if detail_metadata_logs < 12:
+                                logger.info(
+                                    "API metadata [/chats/{id}] chat_id=%s user_id=%s summary=%s",
+                                    chat_id,
+                                    user_id,
+                                    summarize_payload_metadata(detailed_chat),
+                                )
+                                detail_metadata_logs += 1
                             if detailed_chat:
                                 processed_json = parse_chat_payload(detailed_chat)
                         except ExtractionError as e:
