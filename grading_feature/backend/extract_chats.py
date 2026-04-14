@@ -9,6 +9,7 @@ import requests
 from logger import logging
 import datetime
 import tempfile
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -81,22 +82,7 @@ def normalize_api_path(path: str) -> str:
 
 
 def build_api_path_candidates(path: str) -> list[str]:
-    normalized = normalize_api_path(path).rstrip("/")
-    candidates = [normalized]
-
-    if normalized.startswith("/api/v1/"):
-        candidates.append(normalized.replace("/api/v1/", "/api/", 1))
-    elif normalized.startswith("/api/"):
-        candidates.append(f"/api/v1/{normalized.removeprefix('/api/')}")
-
-    # Preserve order while removing duplicates.
-    seen = set()
-    unique_candidates = []
-    for candidate in candidates:
-        if candidate not in seen:
-            seen.add(candidate)
-            unique_candidates.append(candidate)
-    return unique_candidates
+    return [normalize_api_path(path).rstrip("/")]
 
 
 def get_api_headers() -> dict[str, str]:
@@ -118,19 +104,72 @@ def get_api_headers() -> dict[str, str]:
     return headers
 
 
+def summarize_response_shape(payload: Any) -> str:
+    """Compact response shape for request/response logging."""
+    if isinstance(payload, dict):
+        keys = list(payload.keys())
+        return f"dict keys={keys[:8]}"
+    if isinstance(payload, list):
+        first_keys = []
+        if payload and isinstance(payload[0], dict):
+            first_keys = list(payload[0].keys())
+        return f"list len={len(payload)} first_item_keys={first_keys[:8]}"
+    return type(payload).__name__
+
+
 def fetch_api_json(path: str) -> Any:
     last_error = None
+    path_candidates = build_api_path_candidates(path)
+    headers = get_api_headers()
 
-    for candidate_path in build_api_path_candidates(path):
+    logger.info(
+        "API request planned path=%s candidates=%s auth_bearer=%s auth_api_key=%s timeout_sec=%s",
+        path,
+        path_candidates,
+        "Authorization" in headers,
+        "X-API-Key" in headers,
+        OPENWEBUI_TIMEOUT_SEC,
+    )
+
+    for candidate_index, candidate_path in enumerate(path_candidates, start=1):
         url = f"{OPENWEBUI_BASE_URL}{candidate_path}"
+        start_time = time.perf_counter()
+        logger.info(
+            "API request start method=GET candidate=%s/%s url=%s",
+            candidate_index,
+            len(path_candidates),
+            url,
+        )
+
         try:
-            response = requests.get(url, headers=get_api_headers(), timeout=OPENWEBUI_TIMEOUT_SEC)
+            response = requests.get(url, headers=headers, timeout=OPENWEBUI_TIMEOUT_SEC)
         except requests.RequestException as e:
+            elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.warning(
+                "API request transport failure url=%s elapsed_ms=%s error=%s",
+                url,
+                elapsed_ms,
+                e,
+            )
             last_error = ExtractionError(f"Failed to connect to OpenWebUI API at {url}: {e}")
             continue
 
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        logger.info(
+            "API response received url=%s status=%s elapsed_ms=%s",
+            url,
+            response.status_code,
+            elapsed_ms,
+        )
+
         if response.status_code >= 400:
             snippet = response.text[:400]
+            logger.warning(
+                "API response failure url=%s status=%s body_snippet=%s",
+                url,
+                response.status_code,
+                snippet,
+            )
             unsupported_version = "unsupported api version" in snippet.lower()
             if unsupported_version and candidate_path.startswith("/api/v1/"):
                 last_error = ExtractionError(
@@ -141,9 +180,21 @@ def fetch_api_json(path: str) -> Any:
             raise ExtractionError(f"OpenWebUI API request failed ({response.status_code}) at {url}: {snippet}")
 
         try:
-            return response.json()
+            payload = response.json()
+            logger.info(
+                "API response parsed url=%s shape=%s",
+                url,
+                summarize_response_shape(payload),
+            )
+            return payload
         except ValueError as e:
             snippet = response.text[:400]
+            logger.warning(
+                "API response parse failure url=%s status=%s body_snippet=%s",
+                url,
+                response.status_code,
+                snippet,
+            )
             raise ExtractionError(
                 f"OpenWebUI API returned non-JSON response at {url} (status {response.status_code}): {snippet}"
             ) from e
@@ -282,7 +333,8 @@ def get_timestamp(ts):
 def build_hieracrchy():
     """Builds hieractchy like the shape above"""
 
-    logger.info("Building logger hierarchy")
+    pass_started_at = time.perf_counter()
+    logger.info("Building logger hierarchy (single pass over users list)")
     
     all_users = []
     users_processed = 0
@@ -458,6 +510,7 @@ def build_hieracrchy():
         "malformed_chat_rows_skipped": malformed_chat_rows,
         "detail_fetch_attempted": detail_fetch_attempted,
         "detail_fetch_failed": detail_fetch_failed,
+        "pass_elapsed_ms": int((time.perf_counter() - pass_started_at) * 1000),
     }
 
     if detail_fetch_attempted > 0 and chat_entries_processed == 0 and detail_fetch_failed > 0:
@@ -465,6 +518,16 @@ def build_hieracrchy():
             "Fetched chat metadata for users, but failed to fetch detailed chat content. "
             "This usually means the API token can list users/chats but cannot read other users' chat details."
         )
+
+    logger.info(
+        "Extraction pass complete users_processed=%s chat_entries_processed=%s message_pairs_processed=%s detail_fetch_attempted=%s detail_fetch_failed=%s pass_elapsed_ms=%s",
+        metadata["users_processed"],
+        metadata["chat_entries_processed"],
+        metadata["message_pairs_processed"],
+        metadata["detail_fetch_attempted"],
+        metadata["detail_fetch_failed"],
+        metadata["pass_elapsed_ms"],
+    )
 
     return all_users, metadata
 
