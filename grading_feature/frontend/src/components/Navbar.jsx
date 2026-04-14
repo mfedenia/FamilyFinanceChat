@@ -1,9 +1,7 @@
 import axios from "axios";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 export default function Navbar() {
-    const location = useLocation();
-
     const handleRefresh = async () => {
         try {
             await axios.get("/refresh");
@@ -22,7 +20,6 @@ export default function Navbar() {
                     Finance Chatbot Dashboard
                 </h1>
 
-                <div className="flex items-center gap-2 text-sm">
                 <div className="flex items-center gap-2 text-sm">
                     <NavLink
                         to="/"
@@ -57,14 +54,6 @@ export default function Navbar() {
                 </div>
             </div>
 
-            <button
-                onClick={handleRefresh}
-                className="px-4 py-1 rounded-full border border-white/10 
-                       bg-[#21262d] hover:bg-[#30363d] text-white 
-                       transition shadow-sm"
-            >
-                Refresh Data
-            </button>
             <button
                 onClick={handleRefresh}
                 className="px-4 py-1 rounded-full border border-white/10 
