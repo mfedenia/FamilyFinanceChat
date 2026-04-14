@@ -56,7 +56,7 @@ OPENWEBUI_API_TOKEN = (
 OPENWEBUI_TIMEOUT_SEC = float(os.getenv("OPENWEBUI_TIMEOUT_SEC", "30"))
 
 OUTPUT_PATH = os.getenv("OUTPUT_PATH")
-EXTRACT_USER_ROLES = os.getenv("EXTRACT_USER_ROLES", "user")
+EXTRACT_USER_ROLES = os.getenv("EXTRACT_USER_ROLES", "all")
 
 
 class ExtractionError(Exception):

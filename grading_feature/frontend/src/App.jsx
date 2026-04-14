@@ -17,6 +17,7 @@ export default function App() {
                         <Route path="/" element={<Home />} />
                         <Route path="/user/:userId" element={<UserDetail />} />
                         <Route path="/scoring" element={<Scoring />} />
+                        <Route path="/feedback" element={<StudentFeedback />} />
                         <Route path="/student/feedback" element={<StudentFeedback />} />
                         <Route path="/student/feedback/:userId" element={<StudentFeedback />} />
                     </Routes>

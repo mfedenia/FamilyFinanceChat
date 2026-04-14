@@ -50,29 +50,57 @@ export default function StudentFeedback() {
   const routeUserId = params.userId;
   const queryUserId =
     searchParams.get("user_id") || searchParams.get("openwebui_user_id");
-  const userId = routeUserId || queryUserId || "";
+  const initialUserId = routeUserId || queryUserId || "all";
 
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(initialUserId);
   const [useAbi, setUseAbi] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [status, setStatus] = useState("");
   const [payload, setPayload] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
+    setSelectedUserId(initialUserId);
+  }, [initialUserId]);
+
+  useEffect(() => {
     setCurrentPage(1);
   }, [payload]);
 
-  async function loadFeedback() {
-    if (!userId) {
-      setStatus("Missing user identity. Open this page from your OpenWebUI account link.");
-      return;
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        setLoadingUsers(true);
+        const response = await axios.get("/users");
+        setUsers(response.data || []);
+      } catch (error) {
+        setStatus(`Unable to load users: ${error.message}`);
+      } finally {
+        setLoadingUsers(false);
+      }
     }
 
+    fetchUsers();
+  }, []);
+
+  const studentOptions = useMemo(() => {
+    return [
+      { value: "all", label: "All users" },
+      ...users.map((u) => ({
+        value: u.user_id,
+        label: `${u.name || "Unknown"} (${u.email || u.user_id})`,
+      })),
+    ];
+  }, [users]);
+
+  async function loadFeedback(scope = selectedUserId) {
     try {
       setLoading(true);
-      setStatus("Loading your feedback...");
+      setStatus(scope === "all" ? "Loading dashboard for all users..." : "Loading feedback...");
       const response = await axios.get(
-        `/api/student-feedback/${encodeURIComponent(userId)}?useAbi=${String(useAbi)}`
+        `/api/student-feedback?user_id=${encodeURIComponent(scope)}&useAbi=${String(useAbi)}`
       );
       setPayload(response.data);
       setStatus("Feedback loaded.");
@@ -88,7 +116,12 @@ export default function StudentFeedback() {
 
   useEffect(() => {
     loadFeedback();
-  }, [userId, useAbi]);
+  }, [selectedUserId, useAbi]);
+
+  const scopeLabel =
+    selectedUserId === "all"
+      ? "All users"
+      : users.find((user) => user.user_id === selectedUserId)?.name || selectedUserId;
 
   const rows = payload?.results || [];
   const rowsPerPage = 12;
@@ -109,35 +142,57 @@ export default function StudentFeedback() {
   return (
     <div className="space-y-6 mt-6 max-w-6xl mx-auto">
       <div className="bg-[#161b22] border border-white/10 rounded-xl p-5 space-y-4">
-        <h2 className="text-xl font-semibold text-white">My Chatbot Feedback</h2>
+        <h2 className="text-xl font-semibold text-white">Feedback Dashboard</h2>
         <p className="text-sm text-gray-300">
-          This page shows your question quality analysis and improvement suggestions based on your OpenWebUI chats.
+          This page shows question quality analysis and improvement suggestions across all users, with optional per-user filtering.
         </p>
 
         {payload?.user && (
           <div className="text-sm text-gray-300">
-            Signed in as <span className="font-semibold text-white">{payload.user.name || payload.user.email || payload.user.user_id}</span>
+            Viewing <span className="font-semibold text-white">{payload.user.name || payload.user.email || payload.user.user_id}</span>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="inline-flex items-center gap-2 text-sm text-gray-300">
-            <input
-              type="checkbox"
-              checked={useAbi}
-              onChange={(e) => setUseAbi(e.target.checked)}
-            />
-            Include ABI pipeline
-          </label>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm text-gray-300">User scope</label>
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="w-full bg-[#0d1117] border border-white/10 rounded px-3 py-2 text-sm"
+              disabled={loadingUsers}
+            >
+              {studentOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <button
-            onClick={loadFeedback}
-            disabled={loading || !userId}
-            className="px-3 py-1.5 rounded bg-[#21262d] border border-white/10 hover:bg-[#30363d] disabled:opacity-50"
-          >
-            Refresh My Feedback
-          </button>
+          <div className="flex items-end">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={useAbi}
+                onChange={(e) => setUseAbi(e.target.checked)}
+              />
+              Include ABI pipeline
+            </label>
+          </div>
+
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => loadFeedback(selectedUserId)}
+              disabled={loading || loadingUsers}
+              className="px-3 py-1.5 rounded bg-[#21262d] border border-white/10 hover:bg-[#30363d] disabled:opacity-50"
+            >
+              Refresh Dashboard
+            </button>
+          </div>
         </div>
+
+        <p className="text-xs text-gray-400">Current scope: {scopeLabel}</p>
 
         {status && <p className="text-sm text-blue-200">{status}</p>}
       </div>

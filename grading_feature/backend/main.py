@@ -97,6 +97,14 @@ def extract_questions_for_user(user: dict[str, Any]) -> list[dict[str, Any]]:
     return questions
 
 
+def extract_questions_for_users(users: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    questions: list[dict[str, Any]] = []
+    for user in users:
+        if isinstance(user, dict):
+            questions.extend(extract_questions_for_user(user))
+    return questions
+
+
 @app.get("/api/health")
 def score_health():
     return {
@@ -123,23 +131,39 @@ async def score_endpoint(payload: ScoreRequest):
         raise HTTPException(status_code=500, detail={"error": str(e)})
 
 
-@app.get("/api/student-feedback/{user_id}")
-async def student_feedback(user_id: str, useAbi: bool = True):
+@app.get("/api/student-feedback")
+async def student_feedback_dashboard(user_id: str = "all", useAbi: bool = True):
     data = load_data()
-    selected_user = next((u for u in data if u.get("user_id") == user_id), None)
+    normalized_user_id = (user_id or "all").strip()
 
-    if not selected_user:
-        raise HTTPException(status_code=404, detail={"error": "User not found"})
+    if normalized_user_id.lower() in {"", "all", "*"}:
+        selected_users = [user for user in data if isinstance(user, dict)]
+        selected_user_summary = {
+            "user_id": "all",
+            "name": "All users",
+            "email": None,
+        }
+        scope = "all"
+    else:
+        selected_user = next((u for u in data if u.get("user_id") == normalized_user_id), None)
+        if not selected_user:
+            raise HTTPException(status_code=404, detail={"error": "User not found"})
 
-    questions = extract_questions_for_user(selected_user)
+        selected_users = [selected_user]
+        selected_user_summary = {
+            "user_id": selected_user.get("user_id"),
+            "name": selected_user.get("name"),
+            "email": selected_user.get("email"),
+        }
+        scope = "user"
+
+    questions = extract_questions_for_users(selected_users)
     if not questions:
         return {
             "ok": True,
-            "user": {
-                "user_id": selected_user.get("user_id"),
-                "name": selected_user.get("name"),
-                "email": selected_user.get("email"),
-            },
+            "scope": scope,
+            "selected_user_count": len(selected_users),
+            "user": selected_user_summary,
             "results": [],
             "aggregate": {
                 "count": 0,
@@ -157,17 +181,20 @@ async def student_feedback(user_id: str, useAbi: bool = True):
         results, aggregate = await score_questions(questions, useAbi)
         return {
             "ok": True,
-            "user": {
-                "user_id": selected_user.get("user_id"),
-                "name": selected_user.get("name"),
-                "email": selected_user.get("email"),
-            },
+            "scope": scope,
+            "selected_user_count": len(selected_users),
+            "user": selected_user_summary,
             "results": results,
             "aggregate": aggregate,
         }
     except Exception as e:
         logger.exception(f"Student feedback scoring failed: {e}")
         raise HTTPException(status_code=500, detail={"error": str(e)})
+
+
+@app.get("/api/student-feedback/{user_id}")
+async def student_feedback(user_id: str, useAbi: bool = True):
+    return await student_feedback_dashboard(user_id=user_id, useAbi=useAbi)
 
 @app.get("/users")
 def get_all_users():
