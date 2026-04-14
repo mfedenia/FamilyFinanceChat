@@ -1,7 +1,9 @@
+import argparse
 import os
 import json
 from collections import defaultdict
 from typing import Any
+import sys
 
 import requests
 from logger import logging
@@ -277,40 +279,6 @@ def build_hieracrchy():
 
     try:
         users = get_all_users()
-        all_chats = get_all_chats()
-
-        chats_by_user = defaultdict(list)
-        for chat_item in all_chats:
-            if not isinstance(chat_item, dict):
-                malformed_chat_rows += 1
-                continue
-
-            chat_payload = parse_chat_payload(chat_item)
-            if not isinstance(chat_payload, dict):
-                malformed_chat_rows += 1
-                continue
-
-            if "messages" not in chat_payload:
-                chat_id = get_chat_id(chat_item, chat_payload)
-                if not chat_id:
-                    malformed_chat_rows += 1
-                    logger.warning("Skipping shallow chat payload without chat_id")
-                    continue
-
-                deep_chat_payload = get_chat_details(chat_id)
-                chat_payload = parse_chat_payload(deep_chat_payload)
-                if not isinstance(chat_payload, dict):
-                    malformed_chat_rows += 1
-                    logger.warning(f"Skipping unreadable deep chat payload for chat_id={chat_id}")
-                    continue
-
-            user_id = resolve_user_id(chat_item, chat_payload)
-            if not user_id:
-                malformed_chat_rows += 1
-                continue
-
-            chats_by_user[user_id].append(chat_payload)
-        
         if not users:
             logger.warning("No users found from OpenWebUI API")
             return [], {
@@ -345,16 +313,37 @@ def build_hieracrchy():
                 "chats": []
             }
 
-            user_chats = chats_by_user.get(user_id, [])
+            user_chat_payload = fetch_api_json(f"/api/v1/chats/list/user/{user_id}")
+            user_chats = coerce_list(user_chat_payload, ["data", "chats", "items", "results"])
             if not user_chats:
                 logger.warning(f"No chats associated with {name}({email}), going to next user")
                 
             
-            for processed_json in user_chats:
+            for chat_item in user_chats:
+                if not isinstance(chat_item, dict):
+                    malformed_chat_rows += 1
+                    logger.warning("Skipping malformed chat row that is not an object")
+                    continue
+
+                processed_json = parse_chat_payload(chat_item)
                 if not processed_json:
                     logger.warning("Skipping broken json")
                     malformed_chat_rows += 1
                     continue
+
+                if "messages" not in processed_json:
+                    chat_id = get_chat_id(chat_item, processed_json)
+                    if not chat_id:
+                        malformed_chat_rows += 1
+                        logger.warning("Skipping shallow chat payload without chat_id")
+                        continue
+
+                    deep_chat_payload = get_chat_details(chat_id)
+                    processed_json = parse_chat_payload(deep_chat_payload)
+                    if not isinstance(processed_json, dict):
+                        malformed_chat_rows += 1
+                        logger.warning(f"Skipping unreadable deep chat payload for chat_id={chat_id}")
+                        continue
 
                 messages = processed_json.get('messages', [])
                 if not isinstance(messages, list):
@@ -455,9 +444,26 @@ def export_json(all_users):
         raise ExtractionError(f"Failed to export JSON: {e}") from e
 
 
-def main():
+def main(argv: list[str] | None = None):
+    parser = argparse.ArgumentParser(description="Extract OpenWebUI chats into grading JSON")
+    parser.add_argument("--legacy", action="store_true", help="Run the legacy SQLite extraction path")
+    args = parser.parse_args(argv if argv is not None else [])
+
     try:
-        all_users, metadata = build_hieracrchy()
+        if args.legacy:
+            logger.info("Running in legacy mode")
+            # TODO: Insert legacy SQLite extraction here
+            all_users, metadata = [], {
+                "users_processed": 0,
+                "chat_entries_processed": 0,
+                "message_pairs_processed": 0,
+                "latest_message_timestamp_found": None,
+                "malformed_chat_rows_skipped": 0,
+            }
+        else:
+            logger.info("Running in API mode")
+            all_users, metadata = build_hieracrchy()
+
         output_file_path = export_json(all_users)
 
         metadata["output_file_path"] = output_file_path
@@ -469,5 +475,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
     
