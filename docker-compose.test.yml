@@ -80,7 +80,7 @@ services:
       - WEBSOCKET_REDIS_URL=redis://redis-test:6379/1
     networks: [ai-net-test]
     ports:
-      - "0.0.0.0:3002:8080"         # Production is on 3000
+      - "0.0.0.0:3003:8080"         # Production is on 3000
     volumes:
       - owtest-data:/app/backend/data
       - owtest-uploads:/app/backend/data/uploads
