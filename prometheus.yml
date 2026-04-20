@@ -15,19 +15,9 @@ scrape_configs:
     static_configs:
       - targets: ["cadvisor:8080"]
 
-  - job_name: "openwebui"
-    static_configs:
-      - targets: ["open-webui:8080"]
-    metrics_path: /metrics
-
   - job_name: "openwebui-exporter-staging"
     static_configs:
       - targets: ["metrics-exporter-staging:8000"]
-    metrics_path: /metrics
-
-  - job_name: "openwebui-staging"
-    static_configs:
-      - targets: ["open-webui-staging:8080"]
     metrics_path: /metrics
 
   # Filter Functions push metrics here; honor_labels keeps pushed job/instance labels.
