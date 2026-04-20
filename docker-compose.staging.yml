@@ -53,11 +53,6 @@ services:
     volumes:
       - ${STAGING_UPLOADS_DIR}:/app/backend/data/uploads
       - ${STAGING_OPENWEBUI_DATA_DIR}:/app/backend/data
-      - ${STAGING_REPO_DIR}/custom-code/main.py:/app/backend/open_webui/main.py:ro
-      - ${STAGING_REPO_DIR}/custom-code:/app/custom-code:ro
-      - ${STAGING_REPO_DIR}/custom-code/integrated_backend/custom_pdf_router.py:/app/backend/open_webui/routers/custom_pdf_router.py:ro
-      - ${STAGING_REPO_DIR}/custom-code/config.py:/app/backend/open_webui/config.py:ro
-      - ${STAGING_REPO_DIR}/custom-code/observability.py:/app/backend/open_webui/observability.py:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
       start_period: 30s

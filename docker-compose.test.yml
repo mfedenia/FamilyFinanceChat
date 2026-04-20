@@ -1,0 +1,118 @@
+# ==============================================================================
+# Upgrade Test Stack
+#
+# Runs a completely isolated OW v0.8.12 instance alongside production.
+# All container names, ports, networks, and volumes are namespaced with "-test"
+# so nothing touches the live stack.
+#
+# Usage (on the GCP VM, from the repo root on the version_upgrade branch):
+#
+#   # 1. Copy your production .env and adjust the Qdrant URI + Redis URLs:
+#   cp .env .env.test
+#   #    Edit .env.test:
+#   #      QDRANT_URI=http://qdrant-test:6333
+#   #      REDIS_URL=redis://redis-test:6379/0
+#   #      WEBSOCKET_REDIS_URL=redis://redis-test:6379/1
+#
+#   # 2. Start the test stack:
+#   docker compose -f docker-compose.test.yml up -d --build
+#
+#   # 3. Open http://<VM_IP>:3002 — fresh OW v0.8.12 instance
+#   #    Create an admin account, upload a test KB file, send a test chat
+#
+#   # 4. Verify pushgateway received metrics:
+#   curl -s http://localhost:9093/metrics | grep openwebui_chat
+#
+#   # 5. Tear down when done (production untouched):
+#   docker compose -f docker-compose.test.yml down -v
+# ==============================================================================
+
+networks:
+  ai-net-test:
+    driver: bridge
+
+services:
+  qdrant-test:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-test
+    restart: unless-stopped
+    networks: [ai-net-test]
+    volumes:
+      - qdrant-test-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      start_period: 10s
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  redis-test:
+    image: valkey/valkey:8.0.1-alpine
+    container_name: redis-test
+    restart: unless-stopped
+    networks: [ai-net-test]
+    volumes:
+      - redis-test-data:/data
+    command: >-
+      valkey-server
+      --save 30 1
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  open-webui-test:
+    build: .
+    container_name: open-webui-test
+    depends_on: [qdrant-test, redis-test]
+    restart: unless-stopped
+    env_file: .env.test
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - VECTOR_DB=qdrant
+      - QDRANT_URI=http://qdrant-test:6333
+      - WEBSOCKET_MANAGER=redis
+      - REDIS_URL=redis://redis-test:6379/0
+      - WEBSOCKET_REDIS_URL=redis://redis-test:6379/1
+    networks: [ai-net-test]
+    ports:
+      - "0.0.0.0:3002:8080"         # Production is on 3000
+    volumes:
+      - owtest-data:/app/backend/data
+      - owtest-uploads:/app/backend/data/uploads
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 4g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      start_period: 30s
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  pushgateway-test:
+    image: prom/pushgateway:v1.8.0
+    container_name: pushgateway-test
+    restart: unless-stopped
+    networks: [ai-net-test]
+    ports:
+      - "9093:9091"                  # Production pushgateway is on 9091
+    command:
+      - "--web.enable-lifecycle"
+
+volumes:
+  qdrant-test-data:
+  redis-test-data:
+  owtest-data:
+  owtest-uploads:
