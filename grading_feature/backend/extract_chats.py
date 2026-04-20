@@ -281,7 +281,7 @@ def get_timestamp(ts):
 
     return f"{date_formatted} {time_formatted}"
 
-def build_hieracrchy():
+def build_hieracrchy(limit: int | None = None):
     """Builds hieractchy like the shape above"""
 
     pass_started_at = time.perf_counter()
@@ -338,6 +338,10 @@ def build_hieracrchy():
             chats_grouped_with_owner += 1
         
         for user in users:
+            if limit is not None and users_processed >= limit:
+                logger.info(f"Reached limit of {limit} users, stopping extraction")
+                break
+
             user_id = str(user.get("id", ""))
             email = user.get("email")
             name = user.get("name")
@@ -502,9 +506,24 @@ def export_json(all_users):
 
 
 def main(argv: list[str] | None = None):
+    global OPENWEBUI_BASE_URL, OUTPUT_PATH
+    
     parser = argparse.ArgumentParser(description="Extract OpenWebUI chats into grading JSON")
     parser.add_argument("--legacy", action="store_true", help="Run the legacy SQLite extraction path")
+    parser.add_argument("--limit", type=int, help="Limit the number of users to process")
+    parser.add_argument("--test", action="store_true", help="Quick test mode: uses localhost tunnel and temporary output")
+    
     args = parser.parse_args(argv if argv is not None else [])
+
+    if args.test:
+        logger.info("Running in TEST mode")
+        # Override URL to point to the local tunnel if not already set specifically
+        if not os.getenv("OPENWEBUI_BASE_URL"):
+            OPENWEBUI_BASE_URL = "http://localhost:3003"
+        
+        # Override output path to a local file in the repo so we don't need a valid production path
+        if not os.getenv("OUTPUT_PATH"):
+            OUTPUT_PATH = "grading_feature/test_extraction.json"
 
     try:
         if args.legacy:
@@ -519,7 +538,7 @@ def main(argv: list[str] | None = None):
             }
         else:
             logger.info("Running in API mode")
-            all_users, metadata = build_hieracrchy()
+            all_users, metadata = build_hieracrchy(limit=args.limit)
 
         output_file_path = export_json(all_users)
 

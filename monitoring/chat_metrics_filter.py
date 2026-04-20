@@ -47,23 +47,24 @@ class Filter:
 
     def __init__(self):
         self.valves = self.Valves()
+        self._state = {}  # Internal state to store timing across inlet/outlet
 
     def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """
         Runs before the LLM call.
-        Records start time and context size in the request body metadata.
+        Records start time and context size in internal state.
         """
         if not self.valves.enabled:
             return body
 
+        user_id = __user__.get("id") if __user__ else "anonymous"
         messages = body.get("messages", [])
         msg_count = len(messages)
         total_chars = sum(len(str(m.get("content", ""))) for m in messages)
         estimated_tokens = total_chars // 4
 
-        # Store timing and context metadata for the outlet to pick up.
-        # Using a namespaced key to avoid collisions with OW internals.
-        body["__chat_metrics"] = {
+        # Store timing and context metadata internally, indexed by user_id.
+        self._state[user_id] = {
             "start": time.perf_counter(),
             "msg_count": msg_count,
             "estimated_tokens": estimated_tokens,
@@ -81,7 +82,9 @@ class Filter:
         if not self.valves.enabled:
             return body
 
-        metrics_meta = body.pop("__chat_metrics", None)
+        user_id = __user__.get("id") if __user__ else "anonymous"
+        metrics_meta = self._state.pop(user_id, None)
+        
         if metrics_meta is None:
             return body
 
