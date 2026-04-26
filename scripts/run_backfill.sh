@@ -82,13 +82,14 @@ log "=== Step 3: Create TSDB blocks via promtool ==="
 log "This may take a minute for 5+ million samples..."
 
 docker run --rm \
+    --entrypoint /bin/promtool \
     --user 65534:65534 \
     -v "$PROMETHEUS_DATA_DIR":/prometheus \
     -v "$OPENMETRICS_FILE":/tmp/history.openmetrics:ro \
     "$PROMETHEUS_IMAGE" \
-    promtool tsdb create-blocks-from openmetrics \
+    tsdb create-blocks-from openmetrics \
         /tmp/history.openmetrics \
-        --output-dir /prometheus
+        /prometheus
 
 log "TSDB blocks written to $PROMETHEUS_DATA_DIR"
 
