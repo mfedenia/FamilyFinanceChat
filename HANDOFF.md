@@ -36,9 +36,6 @@ We built staging and test Docker stacks. The staging environment was never fully
 
 ## Known Bugs and Limitations
 
-### Chat hangs after 7+ messages
-The most common student-facing issue. After 7 or more messages in a single chat session, the chatbot sometimes gets stuck and stops responding. Root cause is unknown — it could be a token-context limit, a Filter Function state issue, or a Redis session timeout. Workaround: open a new chat. **This should be the first bug investigated.**
-
 ### Filter Function must be manually re-installed after every deployment
 The Chat Metrics filter (`monitoring/chat_metrics_filter.py`) is installed through the OpenWebUI admin UI and is not persisted in any config file. Every time you deploy a fresh instance you must re-install it. See `monitoring/README.md` for exact steps. Without it, Grafana shows no chat metrics.
 
@@ -79,29 +76,27 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **High priority:**
 
-1. **Fix the 7-message chat hang.** Students hit this constantly. Start by disabling the Filter Function and testing whether it's contributing to the state accumulation issue.
+1. **Host the grading dashboard.** Add it to `docker-compose.yml`, put it behind Nginx with HTTP basic auth (or the university's SSO), and give professors a URL. One to two days of engineering.
 
-2. **Host the grading dashboard.** Add it to `docker-compose.yml`, put it behind Nginx with HTTP basic auth (or the university's SSO), and give professors a URL. One to two days of engineering.
+2. **Wire `/ready` into GCP uptime monitoring.** OpenWebUI v0.8.9 added a `/ready` endpoint that only returns 200 when the DB and Redis are fully up. Set a GCP Uptime Check against it and alert the primary maintainer. The app went down once and we found out passively from students.
 
-3. **Wire `/ready` into GCP uptime monitoring.** OpenWebUI v0.8.9 added a `/ready` endpoint that only returns 200 when the DB and Redis are fully up. Set a GCP Uptime Check against it and alert the primary maintainer. The app went down once and we found out passively from students.
-
-4. **Add CI/CD.** See the CI/CD section in `SETUP.md` for the recommended starting pipeline. The key insight from this semester: upgrades break things silently if there are no automated checks. A GitHub Actions workflow that builds the image and hits `/health` would catch 80% of issues with minimal effort.
+3. **Add CI/CD.** See the CI/CD section in `SETUP.md` for the recommended starting pipeline. The key insight from this semester: upgrades break things silently if there are no automated checks. A GitHub Actions workflow that builds the image and hits `/health` would catch 80% of issues with minimal effort.
 
 **Medium priority:**
 
-5. **Automate Filter Function installation.** The manual install-after-deploy step is fragile. Options: use the OpenWebUI REST API (`POST /api/v1/functions/`) to install it as part of a post-deploy script, or add it to a startup init container.
+4. **Automate Filter Function installation.** The manual install-after-deploy step is fragile. Options: use the OpenWebUI REST API (`POST /api/v1/functions/`) to install it as part of a post-deploy script, or add it to a startup init container.
 
-6. **Fix the `rag_with_citations` f-string bug** in `rag_bio_project/src/prompting.py` line 104.
+5. **Fix the `rag_with_citations` f-string bug** in `rag_bio_project/src/prompting.py` line 104.
 
-7. **Pin `qdrant:latest` and `cadvisor:latest`** to specific versions in `docker-compose.yml`. Unpinned images will silently upgrade on the next `docker compose pull`.
+6. **Pin `qdrant:latest` and `cadvisor:latest`** to specific versions in `docker-compose.yml`. Unpinned images will silently upgrade on the next `docker compose pull`.
 
-8. **Consolidate scoring logic** — eliminate the duplicate JS/Python implementations or add a comment pointing to which is canonical.
+7. **Consolidate scoring logic** — eliminate the duplicate JS/Python implementations or add a comment pointing to which is canonical.
 
 **Longer term:**
 
-9. **Multi-tenant packaging.** The long-term goal is expanding to other courses and universities. Everything is currently single-tenant. Start with a docker-compose profile per course and think about data isolation for vector stores.
+8. **Multi-tenant packaging.** The long-term goal is expanding to other courses and universities. Everything is currently single-tenant. Start with a docker-compose profile per course and think about data isolation for vector stores.
 
-10. **Skills for financial frameworks.** OpenWebUI v0.8.0 added Skills — reusable instruction sets attachable to models, manageable from the UI. The course frameworks (ABI, financial planning rubrics) should live as Skills so a professor can update them without touching config files or asking a developer.
+9. **Skills for financial frameworks.** OpenWebUI v0.8.0 added Skills — reusable instruction sets attachable to models, manageable from the UI. The course frameworks (ABI, financial planning rubrics) should live as Skills so a professor can update them without touching config files or asking a developer.
 
 ---
 
