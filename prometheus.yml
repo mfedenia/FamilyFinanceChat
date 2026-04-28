@@ -15,18 +15,8 @@ scrape_configs:
     static_configs:
       - targets: ["cadvisor:8080"]
 
-  - job_name: "openwebui-exporter-staging"
-    static_configs:
-      - targets: ["metrics-exporter-staging:8000"]
-    metrics_path: /metrics
-
   # Filter Functions push metrics here; honor_labels keeps pushed job/instance labels.
   - job_name: "pushgateway"
     honor_labels: true
     static_configs:
       - targets: ["pushgateway:9091"]
-
-  - job_name: "pushgateway-staging"
-    honor_labels: true
-    static_configs:
-      - targets: ["pushgateway-staging:9091"]
