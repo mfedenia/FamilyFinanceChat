@@ -57,7 +57,6 @@ docker compose up -d
 
 ## What Doesn't Work / Known Issues
 
-- **Chat hangs after 7+ messages** — open a new chat as a workaround; root cause unknown
 - **Filter Function must be re-installed after every deployment** — not auto-deployed
 - **Grading dashboard requires local run** — professors need to SSH to the VM or run it on their machine; not hosted yet
 - **`rag_with_citations` prompt mode has a formatting bug** — citation numbers display as literal `{i}` (in `rag_bio_project/src/prompting.py`)
@@ -67,11 +66,10 @@ docker compose up -d
 
 ## What the Next Team Should Work On
 
-1. Fix the 7-message chat hang
-2. Host the grading dashboard on the VM behind Nginx with basic auth
-3. Add CI/CD (GitHub Actions build + `/health` smoke test — see SETUP.md)
-4. Wire the `/ready` endpoint into GCP uptime monitoring and alerting
-5. Automate Filter Function installation as part of deployment
+1. Host the grading dashboard on the VM behind Nginx with basic auth
+2. Add CI/CD (GitHub Actions build + `/health` smoke test — see SETUP.md)
+3. Wire the `/ready` endpoint into GCP uptime monitoring and alerting
+4. Automate Filter Function installation as part of deployment
 
 Full context and priority reasoning: [HANDOFF.md](HANDOFF.md)
 
