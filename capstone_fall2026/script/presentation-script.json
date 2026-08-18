@@ -2,243 +2,82 @@
   "title": "FamilyFinanceChat - Fall 2026 Project Kickoff",
   "deck": "../slides/familyfinancechat-fall2026.pdf",
   "source": "presentation-script.md",
-  "slide_count": 33,
-  "total_words": 5782,
-  "estimated_runtime_seconds": 2031,
-  "runtime_from_word_count_seconds": 2393,
+  "slide_count": 10,
+  "total_words": 783,
+  "estimated_runtime_seconds": 290,
+  "runtime_from_word_count_seconds": 324,
   "speaking_rate_wpm": 145,
   "notes": "One narration string per slide, spoken verbatim. Version numbers and acronyms are already written the way they should be pronounced.",
   "slides": [
     {
       "slide": 1,
       "title": "Title",
-      "estimated_seconds": 25,
-      "narration": "Good afternoon. This is FamilyFinanceChat, and this presentation is about what the next development team is going to build.\n\nThere are two halves to it. The first is finishing the job of making this a professional, maintainable platform. The second is a genuinely new question: whether we can turn a chatbot into a conversation — with a face, and a voice, that a student can actually talk to.\n\nLet me start with where things stand.",
-      "word_count": 75
+      "estimated_seconds": 14,
+      "narration": "This is FamilyFinanceChat. In five minutes: what it is, what is wrong with it, and what this team is going to do about it.\n\nTwo jobs this semester. Make the platform solid, and give the client a face.",
+      "word_count": 38
     },
     {
       "slide": 2,
-      "title": "What we will cover",
-      "estimated_seconds": 45,
-      "narration": "The first part of this presentation is about the platform itself. Where the system stands today, the architectural lesson that shaped it, the compatibility rules we work under, what we still have to remove, and how we close the gap to the current version of the software we depend on.\n\nThe second part is the new bet. Why typing is not enough for what this course is trying to teach, what an avatar-based practice session would actually look like, and how we would build, cost, and honestly evaluate one.\n\nBefore any of that, one rule, because it governs every decision in this deck. We never modify Open WebUI's core. If a feature cannot be built on a published extension surface, then the feature changes — not the core. I will come back to why that rule exists, and what it has already cost this project to learn.",
-      "word_count": 147
+      "title": "What we have",
+      "estimated_seconds": 25,
+      "narration": "Here is the whole system.\n\nA student practises financial advising against an A-I client — a realistic family, grounded in the actual course documents so it does not invent its facts. Every question the student asks is scored automatically, and the instructor sees the results in a dashboard.\n\nThe point is scale. Unlimited practice, at any hour, without booking a human role-player.",
+      "word_count": 62
     },
     {
       "slide": 3,
-      "title": "The problem this platform solves",
-      "estimated_seconds": 55,
-      "narration": "Start with the purpose, because the architecture only makes sense in light of it.\n\nFIN 602 students have to practise client-facing financial advising before they sit across from a real family. Human role-players do not scale. You get scheduling bottlenecks, you get inconsistent scenarios, and the quality of feedback depends entirely on who happened to be in the room.\n\nInstructors have the mirror-image problem. Reading every transcript by hand does not scale either.\n\nSo what we built is unlimited, on-demand A-I role-play against realistic family scenarios, grounded in the actual course documents. And on top of that, automated scoring of student questions across seven quality dimensions, plus an Ability, Benevolence, and Integrity trust rubric — A-B-I. A grading dashboard turns those transcripts into per-student feedback.\n\nThat scoring pipeline matters more than it might sound. It is the thing that will let us measure whether the avatar work in the second half of this presentation is actually worth doing.",
-      "word_count": 158
+      "title": "It works. Three things hurt.",
+      "estimated_seconds": 32,
+      "narration": "It works today. Students use it. But three things hurt.\n\nWe are three versions behind the open-source software this is built on, and every month we wait, catching up gets harder.\n\nThe professor's grading tool runs on a laptop. Using it takes a terminal and a developer, which is the biggest barrier to anyone adopting this.\n\nAnd every deployment needs manual steps that people forget — and things break quietly.\n\nThat is the gap between a system that works and a system you can hand to someone else.",
+      "word_count": 88
     },
     {
       "slide": 4,
-      "title": "The system today",
-      "estimated_seconds": 75,
-      "narration": "Here is what actually runs.\n\nEight containers on a single Google Cloud VM. Open WebUI in the centre handles the chat interface, routes model calls, and stores chat history. Qdrant holds the vector index over the course documents, so answers stay grounded in real material instead of being invented. Valkey handles WebSocket session state. The model itself is served through the OpenAI A-P-I, and file uploads land in a Google Cloud Storage bucket mounted on the machine.\n\nAcross the top is the monitoring stack. A plugin inside Open WebUI pushes per-chat metrics to a Pushgateway, Prometheus scrapes that alongside container metrics from cAdvisor, and Grafana draws the dashboards.\n\nNow look at the box on the lower left, in amber. That is the grading dashboard — the tool the professor actually uses. It is not on the VM. It runs on a developer's laptop.\n\nThat single fact is the headline problem for the first half of this semester. We built a grading system that requires a terminal and an S-S-H session to use. If a professor cannot open it in a browser, it does not matter how good the scoring is.",
-      "word_count": 190
+      "title": "The one rule",
+      "estimated_seconds": 35,
+      "narration": "One rule governs everything, because this project learned it the hard way.\n\nWe never modify the core of Open WebUI — the open-source platform underneath us.\n\nThe team before us inherited six and a half thousand lines of that project's code, copied and modified locally. It froze us on one old version, because every upgrade meant merging someone else's software by hand.\n\nThey removed all of it. Today our version is one line long. We just run their release.\n\nSo the test for everything we build is simple. Could we take their next release tomorrow, unchanged, and still work?",
+      "word_count": 99
     },
     {
       "slide": 5,
-      "title": "The lesson that shaped this project",
-      "estimated_seconds": 90,
-      "narration": "This slide is the most important piece of history in the deck, and it explains almost every rule that follows.\n\nOn the left is how this project used to work. Open WebUI is open-source software that we run but do not own. To add two features, the previous architecture replaced three of its internal source files by mounting our own versions over them inside the container. A twenty-five-hundred line replacement for the application entry point. A thirty-eight-hundred line replacement for the configuration module, which existed only so that the first file's imports would resolve. A custom metrics module. And a custom router injected directly into the vendor's package.\n\nThat is roughly six and a half thousand lines of forked code, to get two features.\n\nThe cost was severe. The platform was frozen on version zero point six point forty-one, because every upgrade meant hand-merging someone else's application code. Mysterious startup failures kept tracing back to fork drift. And users reached one of those custom features through a browser bookmarklet — a snippet of JavaScript saved as a bookmark, which they had to click to inject code into the page.\n\nThe team before us removed all of it. On the right is what we inherited. Every customisation now rides a documented plugin or A-P-I surface, and the Dockerfile is a single line.\n\nThat is the real achievement of the last team, and it is the reason this semester is possible at all.",
-      "word_count": 241
+      "title": "First job: make it solid",
+      "estimated_seconds": 28,
+      "narration": "The first job is unglamorous, and it is what the course depends on.\n\nUpgrade to the current version — carefully, one step at a time, because these upgrades change the database and you cannot undo that.\n\nGive the professor a web address instead of a laptop.\n\nAutomate deployment and testing, so a bad change is caught before it reaches students.\n\nAnd delete the last of that old copied code, so nobody can bring it back by accident.",
+      "word_count": 77
     },
     {
       "slide": 6,
-      "title": "Where it still hurts",
-      "estimated_seconds": 70,
-      "narration": "The fork is gone. Plenty of other debt is not.\n\nWe are pinned to version zero point eight point twelve. Upstream is now on zero point eleven. That is three minor versions of fixes and features we do not have — and, more importantly, three sets of database migrations we have deferred rather than avoided.\n\nThe metrics plugin has to be pasted into an admin form by hand after every single deployment. That means our deployment is not reproducible, and when someone forgets, the metrics silently disappear. Worse, that plugin is written synchronously, with a blocking network call, on a platform whose backend went fully asynchronous two versions ago.\n\nThe grading dashboard is not hosted. There is no continuous integration and no automated smoke test — past upgrades broke things quietly, and nobody found out until a student did. There is no alerting, so an outage was discovered passively, from students. There are two retrieval systems and two copies of the scoring logic. And Grafana is still shipping with the default username and password.\n\nNone of this is exotic. This is the ordinary gap between a system that works and a system you can actually hand to somebody else.",
-      "word_count": 199
+      "title": "Second job: give the client a face",
+      "estimated_seconds": 31,
+      "narration": "Now the new part.\n\nToday the student types to the client. We want them to talk to it — to a face that listens and answers out loud, in character.\n\nHere is why that matters. This course prepares students for a room with a real family in it. In that room you ask the hard question about money out loud, once, while somebody is looking at you.\n\nYou cannot rehearse that with a backspace key.",
+      "word_count": 75
     },
     {
       "slide": 7,
-      "title": "Workstream A",
-      "estimated_seconds": 12,
-      "narration": "So, the first workstream. Harden and modernise. This is the part that must not slip.",
-      "word_count": 15
+      "title": "How, without breaking the rule",
+      "estimated_seconds": 31,
+      "narration": "So how do we add a talking face without breaking that rule?\n\nWe do not put it inside the platform. We build it beside the platform — a separate application in its own container. The student speaks to it, it asks Open WebUI for the answer, and Open WebUI stays untouched.\n\nSame brain, same documents, same grading. And if this turns out not to be worth shipping, we delete one container.\n\nThe rule did not get in the way of the design. It chose the better design for us.",
+      "word_count": 89
     },
     {
       "slide": 8,
-      "title": "The compatibility contract",
-      "estimated_seconds": 75,
-      "narration": "Here is the rule, stated properly.\n\nOpen WebUI is a dependency, not a codebase we own. We must be able to pull any published release of it and have our platform keep working, with no merge, no patch, and no re-fork.\n\nThat means every feature we build has to ride a surface that upstream publishes, documents, and versions. And if a feature cannot be built that way, then the feature gets redesigned or dropped. The core is never modified. Not temporarily, not read-only, not just this once.\n\nThere is a simple test for whether you are following this, and I would like the team to apply it in every code review this semester. Ask: if upstream cut a release tomorrow, and we ran it unchanged, would this still work?\n\nIf the honest answer needs the words \"well, as long as they don't change\" — then it is forbidden. That is the whole test.\n\nThis is not bureaucracy. In a few slides you will see that this constraint is what produces the right architecture for the avatar work, rather than getting in its way.",
-      "word_count": 183
+      "title": "Three numbers decide whether it works",
+      "estimated_seconds": 33,
+      "narration": "Three numbers will decide whether this is real.\n\nSpeed. The client has to start answering in about one point two seconds. Slower, and it stops feeling like a conversation.\n\nCost. Roughly four hundred dollars a semester for a class of forty, with hard caps so it cannot run away from us.\n\nPermission. Voice and video of students are education records. Consent and deletion get settled in week two, before anything is recorded.\n\nIf any one of those fails, the answer is no — and no is an acceptable answer.",
+      "word_count": 89
     },
     {
       "slide": 9,
-      "title": "Where we are allowed to build",
-      "estimated_seconds": 55,
-      "narration": "This is the menu of legitimate places to build. I am not going to read all ten.\n\nThe pattern to internalise is this. If your feature needs to see or change something inside a request that Open WebUI is already handling, you use a plugin surface — a Filter, a Pipe, or an Action. If your feature needs its own runtime, its own dependencies, or its own G-P-U, then it becomes a separate container and it talks to Open WebUI over the public A-P-I.\n\nTwo of these matter most for what comes later. A-seven, the public R-E-S-T A-P-I, which is how the grading tools already read chat data, and how the avatar application will get its answers. And A-eight, sidecar containers, which is where the avatar application itself will live.\n\nEverything on this list survives an upgrade. That is the point of the list.",
-      "word_count": 144
+      "title": "The semester",
+      "estimated_seconds": 28,
+      "narration": "Four checkpoints.\n\nBy week five, students can talk to it — voice only, no face yet. By week seven, the platform is upgraded. By week eight, we pick an avatar provider or decide to stop. By week twelve, five students complete full spoken sessions, graded like any other.\n\nThe voice-only version ships in week five either way. That is what makes the ambitious part safe to attempt.",
+      "word_count": 67
     },
     {
       "slide": 10,
-      "title": "What is forbidden, permanently",
-      "estimated_seconds": 60,
-      "narration": "And this is the other side of it.\n\nDo not mount or copy anything into Open WebUI's package directory — that is the fork, by definition. Do not add modules to it. Do not build a custom image from modified source. Do not inject JavaScript into the frontend. Do not run S-Q-L directly against its database — that schema is private, and it genuinely did change underneath this project. Do not monkeypatch internals from inside a plugin, which is a fork wearing a plugin costume. Do not depend on undocumented endpoints.\n\nAnd the last one is the one I want to underline. Do not pin to an old release just to avoid doing the migration work. That is exactly how this project ended up frozen on version zero point six point forty-one in the first place.\n\nEvery one of these violations starts the same way, and it always sounds reasonable in the moment. It's just one file. We'll mount it read-only. We'll clean it up next sprint.",
-      "word_count": 167
-    },
-    {
-      "slide": 11,
-      "title": "Audit: what we still have to strip out",
-      "estimated_seconds": 75,
-      "narration": "Now, the good news first. The active production stack is already compliant. No compose file mounts anything into Open WebUI's source tree. That part of the work is genuinely done.\n\nWhat remains is peripheral, but some of it is what I would call a loaded gun left in the tree.\n\nItem C-one is the clearest example. The entire vendor fork is still sitting in the repository under the legacy directory — including a README that walks you step by step through bind-mounting the application entry point. It is a working recipe for re-creating the exact mistake we spent a semester undoing. Delete it. Git history preserves it; leave a one-page note saying what it was and which commit to recover it from.\n\nC-two is a command-line flag in the grading extractor advertised as a direct-database fallback, whose body is an empty to-do. Delete the flag.\n\nC-four is the metrics plugin I mentioned — synchronous, blocking, and sharing mutable state across concurrent users. C-seven is Grafana with default credentials. C-ten is an A-P-I key that was committed to this repository, scrubbed from the files, but not yet rotated at the provider. Rotate it, and add automated secret scanning so it cannot happen again.\n\nNone of these are large jobs. Together they close the door for good.",
-      "word_count": 215
-    },
-    {
-      "slide": 12,
-      "title": "Version debt: what three releases cost us",
-      "estimated_seconds": 80,
-      "narration": "Let me be specific about the version gap, because \"we should upgrade\" is not an argument.\n\nVersion zero point nine moved the entire backend from synchronous to asynchronous. Every database-backed method became something you have to await. That directly affects us: our metrics plugin is synchronous and makes a blocking network call, and on an asynchronous core that behaviour does not just fail — it degrades performance for every concurrent user.\n\nVersion zero point ten replaced the configuration table with a per-key table. That is a one-way migration. Once it runs, an older instance pointed at that database fails immediately. There is no rolling back without restoring a backup.\n\nVersion zero point eleven is gentler — additive columns only — but it substantially reorganised the user interface. Low migration risk, high documentation risk. Every screenshot and every click-path in our setup guide is now wrong.\n\nWe are on zero point eight point twelve. And here is the part I want to land: the longer this waits, the more expensive it becomes. That compounding is precisely the dynamic that produced the version zero point six point forty-one freeze. We are watching the same movie start again.",
-      "word_count": 195
-    },
-    {
-      "slide": 13,
-      "title": "How we will do the upgrade",
-      "estimated_seconds": 75,
-      "narration": "So here is how we do it, and I want to argue for two habits in particular.\n\nFirst: snapshot production, and then restore that snapshot into the test stack. Not just take the backup — restore it. A backup you have never restored is not a backup, it is a hope. And restoring it gives us the second benefit of upgrading against real production data instead of an empty database.\n\nThen move one minor version at a time. Zero point eight, to zero point nine, to zero point ten, to zero point eleven. The migrations run in sequence anyway, and jumping straight to the end means that when something breaks, you cannot tell which change broke it.\n\nRun the smoke suite at every step, and write the runbook as you go, not afterwards from memory.\n\nDecide explicitly whether to move from SQLite to PostgreSQL during this window, and write down the decision either way, including if the answer is no.\n\nAnd second habit: write the rollback procedure before you start the production window, not during it. When something goes wrong at nine at night, you want to be reading a plan, not writing one.\n\nWe are done when production runs the current release, the runbook exists and was actually followed, the smoke suite passes, the documentation matches what a user really sees, and the rollback has been proven rather than assumed.",
-      "word_count": 231
-    },
-    {
-      "slide": 14,
-      "title": "CI/CD, and the guard that keeps the fork dead",
-      "estimated_seconds": 70,
-      "narration": "There is no C-I on this project at all today, so we start with the highest value per hour.\n\nNumber one is a smoke test on every push. Bring the stack up, wait for the health endpoint, then the readiness endpoint, send a chat completion, upload a document, and assert that retrieval actually returns it. That one test would have caught most of what broke silently in past upgrades.\n\nNumber two is the fork guard, on the right. It fails the build if any compose file mounts into Open WebUI's package, if the image is built from modified source, if Python code opens the platform's database directly, if a credential scanner finds a secret, or if any image reference ends in \"latest\" instead of a pinned version.\n\nThen secret scanning, then linting and unit tests — and I would prioritise unit tests on the scoring service specifically, because it produces numbers that become student grades. Then deployment on tag, with an automatic rollback if the smoke test fails afterwards.\n\nHere is why the fork guard matters more than it looks. Everything I said two slides ago about compatibility is, right now, a document. A policy nobody enforces is a wish. About forty lines of grep and one workflow file turn that wish into a constraint. Build it in week two.",
-      "word_count": 220
-    },
-    {
-      "slide": 15,
-      "title": "Two fixes that change who can use this",
-      "estimated_seconds": 70,
-      "narration": "Two items that change not how well the system works, but who is able to use it.\n\nThe first is hosting the grading dashboard. Today a professor has to S-S-H into a cloud VM and run a shell script. We containerise the backend, build the frontend into static assets, put a proxy in front with T-L-S and real authentication, and give them a U-R-L. One thing to watch: the refresh action scores every question through a paid A-P-I, so make it asynchronous, show progress, and cache the results. A professor clicking a button should not trigger an unbounded wait or an unbounded bill.\n\nWe are done when a professor grades with no terminal, no V-P-N, and no help from a student.\n\nThe second is observability. Right now our chat metrics depend on a human pasting Python into an admin form after every deployment. The fix is not to remember to do it — the fix is to remove the requirement. Open WebUI can export OpenTelemetry metrics natively. Turn that on, collect it, and retire the plugin entirely. Then add a readiness check that alerts a person, and a memory alert as a leading indicator, because that container has approached its ten gigabyte limit before.\n\nDone means a clean deployment produces metrics with zero manual steps, and an induced outage pages somebody within five minutes.",
-      "word_count": 224
-    },
-    {
-      "slide": 16,
-      "title": "Remove the ambiguity",
-      "estimated_seconds": 60,
-      "narration": "Three places where this codebase currently gives two different answers to the same question.\n\nScoring is implemented twice — once in JavaScript, once in Python — kept in sync by hand. Pick Python as canonical, retire the prototype, and add tests that pin the rubric arithmetic, so a refactor cannot quietly move somebody's grade.\n\nRetrieval is implemented twice. There is the native pipeline students actually use, and a separate standalone pipeline that nothing in production touches. Either retire it or promote it behind a Pipelines server so it is reachable properly. Just decide, in writing. And note this: the citation bug we fixed recently lived in the stack nobody runs. Dead code with live bugs is a tax you pay in confusion.\n\nThe third one is the sleeper. Student questions are currently identified by punctuation and keyword heuristics. Nobody has measured how accurate that is. If it is seventy percent accurate, then every grade built on top of it inherits that error invisibly. Measure it against a hand-labelled sample before trusting anything downstream.\n\nEach of these will eventually produce a wrong answer that nobody can explain.",
-      "word_count": 186
-    },
-    {
-      "slide": 17,
-      "title": "Workstream B",
-      "estimated_seconds": 12,
-      "narration": "Now the second workstream, and the new research question. Embodied advising.",
-      "word_count": 11
-    },
-    {
-      "slide": 18,
-      "title": "Why typing is not enough",
-      "estimated_seconds": 70,
-      "narration": "FIN 602 exists to prepare students for a room with a real family in it.\n\nThink about what that room actually demands. Listening to someone while they are still talking. Hearing hesitation in a voice. Holding eye contact through an uncomfortable question about money. And asking the follow-up out loud, in real time, without a backspace key.\n\nThe platform we have teaches the content of good advising well. What it cannot teach is the performance of it — because typing removes every single one of those pressures. A student can draft, delete, and reword for ninety seconds before asking, \"what happens to the business if something happens to you?\" In a real meeting, they get one attempt, out loud, while somebody is looking at them.\n\nSo here is the hypothesis for this semester. A spoken, face-to-face A-I client produces meaningfully better preparation than a text chatbot — and we can actually measure whether that is true, using the scoring pipeline this platform already has.\n\nI want to be precise about the word hypothesis. This track is designed so that it is allowed to answer no.",
-      "word_count": 185
-    },
-    {
-      "slide": 19,
-      "title": "What we are actually building",
-      "estimated_seconds": 70,
-      "narration": "Concretely, here is the experience.\n\nA student opens a link, sees a face, and says out loud: \"Hi, I'm going to ask you a few questions about your family's finances. Is that alright?\"\n\nThe client on screen looks at them, nods, and answers — in their own voice, in character, with their own financial situation, drawn from exactly the same course documents the text version already uses.\n\nIf the student interrupts, the client stops talking. That detail is not decoration; it is the difference between a real prototype and a demo video, and it is one of the things we will measure providers on. If the student goes quiet, the client waits, and may eventually prompt them — the way a real, slightly impatient client would.\n\nAt the end, the transcript lands in the same grading dashboard the instructor already uses, scored on the same seven dimensions and the same A-B-I rubric.\n\nAnd I want to be equally clear about what we are not building. Not a photorealistic digital human. Not a likeness of any real person. And not a replacement for the text interface. Text stays. Voice and face are an additional mode, for students who want to rehearse the harder thing.",
-      "word_count": 203
-    },
-    {
-      "slide": 20,
-      "title": "The constraint dictates the architecture",
-      "estimated_seconds": 65,
-      "narration": "Now, the obvious instinct is to put the avatar inside the Open WebUI chat window, right where the conversation already happens.\n\nThat is forbidden. Open WebUI's frontend is an application we do not own. Embedding a video pane in it means forking that frontend and re-merging it forever — which is precisely the mistake this project spent an entire semester undoing.\n\nSo the constraint decides the design for us. And the design it produces is better than the instinctive one.\n\nThe avatar becomes a companion web application, in its own container. Open WebUI stays the brain — the model, the retrieval, the knowledge base — and it stays the system of record for transcripts. Our application talks to it over the public A-P-I.\n\nLook at what that buys us. We can deploy, roll back, and load-test the avatar independently of the platform students rely on for coursework. It survives every upstream release by construction. If we decide in December that this is not worth shipping, we delete one container — there is nothing to un-merge. And students and professors keep the interface they already know.\n\nThis is my case that the compatibility policy is not red tape. It just did our architecture work for us.",
-      "word_count": 205
-    },
-    {
-      "slide": 21,
-      "title": "Reference architecture",
-      "estimated_seconds": 80,
-      "narration": "Here is how the pieces fit.\n\nThe student's browser connects over WebRTC. Everything goes through the same reverse proxy that already fronts the platform, so there is one hostname, one certificate, and one place authentication happens.\n\nThe avatar application manages sessions, turn-taking, and interruption handling, and assembles the transcript. For every turn it calls Open WebUI's chat completions endpoint — the same model, the same retrieval, the same course documents. Speech-to-text and text-to-speech sit alongside it.\n\nNow the part in teal, which is the pattern that actually matters, and it is the thing the industry converged on during this past year. The avatar renderer is not a processing step we sit and wait on. It joins the session as its own participant. We stream it the audio, and it publishes finished, lip-synced audio and video directly to the student. That removes an entire round trip back through our server, and it is the difference between something that feels like a video call and something that feels like a laggy video attachment.\n\nOne piece of engineering advice attached to this slide. Do not hand-roll the WebRTC layer, the voice activity detection, or the turn-taking. Use an agent framework built for it — LiveKit Agents or Pipecat. Both already have avatar provider plugins. Building that layer yourself is an entire semester, and it is not the question we are trying to answer.",
-      "word_count": 230
-    },
-    {
-      "slide": 22,
-      "title": "Latency is the number that decides everything",
-      "estimated_seconds": 85,
-      "narration": "If this project fails, this is the slide that will explain why.\n\nConversation tolerates about a second. Past roughly two seconds of silence, a person stops feeling heard and starts feeling processed — and at that point the pedagogical value collapses, because the student is no longer rehearsing a real interaction.\n\nHere is the budget from the moment the student stops speaking to the first sound coming back. Detecting that they finished, a couple hundred milliseconds. Speech-to-text, a couple hundred more. Retrieval. The model's time to first token. Text-to-speech first byte. Then the avatar render and the network. Add it up and you are somewhere between one second and two point three seconds, depending almost entirely on choices we control.\n\nOur targets: median under one point two seconds, ninety-fifth percentile under two seconds, and interruption handled within three hundred milliseconds.\n\nNow the item in red, because it is the counterintuitive one. Our text platform runs a vector search on every single turn. In a spoken loop, that search sits directly in the critical path, every turn, forever. The family scenarios are small. Loading the whole persona into the system prompt once, at the start of the session, will almost certainly cost less total latency than retrieving on every turn.\n\nAnd measure each stage separately, starting in week five. A single end-to-end number tells you that it is slow. It does not tell you what to fix.",
-      "word_count": 236
-    },
-    {
-      "slide": 23,
-      "title": "Three strategies, and the one we start with",
-      "estimated_seconds": 75,
-      "narration": "There are three ways to do this.\n\nThe first is hosted avatar streaming. There are now a dozen-plus providers — HeyGen, Tavus, Simli, Anam, and others — and most of them already have plugins for the agent frameworks I mentioned, so we can put them behind one interface and swap between them. What I would stress to the team: every latency number those companies publish was measured under their conditions, on their network. Measuring it under ours is literally the assignment.\n\nThe second is self-hosting open source. Whisper for transcription, an open text-to-speech model, and an open lip-sync renderer. In its favour: no per-minute cost, and no student audio ever leaving our infrastructure, which is a genuinely strong privacy story for a university. Against it: it needs a G-P-U we do not currently have, quality and latency lag the hosted options, and it turns a pedagogy project into an infrastructure project.\n\nAnd the third is voice only, with no face at all. Here is the thing — Open WebUI already has a hands-free call mode built in. Speech-to-text and text-to-speech are configuration, not engineering. That captures a large share of the benefit — speaking out loud, no backspace key, real-time pressure — at almost no build cost.\n\nSo we start with the third one, in week three. If avatars turn out to be too slow, too expensive, or too fragile, the course still gains spoken practice this semester. That is how you make an ambitious research track safe to attempt.",
-      "word_count": 250
-    },
-    {
-      "slide": 24,
-      "title": "What it costs, and how we stop it running away",
-      "estimated_seconds": 70,
-      "narration": "Money, briefly, because this is the question that gets asked first in every budget meeting.\n\nTake forty students, four sessions each, fifteen minutes a session. That is forty hours of streaming across a semester. At current rates for real-time avatar streaming, that is somewhere between two hundred and forty and four hundred and eighty dollars. Add speech services and model calls and you land in the range of roughly three hundred to six hundred dollars for a semester. Those prices were checked in August and they move quarterly, so re-derive them at signup and record the date you checked.\n\nThe controls on the right go in from day one, not after the first surprising invoice. A hard fifteen-minute cap enforced on the server, not in the browser. A per-student session quota. A billing alert at half the budget. Sessions that terminate when someone closes the tab. And a kill switch that turns the feature off without a redeployment.\n\nOne more thing, on the bottom right, because students consistently get this backwards. Do the arithmetic before you advocate self-hosting. A G-P-U instance capable of running these models costs on the order of five hundred dollars a month if you leave it running. At forty hours a semester, buying beats building — by a lot. Self-hosting wins on privacy, and it wins at scale. It does not win on cost, here.",
-      "word_count": 229
-    },
-    {
-      "slide": 25,
-      "title": "How we will evaluate it honestly",
-      "estimated_seconds": 80,
-      "narration": "This is where this project has an unusual advantage. We already own the outcome measure.\n\nThe design is within-subjects and counterbalanced. Each student practises in two or three modalities — text, voice-only, and avatar — with matched but different family scenarios, in varying order so we are not just measuring practice effects.\n\nThen we ask the questions in this table. Do students ask better questions when they are speaking, measured on the same seven-dimension rubric we already run? Does the modality change the A-B-I trust scores? Do they ask more questions, or fewer? Are the sessions longer?\n\nThe row in teal is the one I find most interesting, and it may be the most novel contribution this team makes. Interruptions and talk-time ratio. Whether a student can let a client finish talking is arguably a more direct measure of advising skill than anything our current rubric captures — and it is a measurement that only becomes possible once the conversation is spoken.\n\nThen a short survey on realism, social presence, and anxiety, because an avatar that students find unsettling is a finding, not a bug to hide.\n\nAnd a warning. The sample is small and the semester is short. \"Twelve students, counterbalanced, with these effect sizes and these confidence intervals\" is a credible result. \"Avatars improve learning\" is not. A well-designed study with an honest negative result is the better deliverable here — and it will be graded that way.",
-      "word_count": 240
-    },
-    {
-      "slide": 26,
-      "title": "Phases and gates",
-      "estimated_seconds": 60,
-      "narration": "Four phases, each with a gate.\n\nB-zero, weeks three to five: hands-free spoken practice using the call mode that already ships in the platform. That ships regardless of everything that follows.\n\nB-one, weeks four to seven: two providers integrated behind one interface, measured on latency, cost, and interruption behaviour. The gate is to choose one — or to recommend stopping.\n\nB-two, weeks seven to twelve: the companion application, with transcripts written back into grading. The gate is five students completing a full advising session end to end.\n\nB-three, weeks eleven to fifteen: the comparison study, and a recommendation.\n\nTwo things about the gates. First, they are real. \"Stop\" is an acceptable outcome at every one of them. \"We didn't measure\" is not. A research track that cannot fail is not a research track.\n\nSecond, in B-two, build the transcript write-back first, not last. An avatar session that never reaches the grading dashboard is a demo. It is not a feature.",
-      "word_count": 160
-    },
-    {
-      "slide": 27,
-      "title": "Ethics, privacy, and consent",
-      "estimated_seconds": 75,
-      "narration": "This has to be settled in week two, before any data exists — not in week thirteen when it already does.\n\nStudent transcripts are education records under F-E-R-P-A. Adding audio does not change that obligation; it adds a biometric-adjacent identifier on top of it.\n\nSo: written informed consent before anything is recorded. What is captured, where it is stored, how long it is kept, who can see it, and how to opt out — and opting out must not affect a grade, which means the text path has to remain a genuinely equivalent alternative.\n\nNo likeness of any real person. Use the providers' stock avatars under licence. And I will say this plainly because it comes up every time: do not clone a professor's face or voice as a joke. That is a deepfake of a colleague, and it will end this project.\n\nDisclose the A-I. We are teaching advising. We are not testing whether students can be fooled.\n\nMinimise the data — prefer keeping the transcript and discarding the audio. Read the vendor's terms before sending a single student's voice: retention, training use, sub-processors, and region. For an education platform, that can outweigh a latency advantage.\n\nAnd ask about institutional review in week two. Approval always takes longer than students expect.",
-      "word_count": 212
-    },
-    {
-      "slide": 28,
-      "title": "Execution",
-      "estimated_seconds": 12,
-      "narration": "Which brings us to execution. Timeline, roles, and risk.",
-      "word_count": 9
-    },
-    {
-      "slide": 29,
-      "title": "The semester",
-      "estimated_seconds": 65,
-      "narration": "Sixteen weeks, with both tracks running in parallel — deliberately interleaved so that neither one starves the other.\n\nThree things to point out. Week two: the C-I skeleton and the fork guard. That is early on purpose, because everything else is safer once a broken change gets caught automatically.\n\nWeek seven: the production upgrade window. Notice that it lands before the avatar work gets heavy. That ordering is not an accident. If the upgrade slips past the point where the avatar prototype is consuming everyone's attention, it will not happen at all.\n\nWeek eight: the first avatar gate — pick a provider, or stop.\n\nWeek twelve is the second gate, five real student sessions. And weeks thirteen through fifteen are evaluation, documentation, and handoff, with the final presentation in week sixteen.\n\nNote that week fourteen is a short week for Thanksgiving. Plan documentation there, not a production change.",
-      "word_count": 148
-    },
-    {
-      "slide": 30,
-      "title": "Who owns what",
-      "estimated_seconds": 55,
-      "narration": "Five roles.\n\nA platform and DevOps lead who owns the container stack, the upgrade, C-I, the proxy, secrets, and backups. A backend engineer on the grading service, extraction, and scoring. A realtime engineer who owns the whole speech-to-model-to-speech-to-avatar chain and, critically, the latency budget. A frontend and user-experience owner, who has work in both tracks. And a data and assessment owner, who designs the evaluation and owns the transcript merge.\n\nIf the team is smaller than five, one person holds two roles. The roles still exist, and so does the accountability for them.\n\nAnd there is one duty that every single member carries regardless of role: review every pull request against the compatibility policy. The question is fixed, and it is the same question every time. Which extension surface — and what happens on the next upstream release?\n\nThat shared duty is what keeps the policy alive in week thirteen, when there is deadline pressure and mounting one file read-only starts to sound reasonable.",
-      "word_count": 164
-    },
-    {
-      "slide": 31,
-      "title": "What could go wrong",
-      "estimated_seconds": 65,
-      "narration": "The risk register, and I will highlight two rows.\n\nThe first is the configuration migration corrupting production data. That is low likelihood and severe impact, and the mitigation is entirely procedural: rehearse it on a restored snapshot, verify the restore first, and run it outside a week when students have deadlines.\n\nThe second row is the one I actually expect to happen, and I want to name it in advance. The avatar track absorbs the semester, and the platform work slips.\n\nThis is predictable, because the avatar work is exciting and the upgrade work is not. But the course depends on the platform work, and the avatar work is speculative by design. That is why the timeline front-loads C-I and the upgrade into the first eight weeks, and it is why gate one exists in week eight. If a gate fails, we stop and reinforce workstream A. That is a success, not an embarrassment.\n\nFurther down: latency, cost, privacy, provider risk, and knowledge loss at handoff. Note the second-to-last row — if someone proposes embedding the video pane into the chat page, the answer is no, and the companion application exists precisely so that the answer can be no without losing the feature.",
-      "word_count": 203
-    },
-    {
-      "slide": 32,
-      "title": "Done means done",
-      "estimated_seconds": 55,
-      "narration": "Here are the acceptance criteria for the semester. Not aspirations — criteria. Every one of them is verifiable by somebody who was not in the room.\n\nProduction runs a current release, upgraded through a written runbook that was actually followed. A push runs C-I, a tag deploys, and a red build blocks the merge. The fork guard exists, passes, and there are no re-forking instructions left anywhere in the repository. A professor grades from an authenticated U-R-L with no terminal. Metrics and alerting work from a clean deployment with zero manual steps. Scoring and retrieval each have exactly one canonical implementation, with tests.\n\nA working avatar prototype exists, real students have used it, and a written evaluation backs a go or no-go call — and I will say again, no-go is a legitimate outcome.\n\nAnd the last one. The handoff document is good enough that the next team starts in week one instead of week four. This team benefited enormously from the handoff it received. Pay that forward.",
-      "word_count": 168
-    },
-    {
-      "slide": 33,
-      "title": "Closing",
-      "estimated_seconds": 45,
-      "narration": "I want to end on the point of all this.\n\nThe goal is not to finish FamilyFinanceChat. It is to leave a system where the interesting work is the pedagogy, not the plumbing.\n\nEvery hour spent this semester on upgrades, on continuous integration, and on hosting the grading tool is an hour that a future team does not spend re-learning why the fork was a mistake. And every hour spent on the avatar track is an attempt to answer a question that actually matters for this course: whether practising out loud, with a face looking back at you, makes a better advisor than practising with a keyboard.\n\nWe will have a real answer to that by December. It might be no. We will know either way, and we will know why.\n\nThank you. I am happy to take questions.",
-      "word_count": 139
+      "title": "What finished looks like",
+      "estimated_seconds": 33,
+      "narration": "Here is what finished looks like.\n\nA professor grades from a web address, with no laptop and no help from a student. Deployments are automatic, and a bad change is caught before it ships. And we know — with evidence from the scoring system we already have — whether talking to an avatar makes better advisors.\n\nThat last one might come back negative. We publish it either way.\n\nBecause the goal is not to finish this system. It is to leave one where the interesting work is the teaching, not the plumbing.\n\nThank you — happy to take questions.",
+      "word_count": 99
     }
   ]
 }

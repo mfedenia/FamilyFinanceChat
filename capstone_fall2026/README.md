@@ -9,6 +9,11 @@ It contains three deliverables and their supporting material: a project document
 professional development team, a Beamer slide deck, and a verbatim presentation script intended
 to drive an AI presenter.
 
+**The deck is deliberately thin — 10 slides, five minutes, one idea per slide.** It exists to
+explain the project, not to document it. All the detail lives in the reports, and the deck
+should stay that way: if a slide starts growing a table, the material belongs in a report
+instead.
+
 ---
 
 ## What is here
@@ -21,7 +26,7 @@ capstone_fall2026/
 ├── AVATAR_TRACK.md                the new research track: spoken, embodied advising
 ├── slides/
 │   ├── familyfinancechat-fall2026.tex     Beamer source (self-contained theme)
-│   ├── familyfinancechat-fall2026.pdf      33 slides
+│   ├── familyfinancechat-fall2026.pdf      10 slides / 5 minutes
 │   ├── familyfinancechat-fall2026-notes.pdf  slides + presenter cue cards
 │   └── build.sh                            build helper
 ├── script/
@@ -52,9 +57,9 @@ that constraint turned out to improve.
 
 ## Building the slides
 
-Requires `latexmk` and `pdflatex` with `beamer`, `tikz`, `booktabs`, `xcolor`, `helvet`, and
-`microtype`. No external Beamer theme is needed — the theme is defined inside the `.tex` file,
-so it compiles on a stock TeX Live or a minimal TinyTeX install.
+Requires `latexmk` and `pdflatex` with `beamer`, `tikz`, `xcolor`, `helvet`, and `microtype`.
+No external Beamer theme is needed — the theme is defined inside the `.tex` file, so it
+compiles on a stock TeX Live or a minimal TinyTeX install.
 
 ```bash
 cd slides && ./build.sh          # slides only
@@ -79,18 +84,17 @@ The JSON gives one narration string per slide:
 
 ```json
 {
-  "slide": 22,
-  "title": "Latency is the number that decides everything",
-  "estimated_seconds": 85,
-  "word_count": 268,
-  "narration": "If this project fails, this is the slide that will explain why. …"
+  "slide": 8,
+  "title": "Three numbers decide whether it works",
+  "estimated_seconds": 33,
+  "word_count": 89,
+  "narration": "Three numbers will decide whether this is real. Speed. …"
 }
 ```
 
 Feed each `narration` to the avatar or TTS engine and advance the deck on slide boundaries.
-Version numbers and acronyms in the narration are already written the way they should be
-pronounced (`version zero point eight point twelve`, `A-B-I`), so a speech engine does not read
-them as dates or decimals.
+Numbers and acronyms in the narration are already written the way they should be pronounced
+(`one point two seconds`, `A-I`), so a speech engine does not read them as dates or decimals.
 
 **Note the division of labour:** the `\note{}` blocks inside the `.tex` are short cue cards for
 a *live human* presenter, and are deliberately different text. The script folder holds the
