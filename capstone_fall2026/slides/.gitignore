@@ -1,0 +1,12 @@
+# LaTeX build artefacts. The two PDFs are committed deliberately so that
+# presenting does not require a TeX installation.
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.gf
