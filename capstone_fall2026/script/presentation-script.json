@@ -3,9 +3,9 @@
   "deck": "../slides/familyfinancechat-fall2026.pdf",
   "source": "presentation-script.md",
   "slide_count": 10,
-  "total_words": 783,
+  "total_words": 801,
   "estimated_runtime_seconds": 290,
-  "runtime_from_word_count_seconds": 324,
+  "runtime_from_word_count_seconds": 331,
   "speaking_rate_wpm": 145,
   "notes": "One narration string per slide, spoken verbatim. Version numbers and acronyms are already written the way they should be pronounced.",
   "slides": [
@@ -69,8 +69,8 @@
       "slide": 9,
       "title": "The semester",
       "estimated_seconds": 28,
-      "narration": "Four checkpoints.\n\nBy week five, students can talk to it — voice only, no face yet. By week seven, the platform is upgraded. By week eight, we pick an avatar provider or decide to stop. By week twelve, five students complete full spoken sessions, graded like any other.\n\nThe voice-only version ships in week five either way. That is what makes the ambitious part safe to attempt.",
-      "word_count": 67
+      "narration": "We meet every Tuesday from mid-September to the first week of December. Four checkpoints along the way.\n\nBy the end of September, students can talk to it — voice only, no face yet. By the twentieth of October, we pick an avatar provider, or decide to stop. A week later the platform is upgraded. And by mid-November, five students complete full spoken sessions, graded like any other.\n\nThe voice-only version ships in September either way. That is what makes the ambitious part safe to attempt.",
+      "word_count": 85
     },
     {
       "slide": 10,

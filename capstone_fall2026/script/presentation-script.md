@@ -1,8 +1,8 @@
 # Presentation Script — FamilyFinanceChat, Fall 2026
 
 **Deck:** [`../slides/familyfinancechat-fall2026.pdf`](../slides/) — 10 slides
-**Runtime:** 783 words — **about 5 minutes**: 4:54 at a brisk 160 words per minute, 5:13 at a
-measured 150. Add a beat between slides and it lands on five.
+**Runtime:** 801 words — **about 5 minutes**: 5:00 at a brisk 160 words per minute, 5:20 at a
+measured 150.
 **Intended use:** verbatim narration for an AI presenter (HeyGen-class avatar or TTS voice-over),
 and equally usable by a human presenter reading aloud.
 
@@ -166,13 +166,14 @@ If any one of those fails, the answer is no — and no is an acceptable answer.
 
 *Approx. 0:28*
 
-Four checkpoints.
+We meet every Tuesday from mid-September to the first week of December. Four checkpoints along
+the way.
 
-By week five, students can talk to it — voice only, no face yet. By week seven, the platform is
-upgraded. By week eight, we pick an avatar provider or decide to stop. By week twelve, five
-students complete full spoken sessions, graded like any other.
+By the end of September, students can talk to it — voice only, no face yet. By the twentieth of
+October, we pick an avatar provider, or decide to stop. A week later the platform is upgraded.
+And by mid-November, five students complete full spoken sessions, graded like any other.
 
-The voice-only version ships in week five either way. That is what makes the ambitious part
+The voice-only version ships in September either way. That is what makes the ambitious part
 safe to attempt.
 
 ---

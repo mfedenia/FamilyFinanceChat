@@ -4,7 +4,8 @@
 
 **Status:** research and prototyping track with defined gates and a defined kill switch
 **Owner:** realtime / avatar engineer, with frontend and data/assessment support
-**Term:** Fall 2026, Weeks 3–15
+**Term:** Fall 2026 · meetings **M2–M11** (22 September – 1 December). Task numbers below
+(B1…B18) match [`PROJECT_PLAN.md`](PROJECT_PLAN.md) §7; meeting numbers match §8.
 **Governed by:** [`COMPATIBILITY_POLICY.md`](COMPATIBILITY_POLICY.md) — no exceptions
 
 ---
@@ -142,7 +143,7 @@ Budget from end of student speech to first audible syllable from the avatar:
 **Design targets for this semester:** p50 under **1.2 s**, p95 under **2.0 s**, with
 barge-in interrupting playback within **300 ms**.
 
-**Measure this in Week 5, before choosing a provider.** Instrument every stage separately —
+**Measure this by M4 (6 October), before choosing a provider.** Instrument every stage separately —
 a single end-to-end number tells you that it is slow but not what to fix. Log per-turn stage
 timings into the existing Prometheus stack; they belong on the same Grafana dashboard as the
 chat metrics.
@@ -197,7 +198,7 @@ This is configuration, not engineering — surface A1 of the compatibility polic
 large share of the pedagogical benefit (speaking out loud, no backspace, real-time pressure)
 for close to zero build cost and zero compatibility risk.
 
-**Build B0 in Week 3 and put it in front of students immediately.** It de-risks the whole
+**Build B0 by M3 (29 September) and put it in front of students immediately.** It de-risks the whole
 track: if avatars prove too slow, too costly, or too fragile, the course still gains spoken
 practice this semester.
 
@@ -209,7 +210,7 @@ An avatar session that never reaches the grading dashboard is a demo, not a feat
 instructor's workflow — extract, score on seven dimensions, ABI, per-student feedback — must
 work for spoken sessions exactly as it does for typed ones.
 
-**Open technical question the team must answer in Week 9:** does a chat created through
+**Open technical question the team must answer by M7 (27 October):** does a chat created through
 `POST /api/chat/completions` appear in Open WebUI's chat history — and therefore in
 `extract_chats.py` — or does it need to be written back explicitly via the chat endpoints?
 Test it; do not assume. The two viable designs:
@@ -228,7 +229,7 @@ current rubric captures. That is a genuinely novel contribution this team could 
 
 ---
 
-## 8. Cost model — build it in Week 4 with real numbers
+## 8. Cost model — build it by M4 (6 October) with real numbers
 
 Worked example to be replaced with measured figures:
 
@@ -282,15 +283,15 @@ way.
 
 ## 10. Phased plan, with gates
 
-### B0 — Voice, no face (Weeks 3–5)
+### B0 — Voice, no face (M1–M3 · to 29 September)
 
 Configure Open WebUI STT and TTS; select a voice per family persona; run a full advising
-session hands-free; measure baseline round-trip latency; demo to the instructor in Week 5;
+session hands-free; measure baseline round-trip latency; demo to the instructor at M3;
 document the setup so a professor can change voices without a developer.
 
 **Exit:** spoken practice is available to students. *This ships no matter what happens next.*
 
-### B1 — Provider bake-off (Weeks 4–7)
+### B1 — Provider bake-off (M3–M6 · 29 September – 20 October)
 
 Stand up an orchestration harness (LiveKit Agents or Pipecat) behind a provider-agnostic
 interface. Integrate **two** providers. Measure, per provider, on identical scripted
@@ -298,10 +299,10 @@ conversations: stage-by-stage latency (p50/p95), barge-in responsiveness, lip-sy
 audio quality, cost per minute measured not quoted, SDK maturity, failure behaviour on a
 dropped connection, and whether persona voice and appearance can be configured per family.
 
-**Gate 1 (Week 8): choose a provider, or recommend stopping.** Both are acceptable outcomes;
+**Gate 1 (M6, 20 October): choose a provider, or recommend stopping.** Both are acceptable outcomes;
 neither is acceptable without data.
 
-### B2 — Companion prototype (Weeks 7–12)
+### B2 — Companion prototype (M6–M10 · 20 October – 17 November)
 
 Build `avatar-app` as a container: session creation and persona selection; a browser client
 with the video pane, a live captions track, and a visible end-session control; turn-taking
@@ -309,10 +310,10 @@ with barge-in; the family scenario loaded as a system prompt at session start; t
 write-back into Open WebUI; behind the reverse proxy with the same authentication as the rest
 of the platform; hard session caps enforced server-side.
 
-**Gate 2 (Week 12): five students complete a full advising session end to end, and the
+**Gate 2 (M10, 17 November): five students complete a full advising session end to end, and the
 transcripts appear in the grading dashboard, scored.** No transcript, no gate.
 
-### B3 — Evaluate and recommend (Weeks 11–15)
+### B3 — Evaluate and recommend (M8–M11 · 3 November – 1 December)
 
 Run the counterbalanced sessions; analyse against the existing rubric; survey participants;
 write the report; deliver a recommendation with cost, latency, and outcome evidence, plus a
@@ -324,8 +325,8 @@ concrete sizing estimate for what production deployment to a full cohort would r
 
 ## 11. Ethics, privacy, and consent
 
-Voice and video raise obligations that text does not. Settle these in **Week 2**, before any
-recording, not in Week 13 when the data already exists.
+Voice and video raise obligations that text does not. Settle these at **M2 (22 September)**,
+before any recording — not in late November, when the data already exists.
 
 - **Student chat transcripts are education records** under FERPA. Adding audio does not
   change that; it adds a biometric-adjacent identifier to it.
@@ -343,7 +344,7 @@ recording, not in Week 13 when the data already exists.
   data-processing terms: retention, training use, sub-processors, region. Record the finding
   in the bake-off report — for an education platform this can outweigh a latency win.
 - **Institutional review.** Confirm with the instructor whether the learning-outcome study
-  needs IRB review. Ask in Week 2; approval takes longer than students expect.
+  needs IRB review. Ask at M2; approval takes longer than students expect.
 
 ---
 
@@ -351,7 +352,7 @@ recording, not in Week 13 when the data already exists.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| B-R1 | Latency lands at 3+ seconds and the experience feels dead | measure in Week 5; B0 ships regardless; consider dropping per-turn RAG |
+| B-R1 | Latency lands at 3+ seconds and the experience feels dead | measure by M4; B0 ships regardless; consider dropping per-turn RAG |
 | B-R2 | The uncanny valley — students find the avatar off-putting rather than engaging | measure it in the survey; stylised or clearly-synthetic avatars often outperform near-photoreal ones |
 | B-R3 | Costs run away during testing | hard caps, quotas, and a billing alarm from day one, not after the first bill |
 | B-R4 | The provider deprecates or reprices mid-semester | provider-agnostic interface first; keep the runner-up integrated and warm |
@@ -363,18 +364,18 @@ recording, not in Week 13 when the data already exists.
 
 ## 13. Deliverables
 
-| # | Deliverable | Week |
+| # | Deliverable | Due |
 |---|---|---|
-| D1 | Requirements note: what a spoken advising session must do | 3 |
-| D2 | Working voice-only mode, documented for a non-developer | 5 |
-| D3 | Latency instrumentation on the existing Grafana stack | 5 |
-| D4 | Provider bake-off report with measured data and a recommendation | 8 |
-| D5 | Cost model with live pricing, usage assumptions, and enforced caps | 8 |
-| D6 | `avatar-app` container, source, and deployment documentation | 12 |
-| D7 | Transcript write-back verified end to end into the grading dashboard | 12 |
-| D8 | Evaluation report: methodology, data, findings, limitations | 15 |
-| D9 | Go/no-go recommendation with a production sizing estimate | 15 |
-| D10 | Handoff section in `HANDOFF.md` for the next team | 15 |
+| D1 | Requirements note: what a spoken advising session must do | M3 · 29 Sep |
+| D2 | Working voice-only mode, documented for a non-developer | M3 · 29 Sep |
+| D3 | Latency instrumentation on the existing Grafana stack | M4 · 6 Oct |
+| D4 | Provider bake-off report with measured data and a recommendation | M6 · 20 Oct |
+| D5 | Cost model with live pricing, usage assumptions, and enforced caps | M4 · 6 Oct |
+| D6 | `avatar-app` container, source, and deployment documentation | M9 · 10 Nov |
+| D7 | Transcript write-back verified end to end into the grading dashboard | M9 · 10 Nov |
+| D8 | Evaluation report: methodology, data, findings, limitations | M11 · 1 Dec |
+| D9 | Go/no-go recommendation with a production sizing estimate | M11 · 1 Dec |
+| D10 | Handoff section in `HANDOFF.md` for the next team | M11 · 1 Dec |
 
 ---
 
