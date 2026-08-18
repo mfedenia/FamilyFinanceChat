@@ -101,7 +101,7 @@ def _format_context_plain(items: List[Dict[str, Any]], limit: int=12) -> str:
 def _format_context_with_indices(items: List[Dict[str, Any]], limit: int=12) -> str:
     lines = []
     for i, it in enumerate(items[:limit], 1):
-        lines.append(f"[{{i}}] {{it.get('document','')}}")
+        lines.append(f"[{i}] {it.get('document','')}")
     return "\n".join(lines).strip() or "(no context)"
 
 def build_prompt_messages_auto(question: str, retrieved: Dict[str, Any], *, mode: Optional[str]=None, chat_history: Optional[str]=None):
