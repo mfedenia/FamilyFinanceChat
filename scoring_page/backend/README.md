@@ -11,7 +11,7 @@ npm start
 ```
 
 ### Environment
-- `QWEN_API_KEY`: sk-b3c27f7856344ee09bfd0723742d6dea
+- `QWEN_API_KEY`: your Qwen/DashScope API key. Set it in `backend/.env` (see `.env.example`) — never commit the real value.
 - `QWEN_COMPAT_BASE_URL`: OpenAI-compatible base URL for your Qwen endpoint (e.g., DashScope compatible mode).
 - `QWEN_MODEL`: defaults to `qwen3-14b-instruct`.
 - `PORT`: defaults to `8787`.
