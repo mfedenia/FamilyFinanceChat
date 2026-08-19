@@ -25,6 +25,9 @@ build/
 *~
 .DS_Store
 
+# Claude Code local state (agent worktrees, local settings)
+.claude/
+
 # Backend specific - only ignore runtime/generated data
 backend/openwebui/data/webscraped/*.pdf
 backend/openwebui/data/thumbnails/*.png
