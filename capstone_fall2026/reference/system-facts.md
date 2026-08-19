@@ -38,8 +38,8 @@ active stack is fork-free.
   neutrality, non-imperative, clarity (optional), privacy-minimisation (optional).
 - ABI: 12 sub-dimensions derived from the rubric, weighted into Ability / Benevolence /
   Integrity (each 0–1); ABI Total is their average.
-- Implemented **twice**: `grading_feature/backend/scoring_service.py` (Python) and
-  `scoring_page/backend/server.js` (JavaScript).
+- Single implementation: `grading_feature/backend/scoring_service.py` (Python). The duplicate
+  JavaScript implementation in `scoring_page/` was deleted on 2026-08-19.
 - Question extraction is **heuristic** — punctuation and keyword based. Accuracy has never been
   measured.
 

@@ -83,7 +83,6 @@ prometheus.yml          # Prometheus scrape config
 tools/kb_sync/          # CLI for managing OpenWebUI knowledge bases
 monitoring/             # Chat Metrics Filter Function + health exporter
 grading_feature/        # Professor grading dashboard (FastAPI + React)
-scoring_page/           # Standalone scoring prototype (Node.js)
 rag_bio_project/        # Custom Python RAG pipeline for biography documents
 scripts/                # Prometheus backfill utility
 docs/                   # PDF guides and setup notes

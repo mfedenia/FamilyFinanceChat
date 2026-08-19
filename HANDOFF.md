@@ -45,8 +45,8 @@ In `rag_bio_project/src/prompting.py`, `_format_context_with_indices()` had a Py
 ### End-to-end upgrade validation was not completed
 The decoupling migration plan has one item still marked pending: a full smoke test of KB upload + chat metrics via Filter Function + grading dashboard all working together post-upgrade. We tested components individually but never ran a formal end-to-end pass.
 
-### Duplicate scoring logic
-The 7-dimension rubric and ABI scoring formulas are implemented twice: once in `scoring_page/backend/server.js` (JavaScript) and once in `grading_feature/backend/scoring_service.py` (Python). These need to be kept in sync manually if the rubric changes. The `scoring_page` is a standalone prototype; `grading_feature` is the full platform. Consider consolidating.
+### Duplicate scoring logic — resolved 2026-08-19
+The 7-dimension rubric and ABI formulas used to be implemented twice: in `scoring_page/backend/server.js` (JavaScript) and `grading_feature/backend/scoring_service.py` (Python), kept in sync by hand. `scoring_page/` has been deleted; **the Python service is canonical.** Recover the old prototype from git history if you ever need it.
 
 ### Grading dashboard is not hosted
 Professors currently need to SSH into the VM and run `./run_app.sh` locally. This is a real barrier for non-technical instructors. Containerizing the grading app and putting it behind Nginx with basic auth should be a high-priority task next semester.
@@ -108,11 +108,11 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **Prometheus runs as UID 65534 (nobody).** The `/opt/prometheus/data` directory must be owned by that UID or Prometheus will fail to start with a cryptic permissions error.
 
-**The scoring page used to claim it ran on Qwen.** It never did — `scoring_page/backend/server.js`
-calls the OpenAI API, and its only LLM dependency is the `openai` package. The Qwen naming,
-the dead `QWEN_*` variables in `.env.example`, a stray PowerShell line, and a hardcoded API
-key export in `run.sh` were all removed on 2026-08-19. If you find Qwen references outside
-`rag_bio_project/` (which does genuinely support DashScope as an option) they are stale.
+**The deleted scoring page claimed it ran on Qwen — it never did.** It called the OpenAI API;
+its only LLM dependency was the `openai` package. The Qwen naming was leftover from an early
+prototype, and a real API key had been pasted into its README, which is the leak this repo is
+still rotating for. The whole folder was deleted on 2026-08-19. If you find Qwen references
+outside `rag_bio_project/` (which does genuinely support DashScope as an option) they are stale.
 
 ---
 
@@ -131,9 +131,6 @@ FamilyFinanceChat/
 ├── grading_feature/
 │   ├── backend/                  # FastAPI: chat extraction, scoring, ABI
 │   └── frontend/                 # React/Vite dashboard
-├── scoring_page/
-│   ├── backend/server.js         # Node.js scoring API (standalone prototype)
-│   └── frontend/                 # Plain HTML scoring UI
 ├── rag_bio_project/
 │   ├── src/                      # Custom RAG pipeline (standalone, not connected to OW)
 │   ├── data_pdfs/                # FIN602 client biography PDFs

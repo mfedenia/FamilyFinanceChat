@@ -13,7 +13,6 @@ How to get FamilyFinanceChat running from scratch.
 | GCS Bucket | Mounted on the VM at `/mnt/gcs/fin602` for file uploads |
 | OpenAI API key | Required for chat completions and RAG embeddings |
 | Python 3.10+ | Only needed if running the grading dashboard or RAG pipeline locally |
-| Node.js 20+ | Only needed if running the scoring page locally |
 | Git | For cloning the repo |
 
 ---
@@ -155,15 +154,6 @@ The dashboard will be available at `http://localhost:8000`. Click **Refresh** to
 
 ---
 
-## 9. Running the Scoring Page (Local)
-
-```bash
-cd scoring_page
-# set OPENAI_API_KEY and OPENAI_MODEL in scoring_page/backend/.env
-./run.sh
-```
-
-Available at `http://localhost:8787`.
 
 ---
 

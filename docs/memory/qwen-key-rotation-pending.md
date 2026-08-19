@@ -28,9 +28,10 @@ branding was stale — somebody prototyped against Qwen, moved to OpenAI, and ne
 docs. All of it was removed on 2026-08-19, along with a hardcoded `OPENAI_API_KEY` export in
 `scoring_page/run.sh` that both invited committed secrets and silently overrode `.env`.
 
-`scoring_page/` remains an orphaned prototype superseded by `grading_feature/`, so **revoking
-the key outright is simpler than rotating it**, and retiring the component (task A21) removes
-the surface entirely.
+**`scoring_page/` was deleted entirely on 2026-08-19**, so nothing in the working tree refers
+to the key any more. Since nothing ever consumed it, **revoking it outright is simpler than
+rotating it** — but the value is still in this repository's git history and in the fork's, so
+the exposure stays open until it is revoked at the provider.
 
 The DashScope provider path in `rag_bio_project/src/llm.py` is unrelated: it reads a different
 variable (`DASHSCOPE_API_KEY`), defaults to `openai`, and was never wired to this key.

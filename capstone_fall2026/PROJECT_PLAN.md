@@ -367,15 +367,14 @@ minutes.
 
 ### Removing ambiguity
 
-#### A21 · Consolidate the scoring logic — **P2**, 6h
-**Why.** The seven-dimension rubric and the ABI formulas are implemented **twice** —
-`grading_feature/backend/scoring_service.py` (Python) and `scoring_page/backend/server.js`
-(JavaScript) — kept in sync by hand. They will diverge, and then two tools will report different
-grades for the same student.
-**Steps.** Declare the Python implementation canonical, in writing. Retire the Node prototype, or
-reduce it to a thin client of the Python service. Add unit tests that pin the rubric arithmetic
-and the ABI weights.
-**Acceptance.** One implementation; tests fail if a weight changes; the decision is in `HANDOFF.md`.
+#### A21 · Pin the scoring logic with tests — **P2**, 3h
+**Why.** The rubric and ABI formulas used to exist twice, in Python and JavaScript, kept in sync
+by hand. **The duplicate was removed on 2026-08-19** — `scoring_page/` was deleted and
+`grading_feature/backend/scoring_service.py` is canonical. What remains undone is the part that
+stops the problem recurring: nothing currently fails if somebody changes a weight.
+**Steps.** Add unit tests that pin the seven-dimension arithmetic and the ABI weights against
+known inputs and expected outputs.
+**Acceptance.** Change one weight in `scoring_service.py` and show a test failing.
 
 #### A22 · Decide the fate of `rag_bio_project/` — **P2**, 3h
 **Why.** There are two retrieval systems: the native Qdrant RAG that students actually use, and a
@@ -617,7 +616,7 @@ is required, and who starts it this week; the two providers to shortlist for tes
 
 **Assignments for 29 Sep**
 - **P1** — A3 CI smoke test; A4 guards; A8 pin images and drop the custom build.
-- **P2** — Finalise B2 with the instructor; begin A21 scoring consolidation; start hand-labelling for A23.
+- **P2** — Finalise B2 with the instructor; A21 scoring tests; start hand-labelling for A23.
 - **P3** — B3 voice-only working end to end, **ready to demo next week**; open provider accounts.
 - **P4** — A15 production frontend build; help P3 pick persona voices.
 
@@ -671,7 +670,7 @@ by measurement, not preference).
 
 **Assignments for 13 Oct**
 - **P1** — A10 test stack to v0.10.x, including the documented downgrade failure; draft the A12 SQLite-vs-Postgres note.
-- **P2** — A17 async refresh; continue A21.
+- **P2** — A17 async refresh.
 - **P3** — B6 orchestration harness; begin B7 provider #1.
 - **P4** — A16 continues; begin B11 session interface sketches.
 
@@ -696,7 +695,7 @@ for the hosted dashboard (SSO if achievable this term, basic auth as the documen
 
 **Assignments for 20 Oct**
 - **P1** — A11 test stack to v0.11.x; finalise the production runbook including rollback.
-- **P2** — A22 decide the fate of `rag_bio_project/`; finish A21.
+- **P2** — A22 decide the fate of `rag_bio_project/`.
 - **P3** — B8 provider #2; assemble the B9 bake-off report.
 - **P4** — A16 finish; A24 begin re-shooting documentation for the v0.11 interface.
 
@@ -941,7 +940,7 @@ rollback plan, or A25 (`HANDOFF.md`). Those are the ones that hurt someone else 
 | Chat metrics plugin | `monitoring/chat_metrics_filter.py` |
 | Grading backend | `grading_feature/backend/` — `extract_chats.py`, `scoring_service.py`, `main.py` |
 | Grading frontend | `grading_feature/frontend/` (React/Vite) |
-| Duplicate scoring logic | `scoring_page/backend/server.js` — to be retired (A21) |
+| Scoring logic (canonical) | `grading_feature/backend/scoring_service.py` — the JS duplicate was deleted 2026-08-19 |
 | Second retrieval stack | `rag_bio_project/` — fate to be decided (A22) |
 | Knowledge-base CLI | `tools/kb_sync/` — already API-based and upgrade-safe |
 | Old vendor fork | `legacy/custom-code-vendor-fork/` — **to be deleted** (A6) |
