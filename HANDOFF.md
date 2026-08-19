@@ -110,8 +110,9 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **The deleted scoring page claimed it ran on Qwen — it never did.** It called the OpenAI API;
 its only LLM dependency was the `openai` package. The Qwen naming was leftover from an early
-prototype, and a real API key had been pasted into its README, which is the leak this repo is
-still rotating for. The whole folder was deleted on 2026-08-19. If you find Qwen references
+prototype, and a real API key had been pasted into its README. That key belongs to a third party,
+so nobody here can revoke it — see `docs/memory/leaked-key-not-ours-to-revoke.md` before treating
+it as an open task. The whole folder was deleted on 2026-08-19. If you find Qwen references
 outside `rag_bio_project/` (which does genuinely support DashScope as an option) they are stale.
 
 ---

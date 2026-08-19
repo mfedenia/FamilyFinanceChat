@@ -94,7 +94,7 @@ without being asked, and you are the one who says in the meeting whether it is o
 
 | | Role | Owns | Primary tasks |
 |---|---|---|---|
-| **P1** | **Platform Lead** | Docker stack, the Open WebUI upgrade, CI/CD, reverse proxy, secrets, backups, monitoring and alerting | A2–A6, A8–A13, A16, A18–A20 |
+| **P1** | **Platform Lead** | Docker stack, the Open WebUI upgrade, CI/CD, reverse proxy, secrets, backups, monitoring and alerting | A2–A4, A6, A8–A13, A16, A18–A20 |
 | **P2** | **Backend & Data Lead** | Grading service, chat extraction, scoring consolidation, transcript write-back, evaluation data and analysis | A7, A14, A17, A21–A23, B2, B12–B17 |
 | **P3** | **Realtime & Avatar Lead** | The speech→model→speech→avatar pipeline, latency budget, provider evaluation | B1, B3–B10, B12, B18 |
 | **P4** | **Frontend & Experience Lead** | Hosted dashboard UI, the avatar companion app UI, session flow, documentation and user testing | A15–A17, A24, B1, B2, B10, B11, B15, B16 |
@@ -215,13 +215,18 @@ directory; `gitleaks` finds a credential; any image reference ends in `:latest`.
 **Acceptance.** Add a line to a compose file that mounts into `open_webui/`, show the build
 failing, then remove it. About forty lines of `grep` — do not over-engineer it.
 
-#### A5 · Rotate the leaked provider key — **P1**, 1h
-**Why.** A provider API key was committed to this repository. It was scrubbed from the files but
-**never rotated at the provider**, so it is still live. Scrubbing a key from a public repo is not
-remediation; rotation is.
-**Steps.** Generate a new key at the provider. Update the deployment. Revoke the old one.
-Confirm nothing broke.
-**Acceptance.** The old key returns 401. Do this in week one — it is one hour and it is overdue.
+#### A5 · Leaked key — closed, no action available — **nobody**, 0h
+**Why this is here at all.** A provider API key was committed to this public repository and
+stayed live on the default branch until 2026-08-19. You will find references to it in the git
+history and may reasonably conclude someone should rotate it.
+**Nobody on this project can.** The key belongs to a third party — a previous student's own
+Qwen/DashScope account. It is not the department's and not Mark's. Nothing in this platform ever
+authenticated with it, so there is no service to update and no data reachable through it.
+**Steps.** None. Do not re-open this. The folder that held it (`scoring_page/`) was deleted on
+2026-08-19; the value survives in git history and in a fork regardless of anything we do.
+**What actually matters instead:** the prevention control, task **A4** — land `gitleaks` in CI so
+a future key, one that *is* ours, cannot leak the same way. See
+`docs/memory/leaked-key-not-ours-to-revoke.md`.
 
 #### A6 · Delete the vendor fork from the tree — **P1**, 2h
 **Why.** `legacy/custom-code-vendor-fork/` still contains the complete old fork *and a README
@@ -588,7 +593,7 @@ retrieved, the grading dashboard seen, and your list of stuck points written dow
 **honest capacity per person** (if it is 6 hours rather than 9, say so now).
 
 **Assignments for 22 Sep**
-- **P1** — A5 rotate the leaked key (do this first, it is one hour and overdue); begin A2 backup/restore drill.
+- **P1** — Begin A2 backup/restore drill. *(Read A5 before anyone raises the leaked key as a task — it is closed.)*
 - **P2** — A7 delete the `--legacy` stub; read `scoring_service.py` and `extract_chats.py` end to end; start the B2 consent draft.
 - **P3** — Read `AVATAR_TRACK.md` in full; draft B1 requirements; begin the B5 provider shortlist.
 - **P4** — Start B1 with P3; draft the B2 consent form with P2; collect the onboarding stuck points into a document.
@@ -857,7 +862,6 @@ Walk this list at M11. Each item is verifiable by somebody who was not in the ro
 - [ ] Production runs a current Open WebUI release, upgraded via a written, rehearsed runbook (A13)
 - [ ] A push runs CI; a tag deploys; a red build blocks the merge (A3)
 - [ ] The fork guard exists, passes, and no re-forking instructions remain in the tree (A4, A6)
-- [ ] The leaked provider key has been rotated at the provider (A5)
 - [ ] A professor grades from an authenticated URL with no terminal (A16) — *verified with an actual professor*
 - [ ] Metrics and alerting work from a clean deployment with zero manual steps (A18, A20)
 - [ ] An induced outage notifies a person within five minutes (A20)
@@ -907,7 +911,7 @@ Say it at the Tuesday meeting the week you realise it, not the week it becomes v
    and hand the decision forward.
 4. **B16 sample size.** Three students with a clean protocol beats eight with a sloppy one.
 
-**Never cut:** A2 (backups), A3/A4 (CI and guards), A5 (key rotation), B2 (consent), A13's
+**Never cut:** A2 (backups), A3/A4 (CI and guards), B2 (consent), A13's
 rollback plan, or A25 (`HANDOFF.md`). Those are the ones that hurt someone else if you skip them.
 
 ---
