@@ -99,6 +99,8 @@ archive/                # Stale files from Spring 2026 cleanup
 - [ARCHITECTURE.md](ARCHITECTURE.md) — component diagram, data flow, config values
 - [SETUP.md](SETUP.md) — how to run this, environment variables, common errors, CI/CD recommendation
 - [HANDOFF.md](HANDOFF.md) — what was built, known bugs, architectural decisions, what to do next
+- [CLAUDE.md](CLAUDE.md) — working instructions: the one rule, where things are, conventions
+- [docs/memory/](docs/memory/) — project memory: durable, non-obvious facts kept in the repo
 - [capstone_fall2026/](capstone_fall2026/) — briefing package for the next team: project plan, the
   upstream-compatibility policy, the avatar research track, plus a slide deck and presentation
   script. Documentation only; not part of the running system.
