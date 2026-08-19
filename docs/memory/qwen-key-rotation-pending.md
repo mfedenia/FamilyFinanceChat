@@ -21,10 +21,19 @@ not close the exposure — only rotation does.
 **A scrub sitting on an unmerged branch protects nothing.** Verify the fix is on the default
 branch, not merely committed somewhere.
 
-`scoring_page/` is an orphaned prototype: nothing else in the repo references it, and it is
-superseded by `grading_feature/`. No running service depends on the key, so **retiring the
-component outright is a reasonable alternative to rotating** — and retiring it is already
-planned as task A21 in the work plan.
+**Nothing ever consumed the key.** `scoring_page/backend/server.js` reads only
+`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `MOCK_SCORER` and `PORT`; its sole LLM
+dependency is the `openai` package. The `QWEN_*` variables were dead config and the "Qwen3-14B"
+branding was stale — somebody prototyped against Qwen, moved to OpenAI, and never updated the
+docs. All of it was removed on 2026-08-19, along with a hardcoded `OPENAI_API_KEY` export in
+`scoring_page/run.sh` that both invited committed secrets and silently overrode `.env`.
+
+`scoring_page/` remains an orphaned prototype superseded by `grading_feature/`, so **revoking
+the key outright is simpler than rotating it**, and retiring the component (task A21) removes
+the surface entirely.
+
+The DashScope provider path in `rag_bio_project/src/llm.py` is unrelated: it reads a different
+variable (`DASHSCOPE_API_KEY`), defaults to `openai`, and was never wired to this key.
 
 **Why:** once the key was scrubbed, nothing in the working tree reveals that a rotation is still
 owed. This is exactly the kind of obligation that disappears silently at handover.

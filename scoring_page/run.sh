@@ -25,11 +25,13 @@ case "$cmd" in
     echo "==> Starting backend server (node server.js)..."
     cd "$BACKEND_DIR"
 
-    # 在这里给 Node 进程设置环境变量（bash 写法）
-    export OPENAI_API_KEY="your-api-key"
-    export OPENAI_MODEL="gpt-4o-mini"      # 可选，和 server.js 默认一致即可
-    # 如果你有自定义 base url，这里也可以加：
-    # export OPENAI_BASE_URL="https://api.openai.com/v1"
+    # Configuration comes from backend/.env (loaded by dotenv in server.js).
+    # Do NOT export OPENAI_API_KEY here -- a key in a committed script is how
+    # this repo leaked one before, and exporting it also overrides .env.
+    if [ ! -f .env ]; then
+      echo "ERROR: backend/.env not found. Run: cp .env.example .env  (then add your key)" >&2
+      exit 1
+    fi
 
     node server.js
     ;;

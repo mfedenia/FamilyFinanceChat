@@ -39,8 +39,8 @@ We built staging and test Docker stacks. The staging environment was never fully
 ### Filter Function must be manually re-installed after every deployment
 The Chat Metrics filter (`monitoring/chat_metrics_filter.py`) is installed through the OpenWebUI admin UI and is not persisted in any config file. Every time you deploy a fresh instance you must re-install it. See `monitoring/README.md` for exact steps. Without it, Grafana shows no chat metrics.
 
-### `rag_with_citations` prompt mode is broken
-In `rag_bio_project/src/prompting.py`, the `_format_context_with_indices()` function has a Python f-string bug: it uses `{{i}}` and `{{it.get(...)}}` which produce literal `{i}` text instead of the actual index values. The citation numbers never appear correctly. This only affects the custom RAG pipeline, not the native OpenWebUI RAG.
+### `rag_with_citations` prompt mode was broken — fixed 2026-08-19
+In `rag_bio_project/src/prompting.py`, `_format_context_with_indices()` had a Python f-string bug: `{{i}}` and `{{it.get(...)}}` emitted the literal text `{i} {it.get('document','')}` rather than interpolating. The effect was worse than wrong citation numbers — **citations mode dropped every retrieved document**, so the model answered with no context at all. Fixed in commit `c09f4b8`; only ever affected the custom RAG pipeline, not the native OpenWebUI RAG.
 
 ### End-to-end upgrade validation was not completed
 The decoupling migration plan has one item still marked pending: a full smoke test of KB upload + chat metrics via Filter Function + grading dashboard all working together post-upgrade. We tested components individually but never ran a formal end-to-end pass.
@@ -86,8 +86,6 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 4. **Automate Filter Function installation.** The manual install-after-deploy step is fragile. Options: use the OpenWebUI REST API (`POST /api/v1/functions/`) to install it as part of a post-deploy script, or add it to a startup init container.
 
-5. **Fix the `rag_with_citations` f-string bug** in `rag_bio_project/src/prompting.py` line 104.
-
 6. **Pin `qdrant:latest` and `cadvisor:latest`** to specific versions in `docker-compose.yml`. Unpinned images will silently upgrade on the next `docker compose pull`.
 
 7. **Consolidate scoring logic** — eliminate the duplicate JS/Python implementations or add a comment pointing to which is canonical.
@@ -110,7 +108,11 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **Prometheus runs as UID 65534 (nobody).** The `/opt/prometheus/data` directory must be owned by that UID or Prometheus will fail to start with a cryptic permissions error.
 
-**The scoring page `.env.example` has a Windows PowerShell line in it.** Line 6 of `scoring_page/backend/.env.example` reads `$env:OPENAI_API_KEY="your-api-key"` — that is a PowerShell syntax leftover, not a real env var format. Ignore it.
+**The scoring page used to claim it ran on Qwen.** It never did — `scoring_page/backend/server.js`
+calls the OpenAI API, and its only LLM dependency is the `openai` package. The Qwen naming,
+the dead `QWEN_*` variables in `.env.example`, a stray PowerShell line, and a hardcoded API
+key export in `run.sh` were all removed on 2026-08-19. If you find Qwen references outside
+`rag_bio_project/` (which does genuinely support DashScope as an option) they are stale.
 
 ---
 
