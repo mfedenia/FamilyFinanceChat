@@ -14,7 +14,10 @@ secrets":
    provider**. Treat the scrub as a cleanup step, never as the fix.
 2. **The exposure window is from the commit, not from the discovery.** Assume the credential
    was harvested; automated scanners find public keys within minutes.
-3. **A secret nobody is looking for comes back.** The only durable defence is an automated
+3. **A fix on an unmerged branch is not a fix.** The scrub here was committed on 2026-08-18 but
+   sat on a side branch while the key stayed live on the public default branch for another day.
+   For a security fix, "committed" is not the bar — "on `main`, and pushed" is.
+4. **A secret nobody is looking for comes back.** The only durable defence is an automated
    check on every push.
 
 **Why:** the first exposure here went unnoticed for roughly nine months, and the remaining
@@ -27,5 +30,5 @@ obligation became invisible the moment the file was cleaned up.
 - Land `gitleaks` in CI (task **A4** in
   [`capstone_fall2026/PROJECT_PLAN.md`](../../capstone_fall2026/PROJECT_PLAN.md)) so this cannot
   recur silently, and run it over history, not just the current tree.
-- If you find a committed credential: rotate first, scrub second, then write down that you
-  rotated it.
+- If you find a committed credential: rotate first, scrub second, **confirm the scrub is on the
+  default branch**, then write down that you rotated it.

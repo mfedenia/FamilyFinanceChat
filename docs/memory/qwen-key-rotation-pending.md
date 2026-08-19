@@ -9,10 +9,17 @@ metadata:
 2025-10-31 (commit `f86f8d3`) until 2026-08-18, in the public repository
 `github.com/mfedenia/FamilyFinanceChat`, which has at least one fork.
 
-On 2026-08-18 the value was removed from the file on branch
-`cleanup/key-scrub-and-rag-citation-fix`. **Rotation at the provider was still outstanding as of
-2026-08-19.** The key remains in this repository's git history and in the fork's history, so
-scrubbing the working tree does not close the exposure — only rotation does.
+The removal was committed on 2026-08-18 to branch `cleanup/key-scrub-and-rag-citation-fix`,
+**but that branch was never merged** — so the key stayed live in plaintext on `main` and on the
+public `origin/main` until 2026-08-19, when the branch was finally merged (commit `911bcdc`).
+Add roughly a further day to the exposure window on that account.
+
+**Rotation at the provider was still outstanding as of 2026-08-19.** The key remains in this
+repository's git history and in the fork's history, so removing it from the working tree does
+not close the exposure — only rotation does.
+
+**A scrub sitting on an unmerged branch protects nothing.** Verify the fix is on the default
+branch, not merely committed somewhere.
 
 `scoring_page/` is an orphaned prototype: nothing else in the repo references it, and it is
 superseded by `grading_feature/`. No running service depends on the key, so **retiring the
