@@ -25,8 +25,12 @@ build/
 *~
 .DS_Store
 
-# Claude Code local state (agent worktrees, local settings)
-.claude/
+# Claude Code local state (agent worktrees, local settings).
+# Note: this ignores the CONTENTS of .claude/, not the directory itself --
+# git will not descend into an excluded directory, so a plain `.claude/`
+# would make the negation below silently do nothing.
+.claude/*
+!.claude/settings.json
 
 # Backend specific - only ignore runtime/generated data
 backend/openwebui/data/webscraped/*.pdf
