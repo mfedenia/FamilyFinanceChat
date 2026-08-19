@@ -59,7 +59,6 @@ docker compose up -d
 
 - **Filter Function must be re-installed after every deployment** — not auto-deployed
 - **Grading dashboard requires local run** — professors need to SSH to the VM or run it on their machine; not hosted yet
-- **`rag_with_citations` prompt mode has a formatting bug** — citation numbers display as literal `{i}` (in `rag_bio_project/src/prompting.py`)
 - **No CI/CD** — upgrades have broken things silently in the past; see SETUP.md for the recommended pipeline
 
 ---
