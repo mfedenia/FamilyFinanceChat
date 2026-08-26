@@ -1,25 +1,31 @@
 %==============================================================================
-%  FamilyFinanceChat -- Fall 2026 Project Overview
-%  A FIVE-MINUTE deck.  10 slides, one idea each.
+%  FamilyFinanceChat -- Fall 2026 -- CS620 capstone project pitch
 %
-%  Build:  ./build.sh   (or: latexmk -pdf familyfinancechat-fall2026.tex)
+%  ONE SOURCE, THREE OUTPUTS.  This file used to have a twin that had to be kept
+%  in sync by hand; it does not any more.
 %
-%  Self-contained theme: requires only beamer, tikz, xcolor, helvet, microtype.
-%  No metropolis, no external theme packages -- compiles on a stock TeX Live
-%  or TinyTeX install.
+%    ./build.sh            handout mode: overlays collapse, 10 slides, normal
+%                          margins -- the deck a human presents from
+%    ./build.sh notes      the same, plus presenter cue cards
+%    ./build.sh video      \VIDEO: every overlay step is its own page, and the
+%                          right fifth of the slide is left empty for the avatar
 %
-%  DELIBERATELY SPARSE. The detail lives in the reports, not on the slides:
-%    ../PROJECT_PLAN.md          the full plan
-%    ../COMPATIBILITY_POLICY.md  the no-fork rule and the repo audit
-%    ../AVATAR_TRACK.md          the avatar research track
-%  If you find yourself adding a table to this deck, put it in a report instead.
+%  THE AVATAR MARGIN.  In \VIDEO mode the text block stops at 10.5cm of the 16cm
+%  page, leaving a clear portrait column on the right for HeyGen to composite the
+%  presenter into.  Nothing -- title, body, diagram, page number -- may cross
+%  that line, or the avatar will sit on top of it.  \contentwidth is the widest
+%  anything may be; use it rather than hard-coding a width.
 %
-%  \note{} blocks are short presenter cues. The verbatim narration for the
-%  AI presenter lives in ../script/.
+%  Build steps are CUMULATIVE and nothing already on screen may move when the
+%  next piece appears: \onslide (which reserves space) rather than \only (which
+%  does not), and a fixed \useasboundingbox on every tikzpicture.  A line that
+%  shifts between steps reads as a glitch on video.
+%
+%  The narration lives in build-heygen-pptx.py, not here, and is deliberately
+%  NOT a reading of these slides -- the slides show, the speech explains.
 %==============================================================================
 \documentclass[aspectratio=169,11pt]{beamer}
 
-% Notes handout:  pdflatex "\def\SHOWNOTES{}\input{familyfinancechat-fall2026}"
 \ifdefined\SHOWNOTES\setbeameroption{show notes}\fi
 
 \usepackage[T1]{fontenc}
@@ -40,6 +46,16 @@
 \definecolor{ffcMist}{HTML}{EEF1F6}
 \definecolor{ffcRule}{HTML}{C9D2E0}
 
+%----------------------------------------------------- the avatar reservation --
+\ifdefined\VIDEO
+  \newlength{\avatarcol}\setlength{\avatarcol}{5.2cm}
+\else
+  \newlength{\avatarcol}\setlength{\avatarcol}{0.9cm}
+\fi
+\setbeamersize{text margin left=0.9cm,text margin right=\avatarcol}
+\newlength{\contentwidth}
+\setlength{\contentwidth}{\dimexpr\paperwidth-0.9cm-\avatarcol\relax}
+
 %--------------------------------------------------------------------- theme --
 \usetheme{default}
 \usecolortheme{default}
@@ -49,18 +65,20 @@
 \setbeamerfont{frametitle}{series=\bfseries,size=\large}
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{itemize item}{\color{ffcBlue}\rule[0.35ex]{0.7ex}{0.7ex}}
+\setbeamercovered{invisible}
 
+% The title bar still spans the page -- an avatar sitting over its right end
+% looks deliberate -- but the TEXT stops short of the avatar column.
 \setbeamertemplate{frametitle}{%
   \nointerlineskip
-  \begin{beamercolorbox}[wd=\paperwidth,ht=3.1ex,dp=1.5ex,leftskip=0.9em,rightskip=0.9em]{frametitle}
+  \begin{beamercolorbox}[wd=\paperwidth,ht=3.1ex,dp=1.5ex,leftskip=0.9em,rightskip=\dimexpr\avatarcol+0.9em\relax]{frametitle}
     \usebeamerfont{frametitle}\insertframetitle%
-    \hfill\raisebox{0.2ex}{\scriptsize\color{ffcRule}\insertframenumber}
   \end{beamercolorbox}%
   \vskip1.2ex
 }
 \setbeamertemplate{footline}{%
   \hbox{\begin{beamercolorbox}[wd=\paperwidth,ht=2.2ex,dp=1ex,leftskip=0.9em,rightskip=0.9em]{}
-    {\tiny\color{ffcGrey}FamilyFinanceChat \quad$\cdot$\quad Fall 2026}
+    {\tiny\color{ffcGrey}FamilyFinanceChat \quad$\cdot$\quad CS620 Capstone \quad$\cdot$\quad Fall 2026}
   \end{beamercolorbox}}
 }
 
@@ -69,235 +87,220 @@
 \newcommand{\bad}[1]{\textcolor{ffcRed}{\textbf{#1}}}
 \newcommand{\good}[1]{\textcolor{ffcTeal}{\textbf{#1}}}
 
-% A labelled "big point" row: {label}{text}
+% A numbered "big point" row, sized to the content column.
 \newcommand{\point}[2]{%
-  \noindent\begin{minipage}{\textwidth}
+  \noindent\begin{minipage}{\contentwidth}
     {\color{ffcBlue}\large\bfseries #1}\quad{\large #2}
-  \end{minipage}\\[1.0em]}
+  \end{minipage}\\[0.9em]}
 
 \tikzset{
-  box/.style={rounded corners=3pt,draw=ffcRule,fill=white,inner sep=8pt,
-              align=center,font=\small,minimum height=13mm,minimum width=28mm},
+  box/.style={rounded corners=3pt,draw=ffcRule,fill=white,inner sep=6pt,
+              align=center,font=\small,minimum height=9mm,minimum width=42mm},
   core/.style={box,fill=ffcMist,draw=ffcBlue,font=\small\bfseries},
   newb/.style={box,fill=ffcTeal!14,draw=ffcTeal,font=\small\bfseries},
-  arr/.style={-{Stealth[length=6pt]},draw=ffcGrey,semithick},
-  lbl/.style={font=\scriptsize,text=ffcGrey,inner sep=3pt},
+  arr/.style={-{Stealth[length=5pt]},draw=ffcGrey,semithick},
+  lbl/.style={font=\scriptsize,text=ffcGrey,inner sep=2pt},
 }
+
+% Build-step diagrams.  \flowA{n} / \flowB{n} draw the first n pieces; the
+% bounding box is fixed, so earlier pieces never move as later ones appear.
+% NOTE: keep every \\ at the TOP level of a node's text.  A line break nested
+% inside a brace group breaks TikZ's path parser with a \tikzscope@linewidth
+% error that points at \end{frame}, nowhere near the actual cause.
+\newcommand{\flowA}[1]{%
+  \begin{tikzpicture}
+    \useasboundingbox (-2.6,-2.95) rectangle (2.6,2.35);
+    \node[box] at (0,1.85) (stu) {Student};
+    \ifnum#1>1
+      \node[core,minimum height=14mm] at (0,-0.05) (ai)
+        {AI family client\\[1pt] {\footnotesize\mdseries a real situation, from}\\ {\footnotesize\mdseries the course documents}};
+      \draw[arr] (stu) -- node[lbl,right]{asks} (ai);
+    \fi
+    \ifnum#1>2
+      \node[box] at (0,-2.25) (ins) {Instructor\\[1pt] {\footnotesize\mdseries every question scored}};
+      \draw[arr] (ai) -- node[lbl,right]{scored} (ins);
+    \fi
+  \end{tikzpicture}}
+
+\newcommand{\flowB}[1]{%
+  \begin{tikzpicture}
+    \useasboundingbox (-2.6,-2.75) rectangle (2.6,2.15);
+    \node[box] at (0,1.65) (stu) {Student \emph{speaks}};
+    \ifnum#1>1
+      \node[newb,minimum height=12mm] at (0,-0.15) (app)
+        {New avatar service\\[1pt] {\footnotesize\mdseries its own container}};
+      \draw[arr] (stu) -- (app);
+    \fi
+    \ifnum#1>2
+      \node[core,minimum height=12mm] at (0,-2.05) (ow)
+        {Open WebUI\\[1pt] {\footnotesize\mdseries untouched}};
+      \draw[arr] (app) -- (ow);
+    \fi
+  \end{tikzpicture}}
 
 \begin{document}
 
-%== 1 == Title ================================================================
+%== 1 == Title ============================================== 2 steps ========
 \begin{frame}[plain]
   \begin{tikzpicture}[remember picture,overlay]
     \fill[ffcInk] (current page.south west) rectangle (current page.north east);
-    \fill[ffcTeal] ([xshift=1.3cm,yshift=1.45cm]current page.west) rectangle
-                   ([xshift=2.9cm,yshift=1.56cm]current page.west);
-    \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=0.6cm]current page.west)
+    \fill[ffcTeal] ([xshift=1.3cm,yshift=1.75cm]current page.west) rectangle
+                   ([xshift=2.9cm,yshift=1.86cm]current page.west);
+    \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=0.95cm]current page.west)
       {\color{white}\Huge\bfseries FamilyFinanceChat};
-    \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-0.8cm]current page.west)
-      {\color{ffcRule}\LARGE Fall 2026: make it solid, give it a face};
-    \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-2.2cm]current page.west)
-      {\color{white}\small\bfseries Professor Mark Fedenia\hspace{0.5em}%
-       \color{ffcGrey}\mdseries directing the project};
-    \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-3.0cm]current page.west)
-      {\color{ffcGrey}\footnotesize FIN 602 Capstone Engineering Team};
-    \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-3.55cm]current page.west)
-      {\color{ffcGrey}\footnotesize For a spring class in Wealth Management \& Financial Planning};
+    \node<2->[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-0.45cm]current page.west)
+      {\color{ffcTeal}\LARGE\bfseries From a chat box to a face};
+    \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-2.0cm]current page.west)
+      {\color{white}\small\bfseries Mark Fedenia\hspace{0.4em}%
+       \color{ffcGrey}\mdseries Baird Professor of Finance};
+    \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-2.75cm]current page.west)
+      {\color{ffcGrey}\footnotesize University of Wisconsin--Madison};
+    \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-3.45cm]current page.west)
+      {\color{ffcGrey}\footnotesize CS620 Capstone Project\hspace{0.5em}$\cdot$\hspace{0.5em}Fall 2026};
   \end{tikzpicture}
-  \note{Five minutes. Two things: finish making the platform solid, and try something new -- an avatar the student can talk to.}
+  \note{Who you are, and the one-line ambition. Do not read the byline aloud.}
 \end{frame}
 
-%== 2 == What we have =========================================================
-\begin{frame}{What we have}
-  \vfill
+%== 2 == What it is ========================================= 3 steps ========
+\begin{frame}{What it is}
+  \vspace{0.6em}
   \begin{center}
-  \begin{tikzpicture}
-    \node[box,minimum width=24mm] at (0,0) (stu) {Student};
-    \node[core,minimum width=38mm] at (5.8,0) (ow)
-      {AI family client\\[2pt] {\footnotesize\mdseries grounded in course documents}};
-    \node[box,minimum width=26mm] at (11.4,0) (ins) {Instructor\\[2pt] {\footnotesize\mdseries dashboard}};
-    \draw[arr] (stu) -- node[lbl,above,align=center]{practises\\advising} (ow);
-    \draw[arr] (ow) -- node[lbl,above,align=center]{questions\\scored} (ins);
-  \end{tikzpicture}
+    \only<1>{\flowA{1}}\only<2>{\flowA{2}}\only<3>{\flowA{3}}
   \end{center}
-  \vfill
-  \begin{center}\large
-  Unlimited practice, at any hour, without booking a human role-player.
-  \end{center}
-  \vfill
-  \note{One sentence each way: students get unlimited practice, instructors get automatic scoring instead of reading every transcript.}
+  \note{The problem first, the system second. The skill being taught is the uncomfortable conversation, not the arithmetic.}
 \end{frame}
 
-%== 3 == Three things hurt ====================================================
-\begin{frame}{It works. Three things hurt.}
-  \vspace{1.4em}
-  \point{1}{We are \bad{three versions behind} the software we run on.}
-  \point{2}{The professor's grading tool \bad{runs on a laptop}, not a website.}
-  \point{3}{Every deployment needs \bad{manual steps} that people forget.}
-  \vfill
-  \begin{center}\large
-  The gap between \emph{a system that works} and \emph{a system you can hand over}.
-  \end{center}
-  \vspace{1.0em}
-  \note{Don't elaborate. Three problems, one sentence each. The last line is the framing.}
-\end{frame}
-
-%== 4 == The one rule =========================================================
-\begin{frame}{The one rule}
-  \vfill
+%== 3 == How it is delivered today ========================== 3 steps ========
+\begin{frame}{How it works today}
+  \vspace{0.8em}
   \begin{center}
-    {\Huge\bfseries\color{ffcBlue} Never modify Open WebUI's core.}
-  \end{center}
-  \vfill
-  \begin{center}
-  \begin{tikzpicture}
-    \node[align=center,font=\normalsize] at (0,0)
-      {\bad{Before}\\[5pt] {\LARGE 6{,}500 lines}\\[3pt] of their code, forked by us\\[3pt]
-       {\footnotesize stuck on one old version}};
-    \node[font=\Huge,text=ffcGrey] at (4.4,0.1) {$\rightarrow$};
-    \node[align=center,font=\normalsize] at (8.8,0)
-      {\good{Now}\\[5pt] {\LARGE 1 line}\\[3pt] we just use their release\\[3pt]
-       {\footnotesize upgrade any time}};
-  \end{tikzpicture}
-  \end{center}
-  \vfill
-  \begin{center}\large
-  The test: \emph{could we take their next release tomorrow, unchanged?}
-  \end{center}
-  \vfill
-  \note{The most important slide. The last team removed the fork; our job is to never let it back. Everything else follows from this.}
-\end{frame}
-
-%== 5 == Workstream A =========================================================
-\begin{frame}{First job: make it solid}
-  \vspace{1.6em}
-  \begin{center}
-  \begin{minipage}{0.86\textwidth}\large
-    \begin{itemize}\setlength{\itemsep}{0.95em}
-      \item Upgrade to the \hl{current version} --- carefully, one step at a time
-      \item Give the professor a \hl{web address} instead of a laptop
-      \item \hl{Automate} deployment and testing, so upgrades stop breaking things quietly
-      \item \hl{Delete} the last remnants of the old fork
+  \begin{minipage}{\contentwidth}\large
+    \begin{itemize}\setlength{\itemsep}{0.85em}
+      \item<1-> In a browser --- \hl{Open WebUI} on a cloud machine
+      \item<2-> Roughly \hl{eight containers}, one language model
+      \item<3-> The student \hl{types}. The client types back.
     \end{itemize}
   \end{minipage}
   \end{center}
   \vfill
-  \note{Four items. Unglamorous, and it is what the course actually depends on. Do not go deeper -- the plan has the detail.}
+  \begin{center}
+  \onslide<3->{\begin{minipage}{\contentwidth}\centering\normalsize
+    It works. Students use it every week.
+  \end{minipage}}
+  \end{center}
+  \vspace{0.6em}
+  \note{Say plainly that it works and is in use. Credibility for everything that follows.}
 \end{frame}
 
-%== 6 == Workstream B =========================================================
-\begin{frame}{Second job: give the client a face}
+%== 4 == Two ways to improve it ============================= 2 steps ========
+\begin{frame}{Two ways to make it better}
   \vfill
   \begin{center}
-    {\Large Today the student \emph{types} to the client.}\\[1.3em]
-    {\Huge\bfseries\color{ffcTeal} We want them to talk to it.}\\[1.3em]
-    {\Large A face that listens, and answers out loud.}
+  \begin{minipage}{\contentwidth}
+    \onslide<1->{\point{1}{Make what we have \hl{fast} and \hl{easy to change}.}}
+    \vspace{0.8em}
+    \onslide<2->{\point{2}{Turn the chat box into \good{someone you talk to}.}}
+  \end{minipage}
   \end{center}
   \vfill
-  \begin{center}\large
-  You cannot rehearse a hard question about money\\[0.2em] when you have a backspace key.
-  \end{center}
-  \vfill
-  \note{The pitch. Real advising happens out loud, in real time, with someone looking at you. Typing removes the exact pressure we are trying to teach.}
+  \note{Name both, briefly. Do not start explaining either one yet.}
 \end{frame}
 
-%== 7 == How, without breaking the rule =======================================
-\begin{frame}{How --- without breaking the rule}
+%== 5 == Improvement one ==================================== 3 steps ========
+\begin{frame}{One: solid ground}
+  \vspace{0.8em}
+  \begin{center}
+  \begin{minipage}{\contentwidth}\large
+    \begin{itemize}\setlength{\itemsep}{1.0em}
+      \item<1-> Get \hl{current} with the platform, and stay current
+      \item<2-> Grading on \hl{the web}, not on a laptop
+      \item<3-> \hl{Automatic} deployment and testing
+    \end{itemize}
+  \end{minipage}
+  \end{center}
+  \vfill
+  \note{The unglamorous half. Three items, one sentence each, then move on.}
+\end{frame}
+
+%== 6 == Improvement two ==================================== 2 steps ========
+\begin{frame}{Two: the leap}
   \vfill
   \begin{center}
-  \begin{tikzpicture}
-    \node[box] at (0,0) (stu) {Student\\[2pt] {\footnotesize\mdseries speaks}};
-    \node[newb,minimum width=38mm] at (5.2,0) (app) {New avatar app\\[2pt] {\footnotesize\mdseries its own container}};
-    \node[core,minimum width=38mm] at (10.6,0) (ow) {Open WebUI\\[2pt] {\footnotesize\mdseries the brain --- untouched}};
-    \draw[arr] (stu) -- (app);
-    \draw[arr] (app) -- (ow);
-    \draw[arr] (ow) to[bend right=28] node[lbl,below]{answers, in character} (stu);
-  \end{tikzpicture}
+  \begin{minipage}{\contentwidth}\centering
+    {\large Today the student \emph{types} a question\\[0.3em] and \emph{reads} an answer.}\\[1.6em]
+    \onslide<2->{{\Large\bfseries\color{ffcTeal} We want them to say it out loud,}\\[0.5em]
+    {\large to a face that listens and answers back.}}
+  \end{minipage}
   \end{center}
   \vfill
-  \begin{center}\large
-  A \hl{separate app} beside the platform --- never inside it.
+  \note{Slow down here. Typing versus speaking is the whole pitch.}
+\end{frame}
+
+%== 7 == Why it matters ===================================== 2 steps ========
+\begin{frame}{Why that matters}
+  \vfill
+  \begin{center}
+  \begin{minipage}{\contentwidth}\centering
+    {\large In a real meeting you get \hl{one shot}\\[0.3em] at the hard question, out loud,\\[0.3em] while a family watches you.}\\[1.8em]
+    \onslide<2->{{\Large\bfseries You cannot practise that\\[0.3em] with a backspace key.}}
+  \end{minipage}
   \end{center}
+  \vfill
+  \note{The strongest thirty seconds in the deck. Let the last line sit before moving on.}
+\end{frame}
+
+%== 8 == The project ======================================== 4 steps ========
+\begin{frame}{The project: evaluate, then build}
   \vspace{0.5em}
-  \begin{center}\normalsize
-  If it does not work out, we delete one container. Nothing to unpick.
-  \end{center}
-  \vfill
-  \note{The rule on slide 4 chose this architecture for us -- and it is the better one. Same brain, same documents, same grading.}
-\end{frame}
-
-%== 8 == Three numbers ========================================================
-\begin{frame}{Three numbers decide whether it works}
-  \vspace{2.0em}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.31\textwidth}
-      \begin{center}
-        {\Huge\bfseries\color{ffcBlue} 1.2\,s}\\[0.8em]
-        {\large to answer}\\[0.5em]
-        {\footnotesize Slower than that and it stops feeling like a conversation.}
-      \end{center}
-    \end{column}
-    \begin{column}{0.31\textwidth}
-      \begin{center}
-        {\Huge\bfseries\color{ffcBlue} \$400}\\[0.8em]
-        {\large per semester}\\[0.5em]
-        {\footnotesize Roughly, for a class of forty. Capped, so it cannot run away.}
-      \end{center}
-    \end{column}
-    \begin{column}{0.31\textwidth}
-      \begin{center}
-        {\Huge\bfseries\color{ffcBlue} Week 2}\\[0.8em]
-        {\large consent settled}\\[0.5em]
-        {\footnotesize Voice and video are student records. Agreed before anything is recorded.}
-      \end{center}
-    \end{column}
-  \end{columns}
-  \vfill
-  \note{Speed, money, permission. If any one of them fails, the answer is no -- and no is an acceptable answer.}
-\end{frame}
-
-%== 9 == The semester =========================================================
-\begin{frame}{The semester}
-  \vspace{1.6em}
   \begin{center}
-  \begin{minipage}{0.90\textwidth}\large
-    \begin{itemize}\setlength{\itemsep}{0.9em}
-      \item[\textbf{\color{ffcBlue}29 Sep}] Students can \hl{talk to it} --- voice only, no face yet
-      \item[\textbf{\color{ffcBlue}20 Oct}] Pick an avatar provider --- \hl{or decide to stop}
-      \item[\textbf{\color{ffcBlue}27 Oct}] Platform \hl{upgraded} and running current
-      \item[\textbf{\color{ffcBlue}17 Nov}] Five students complete \hl{full spoken sessions}, graded normally
+  \begin{minipage}{\contentwidth}\large
+    \begin{itemize}\setlength{\itemsep}{0.8em}
+      \item<1-> A dozen \hl{avatar platforms}, all new, none proven here
+      \item<2-> \hl{Fast enough?} Under about a second to answer
+      \item<3-> \hl{Cheap enough?} Per student, and capped
+      \item<4-> \hl{Allowed?} Voice and video are student records
     \end{itemize}
   \end{minipage}
   \end{center}
   \vfill
-  \begin{center}\normalsize
-  Weekly check-in every Tuesday, 15 September to 1 December.\\[0.3em]
-  Voice-only ships in September either way. \emph{The avatar is allowed to fail.}
+  \note{This is the actual capstone work: evaluate, then build. Three criteria, all falsifiable.}
+\end{frame}
+
+%== 9 == How it bolts on ==================================== 3 steps ========
+\begin{frame}{How it bolts on}
+  \vspace{0.4em}
+  \begin{center}
+    \only<1>{\flowB{1}}\only<2>{\flowB{2}}\only<3>{\flowB{3}}
+  \end{center}
+  \vspace{-0.3em}
+  \begin{center}
+  \onslide<3->{\begin{minipage}{\contentwidth}\centering\normalsize
+    Same brain. Same grading. Switch it off and nothing breaks.
+  \end{minipage}}
+  \end{center}
+  \note{Answers the question a CS student will ask -- does this mean rewriting everything? No.}
+\end{frame}
+
+%== 10 == What we are after ================================= 3 steps ========
+\begin{frame}{What we are after}
+  \vspace{0.8em}
+  \begin{center}
+  \begin{minipage}{\contentwidth}\large
+    \begin{itemize}\setlength{\itemsep}{0.9em}
+      \item<1-> Students \hl{talking} to it by the end of term
+      \item<2-> \hl{Evidence} on whether it makes better advisors
+      \item<3-> A finding we publish \hl{either way}
+    \end{itemize}
+  \end{minipage}
+  \end{center}
+  \vfill
+  \begin{center}
+  \onslide<3->{\begin{minipage}{\contentwidth}\centering
+    {\Large\bfseries\color{ffcBlue} Come build it with us.}
+  \end{minipage}}
   \end{center}
   \vspace{0.8em}
-  \note{Four checkpoints. Stress week five -- the safe version ships early, which is what makes the risky version safe to attempt.}
-\end{frame}
-
-%== 10 == Done / close ========================================================
-\begin{frame}{What finished looks like}
-  \vspace{1.2em}
-  \begin{center}
-  \begin{minipage}{0.88\textwidth}\large
-    \begin{itemize}\setlength{\itemsep}{0.8em}
-      \item A professor grades from \hl{a web address} --- no laptop
-      \item Deployments are \hl{automatic}; bad changes never ship
-      \item We know, \hl{with evidence}, whether the avatar helps
-    \end{itemize}
-  \end{minipage}
-  \end{center}
-  \vspace{2.4em}
-  \begin{center}
-    {\Large The goal is not to finish this system.}\\[0.6em]
-    {\Large It is to leave one where the interesting work is}\\[0.4em]
-    {\Large\bfseries\color{ffcBlue} the teaching, not the plumbing.}
-  \end{center}
-  \vfill
-  \note{Close on purpose, then stop talking and take questions -- the reports have every detail anyone will ask for.}
+  \note{Close on the ask. A negative result is still a result, and say so.}
 \end{frame}
 
 \end{document}

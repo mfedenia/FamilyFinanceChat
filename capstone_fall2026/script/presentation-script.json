@@ -3,81 +3,81 @@
   "deck": "../slides/familyfinancechat-fall2026.pdf",
   "source": "presentation-script.md",
   "slide_count": 10,
-  "total_words": 821,
-  "estimated_runtime_seconds": 297,
-  "runtime_from_word_count_seconds": 340,
+  "total_words": 703,
+  "estimated_runtime_seconds": 274,
+  "runtime_from_word_count_seconds": 291,
   "speaking_rate_wpm": 145,
   "notes": "One narration string per slide, spoken verbatim. Version numbers and acronyms are already written the way they should be pronounced.",
   "slides": [
     {
       "slide": 1,
       "title": "Title",
-      "estimated_seconds": 21,
-      "narration": "This is FamilyFinanceChat. In five minutes: what it is, what is wrong with it, and what this team is going to do about it.\n\nThe project is directed by Professor Mark Fedenia, and heads into a spring class in Wealth Management and Financial Planning.\n\nTwo jobs this semester. Make the platform solid, and give the client a face.",
-      "word_count": 58
+      "estimated_seconds": 23,
+      "narration": "Hi. I'm Mark Fedenia. I teach finance here at Wisconsin, and I want to show you something my students use every week, and where I would like to take it next.\n\nIt is called Family Finance Chat. Right now it is a chat box. By the end of this project, I want it to be a face you talk to.",
+      "word_count": 60
     },
     {
       "slide": 2,
-      "title": "What we have",
-      "estimated_seconds": 25,
-      "narration": "Here is the whole system.\n\nA student practises financial advising against an A-I client — a realistic family, grounded in the actual course documents so it does not invent its facts. Every question the student asks is scored automatically, and the instructor sees the results in a dashboard.\n\nThe point is scale. Unlimited practice, at any hour, without booking a human role-player.",
-      "word_count": 62
+      "title": "What it is",
+      "estimated_seconds": 42,
+      "narration": "Here is the problem I am trying to solve. My students are learning to advise families about money, and the hard part of that job is not the arithmetic. It is sitting across from people and asking uncomfortable questions well.\n\nYou cannot learn that from a textbook, and I cannot hire forty families to practise on.\n\nSo we built them somebody to practise on. An A-I family, with a real financial situation taken from the course material, so it does not invent its own facts. And because every question a student asks is scored automatically, I can see how the whole class is doing without reading forty transcripts.",
+      "word_count": 108
     },
     {
       "slide": 3,
-      "title": "It works. Three things hurt.",
+      "title": "How it works today",
       "estimated_seconds": 32,
-      "narration": "It works today. Students use it. But three things hurt.\n\nWe are three versions behind the open-source software this is built on, and every month we wait, catching up gets harder.\n\nThe professor's grading tool runs on a laptop. Using it takes a terminal and a developer, which is the biggest barrier to anyone adopting this.\n\nAnd every deployment needs manual steps that people forget — and things break quietly.\n\nThat is the gap between a system that works and a system you can hand to someone else.",
-      "word_count": 88
+      "narration": "Today the whole thing lives in a browser, on a cloud machine, built on an open source platform called Open Web U-I. Underneath there are about eight moving parts, and one language model doing the talking.\n\nI want to be clear that it works. Students use it every week, and it is a real part of the course.\n\nThat is exactly why the next step is worth taking seriously. You are not rescuing something broken. You are improving something people depend on.",
+      "word_count": 82
     },
     {
       "slide": 4,
-      "title": "The one rule",
-      "estimated_seconds": 35,
-      "narration": "One rule governs everything, because this project learned it the hard way.\n\nWe never modify the core of Open WebUI — the open-source platform underneath us.\n\nThe team before us inherited six and a half thousand lines of that project's code, copied and modified locally. It froze us on one old version, because every upgrade meant merging someone else's software by hand.\n\nThey removed all of it. Today our version is one line long. We just run their release.\n\nSo the test for everything we build is simple. Could we take their next release tomorrow, unchanged, and still work?",
-      "word_count": 99
+      "title": "Two ways to make it better",
+      "estimated_seconds": 20,
+      "narration": "There are two things I want to fix.\n\nThe first is not glamorous. We have drifted behind the software we are built on, and every update takes somebody who knows where all the pieces are.\n\nThe second is the one I am excited about. I want the student to stop typing.",
+      "word_count": 51
     },
     {
       "slide": 5,
-      "title": "First job: make it solid",
-      "estimated_seconds": 28,
-      "narration": "The first job is unglamorous, and it is what the course depends on.\n\nUpgrade to the current version — carefully, one step at a time, because these upgrades change the database and you cannot undo that.\n\nGive the professor a web address instead of a laptop.\n\nAutomate deployment and testing, so a bad change is caught before it reaches students.\n\nAnd delete the last of that old copied code, so nobody can bring it back by accident.",
-      "word_count": 77
+      "title": "One: solid ground",
+      "estimated_seconds": 23,
+      "narration": "So, the groundwork first.\n\nGet current with the platform, and stay current, so that upgrading stops being frightening and becomes routine.\n\nPut the grading on the web, where any instructor can open it, instead of on one laptop in my office.\n\nAnd make deployment automatic, so that improving this system does not depend on one person remembering the steps.",
+      "word_count": 59
     },
     {
       "slide": 6,
-      "title": "Second job: give the client a face",
-      "estimated_seconds": 31,
-      "narration": "Now the new part.\n\nToday the student types to the client. We want them to talk to it — to a face that listens and answers out loud, in character.\n\nHere is why that matters. This course prepares students for a room with a real family in it. In that room you ask the hard question about money out loud, once, while somebody is looking at you.\n\nYou cannot rehearse that with a backspace key.",
-      "word_count": 75
+      "title": "Two: the leap",
+      "estimated_seconds": 21,
+      "narration": "Now the interesting part.\n\nRight now a student types a question, waits, and reads an answer. That is nothing like the job they are training for.\n\nI want them to say it out loud. To a face that listens, waits, and answers back in character — as the client, not as a chatbot.",
+      "word_count": 53
     },
     {
       "slide": 7,
-      "title": "How, without breaking the rule",
-      "estimated_seconds": 31,
-      "narration": "So how do we add a talking face without breaking that rule?\n\nWe do not put it inside the platform. We build it beside the platform — a separate application in its own container. The student speaks to it, it asks Open WebUI for the answer, and Open WebUI stays untouched.\n\nSame brain, same documents, same grading. And if this turns out not to be worth shipping, we delete one container.\n\nThe rule did not get in the way of the design. It chose the better design for us.",
-      "word_count": 89
+      "title": "Why that matters",
+      "estimated_seconds": 20,
+      "narration": "Here is why I care about that difference.\n\nIn a real meeting you get one shot. You ask the hard question out loud, once, while a family watches your face and decides whether they trust you.\n\nYou cannot practise that with a keyboard. There is no backspace key in that room.",
+      "word_count": 51
     },
     {
       "slide": 8,
-      "title": "Three numbers decide whether it works",
-      "estimated_seconds": 33,
-      "narration": "Three numbers will decide whether this is real.\n\nSpeed. The client has to start answering in about one point two seconds. Slower, and it stops feeling like a conversation.\n\nCost. Roughly four hundred dollars a semester for a class of forty, with hard caps so it cannot run away from us.\n\nPermission. Voice and video of students are education records. Consent and deletion get settled in week two, before anything is recorded.\n\nIf any one of those fails, the answer is no — and no is an acceptable answer.",
-      "word_count": 89
+      "title": "The project: evaluate, then build",
+      "estimated_seconds": 39,
+      "narration": "So here is the actual project.\n\nThere are a dozen companies now selling real time avatars, and the field changes every month. None of them have been tested for anything like this. Somebody has to find out which one holds up, honestly, with numbers.\n\nSpeed matters most. If it takes longer than about a second to answer, it stops feeling like a conversation and starts feeling like a machine.\n\nThen cost, per student, per semester, with a ceiling we can live with.\n\nAnd permission. A student's voice and face are protected records, and that gets settled before anyone records anything.",
+      "word_count": 100
     },
     {
       "slide": 9,
-      "title": "The semester",
-      "estimated_seconds": 28,
-      "narration": "We meet every Tuesday from mid-September to the first week of December. Four checkpoints along the way.\n\nBy the end of September, students can talk to it — voice only, no face yet. By the twentieth of October, we pick an avatar provider, or decide to stop. A week later the platform is upgraded. And by mid-November, five students complete full spoken sessions, graded like any other.\n\nThe voice-only version ships in September either way. That is what makes the ambitious part safe to attempt.",
-      "word_count": 85
+      "title": "How it bolts on",
+      "estimated_seconds": 24,
+      "narration": "Whatever wins has to bolt on beside what we already have, not replace it.\n\nA separate service that handles the talking, and asks the existing system for the answer. Same grounding in the course material, same scoring, same everything the course already depends on.\n\nAnd if it turns out not to be worth it, we switch it off and lose nothing.",
+      "word_count": 61
     },
     {
       "slide": 10,
-      "title": "What finished looks like",
-      "estimated_seconds": 33,
-      "narration": "Here is what finished looks like.\n\nA professor grades from a web address, with no laptop and no help from a student. Deployments are automatic, and a bad change is caught before it ships. And we know — with evidence from the scoring system we already have — whether talking to an avatar makes better advisors.\n\nThat last one might come back negative. We publish it either way.\n\nBecause the goal is not to finish this system. It is to leave one where the interesting work is the teaching, not the plumbing.\n\nThank you — happy to take questions.",
-      "word_count": 99
+      "title": "What we are after",
+      "estimated_seconds": 30,
+      "narration": "What I want by the end of the term is students actually talking to this thing. Not a demo. A working part of the course.\n\nAnd I want to know whether it makes them better at the job — measured against the scoring we already have, not guessed at.\n\nIt might turn out that it does not, and that is a finding worth publishing too.\n\nIf that sounds like a semester well spent, come build it with us.",
+      "word_count": 78
     }
   ]
 }

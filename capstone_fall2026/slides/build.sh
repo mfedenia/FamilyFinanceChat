@@ -1,47 +1,51 @@
 #!/usr/bin/env bash
-# Build the Fall 2026 kickoff deck.
+# Build the Fall 2026 CS620 capstone deck.  ONE SOURCE, THREE OUTPUTS.
 #
-#   ./build.sh          slides only
-#   ./build.sh notes    slides + a presenter-notes PDF (each slide followed by its cue card)
-#   ./build.sh video    the HeyGen PowerPoint (35 build steps, narration in speaker notes)
+#   ./build.sh          handout mode: overlays collapse, 10 slides -- the deck a
+#                       human presents from
+#   ./build.sh notes    the same, plus a presenter-notes PDF
+#   ./build.sh video    \VIDEO: one page per build step, and the right fifth of
+#                       the page left clear for the HeyGen avatar; then the .pptx
 #   ./build.sh clean    remove build artefacts
 #
-# Requires: latexmk + pdflatex, with beamer, tikz, booktabs, xcolor, helvet, microtype.
-# No external Beamer theme is needed -- the theme is defined inside the .tex file.
-# The video target additionally needs pdftoppm (poppler) and python3; it creates a
+# Requires: latexmk + pdflatex with beamer, tikz, xcolor, helvet, microtype.
+# The video target also needs pdftoppm (poppler) and python3; it creates a
 # throwaway virtualenv in .venv-pptx for python-pptx.
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
 DOC=familyfinancechat-fall2026
+HANDOUT='\PassOptionsToClass{handout}{beamer}\input{'"$DOC"'}'
 
 case "${1:-slides}" in
   clean)
     latexmk -C "$DOC.tex" || true
-    latexmk -C "$DOC-build.tex" || true
-    rm -f "$DOC-notes".{aux,log,out,nav,snm,toc,fls,fdb_latexmk,pdf}
+    rm -f "$DOC"{,-notes,-build}.{aux,log,out,nav,snm,toc,fls,fdb_latexmk}
+    rm -f "$DOC-build.pdf" "$DOC-notes.pdf"
     rm -rf build-png .venv-pptx
     echo "cleaned"
     ;;
 
+  notes)
+    pdflatex -interaction=nonstopmode -halt-on-error "$HANDOUT"
+    pdflatex -interaction=nonstopmode -halt-on-error -jobname="$DOC-notes" \
+      '\PassOptionsToClass{handout}{beamer}\def\SHOWNOTES{}\input{'"$DOC"'}'
+    echo "built: $DOC.pdf and $DOC-notes.pdf"
+    ;;
+
   video)
-    # build-heygen-pptx.py runs latexmk itself, renders every overlay step to PNG,
-    # and writes the .pptx with one narration line per slide in the speaker notes.
+    # build-heygen-pptx.py runs pdflatex itself with \VIDEO, renders every step
+    # to PNG, and writes the .pptx with one narration line per slide in the notes.
     if [ ! -x .venv-pptx/bin/python ]; then
       python3 -m venv .venv-pptx
       .venv-pptx/bin/pip install --quiet python-pptx
     fi
     .venv-pptx/bin/python build-heygen-pptx.py
     ;;
-  notes)
-    latexmk -pdf -interaction=nonstopmode -halt-on-error "$DOC.tex"
-    latexmk -pdf -interaction=nonstopmode -halt-on-error -jobname="$DOC-notes" \
-      -pdflatex='pdflatex %O "\def\SHOWNOTES{}\input{%S}"' "$DOC.tex"
-    echo "built: $DOC.pdf and $DOC-notes.pdf"
-    ;;
+
   slides|*)
-    latexmk -pdf -interaction=nonstopmode -halt-on-error "$DOC.tex"
-    echo "built: $DOC.pdf"
+    pdflatex -interaction=nonstopmode -halt-on-error "$HANDOUT"
+    echo "built: $DOC.pdf (10 slides)"
     ;;
 esac
