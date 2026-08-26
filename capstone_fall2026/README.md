@@ -47,6 +47,7 @@ capstone_fall2026/
 
 | If you are… | Start with |
 |---|---|
+| a student deciding whether to join | [`STUDENT_BRIEF.md`](STUDENT_BRIEF.md) — the companion to the overview video |
 | a developer joining the team | [`PROJECT_PLAN.md`](PROJECT_PLAN.md) §1–5, then your own tasks in §6–7 |
 | working on the avatar track | [`AVATAR_TRACK.md`](AVATAR_TRACK.md), plus tasks B1–B18 in the plan |
 | reviewing a pull request | [`COMPATIBILITY_POLICY.md`](COMPATIBILITY_POLICY.md) §3–4 — the allowed and forbidden surfaces |
