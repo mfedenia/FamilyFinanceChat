@@ -122,8 +122,8 @@ that slide say only what belongs to what has just appeared.
 cd slides && ./build.sh video
 ```
 
-That produces **`slides/familyfinancechat-fall2026-heygen.pptx`** — 35 slides, 600 words of
-narration, about **four minutes**. The pipeline is:
+That produces **`slides/familyfinancechat-fall2026-heygen.pptx`** — 35 slides, 595 words of
+narration, just under **four minutes**. The pipeline is:
 
 `familyfinancechat-fall2026-build.tex` → `latexmk` → a 35-page PDF (one page per overlay step) →
 `pdftoppm` → one 1920×1080 PNG per page → `python-pptx` → a 16:9 PPTX whose slides are full-bleed
@@ -135,7 +135,7 @@ images with the narration in the notes.
 |---|---|---|
 | `familyfinancechat-fall2026.tex` | a live human presenting | 10 slides / 5 min |
 | `script/presentation-script.md` | that human's speech, or a plain voice-over | 801 words |
-| `familyfinancechat-fall2026-build.tex` + `build-heygen-pptx.py` | the HeyGen video | 35 steps / 600 words / 4 min |
+| `familyfinancechat-fall2026-build.tex` + `build-heygen-pptx.py` | the HeyGen video | 35 steps / 595 words / 4 min |
 
 The video narration is a **separate, shorter script** and lives in the `NARRATION` table inside
 `build-heygen-pptx.py`. Edit it there. The build refuses to run if the number of narration
@@ -148,7 +148,19 @@ drifting apart — if you add an overlay step, you must add its line.
   fixes its own bounding box (`\useasboundingbox`, `\onslide` rather than `\only`, `\item<n->`
   rather than `\item<only@n>`). A line that shifts a few pixels between steps reads as a glitch.
 - **`\setbeamercovered{invisible}`** — no ghosted preview of the next bullet.
-- **Numbers spoken, not written.** Same rule as the main script: `one point two seconds`, `A-I`.
+- **Written for the ear, not the eye.** An avatar reads this aloud with no idea what any of it
+  means, so the narration is spelled the way it should *sound*: numbers as words
+  (`one point two seconds`); acronyms hyphenated so the letters come out separately (`A-I`,
+  `U-I`, and `S-Q-L` or `A-P-I` for anything added later); product names respelled as spoken
+  (`Family Finance Chat`, `Open Web U-I` — run-together capitals get read as one invented word);
+  dates said in full (`the twentieth of October`, `the middle of November`); and no em dashes or
+  semicolons, because a full stop is an unambiguous pause and an em dash is not. Only the speech
+  is respelled — the slides still show the real spelling. `check_tts()` enforces the mechanical
+  half of this on every build and **fails** rather than warns, because a mispronounced word is
+  not something you notice until the video is rendered and paid for.
+- **Contractions on purpose.** "We're" and "doesn't" are what a person says; "we are" and
+  "does not" are what a document says, and an avatar reading the document version sounds like a
+  kiosk.
 - **Under four minutes.** The build prints the estimate at 150 words per minute and warns if it
   goes over. If you add narration, cut some elsewhere.
 - **Under fifty slides.** HeyGen charges per rendered segment, and the deck gets unwieldy past
