@@ -134,7 +134,7 @@ images with the narration in the notes.
 | File | For | Length |
 |---|---|---|
 | `familyfinancechat-fall2026.tex` | a live human presenting | 10 slides / 5 min |
-| `script/presentation-script.md` | that human's speech, or a plain voice-over | 801 words |
+| `script/presentation-script.md` | that human's speech, or a plain voice-over | 821 words |
 | `familyfinancechat-fall2026-build.tex` + `build-heygen-pptx.py` | the HeyGen video | 36 steps / 596 words / 4 min |
 
 The video narration is a **separate, shorter script** and lives in the `NARRATION` table inside
