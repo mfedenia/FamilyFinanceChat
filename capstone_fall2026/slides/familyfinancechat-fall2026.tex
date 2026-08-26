@@ -138,18 +138,19 @@
     \fi
   \end{tikzpicture}}
 
-\begin{document}
-
-%== 1 == Title ============================================== 2 steps ========
-\begin{frame}[plain]
+% The title art, drawn twice: once as the thumbnail scene and once as the real
+% title slide.  #1=0 without the tagline, #1=1 with it.
+\newcommand{\titlebody}[1]{%
   \begin{tikzpicture}[remember picture,overlay]
     \fill[ffcInk] (current page.south west) rectangle (current page.north east);
     \fill[ffcTeal] ([xshift=1.3cm,yshift=1.75cm]current page.west) rectangle
                    ([xshift=2.9cm,yshift=1.86cm]current page.west);
     \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=0.95cm]current page.west)
       {\color{white}\Huge\bfseries FamilyFinanceChat};
-    \node<2->[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-0.45cm]current page.west)
-      {\color{ffcTeal}\LARGE\bfseries From a chat box to a face};
+    \ifnum#1>0
+      \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-0.45cm]current page.west)
+        {\color{ffcTeal}\LARGE\bfseries From a chat box to a face};
+    \fi
     \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-2.0cm]current page.west)
       {\color{white}\small\bfseries Mark Fedenia\hspace{0.4em}%
        \color{ffcGrey}\mdseries Baird Professor of Finance};
@@ -157,7 +158,24 @@
       {\color{ffcGrey}\footnotesize University of Wisconsin--Madison};
     \node[anchor=west,text width=\contentwidth] at ([xshift=1.3cm,yshift=-3.45cm]current page.west)
       {\color{ffcGrey}\footnotesize CS620 Capstone Project\hspace{0.5em}$\cdot$\hspace{0.5em}Fall 2026};
-  \end{tikzpicture}
+  \end{tikzpicture}}
+
+\begin{document}
+
+%== 0 == Thumbnail ================================== video only, 1 step ====
+% A duplicate of the title slide, held for about a second at the head of the
+% video: HeyGen uses the first frame as the thumbnail, and a frame that is
+% already mid-sentence makes a poor one.  The script proper starts on slide 1.
+% Video only -- a presenter does not want the same slide twice.
+\ifdefined\VIDEO
+\begin{frame}[plain]
+  \titlebody{0}
+\end{frame}
+\fi
+
+%== 1 == Title ============================================== 2 steps ========
+\begin{frame}[plain]
+  \only<1>{\titlebody{0}}\only<2>{\titlebody{1}}
   \note{Who you are, and the one-line ambition. Do not read the byline aloud.}
 \end{frame}
 
