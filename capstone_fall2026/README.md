@@ -32,6 +32,10 @@ capstone_fall2026/
 │   ├── familyfinancechat-fall2026.tex     Beamer source (self-contained theme)
 │   ├── familyfinancechat-fall2026.pdf      10 slides / 5 minutes
 │   ├── familyfinancechat-fall2026-notes.pdf  slides + presenter cue cards
+│   ├── familyfinancechat-fall2026-build.tex  the same deck, 35 cumulative build steps
+│   ├── familyfinancechat-fall2026-build.pdf  one page per build step
+│   ├── build-heygen-pptx.py                PDF pages -> PowerPoint + speaker notes
+│   ├── familyfinancechat-fall2026-heygen.pptx  the HeyGen deliverable, 35 slides / 4 min
 │   └── build.sh                            build helper
 ├── script/
 │   ├── presentation-script.md      verbatim narration, one block per slide  ← source of truth
@@ -104,6 +108,55 @@ Numbers and acronyms in the narration are already written the way they should be
 **Note the division of labour:** the `\note{}` blocks inside the `.tex` are short cue cards for
 a *live human* presenter, and are deliberately different text. The script folder holds the
 speech.
+
+---
+
+## Making the HeyGen video
+
+HeyGen takes a **PowerPoint file**, renders one video segment per slide, and reads each slide's
+**speaker notes** as the script for that segment. So the deck it receives is not the ten-slide
+deck — it is a build-step version where each revealed element is its own slide, and the notes on
+that slide say only what belongs to what has just appeared.
+
+```bash
+cd slides && ./build.sh video
+```
+
+That produces **`slides/familyfinancechat-fall2026-heygen.pptx`** — 35 slides, 600 words of
+narration, about **four minutes**. The pipeline is:
+
+`familyfinancechat-fall2026-build.tex` → `latexmk` → a 35-page PDF (one page per overlay step) →
+`pdftoppm` → one 1920×1080 PNG per page → `python-pptx` → a 16:9 PPTX whose slides are full-bleed
+images with the narration in the notes.
+
+**Three files, three jobs — keep them straight:**
+
+| File | For | Length |
+|---|---|---|
+| `familyfinancechat-fall2026.tex` | a live human presenting | 10 slides / 5 min |
+| `script/presentation-script.md` | that human's speech, or a plain voice-over | 801 words |
+| `familyfinancechat-fall2026-build.tex` + `build-heygen-pptx.py` | the HeyGen video | 35 steps / 600 words / 4 min |
+
+The video narration is a **separate, shorter script** and lives in the `NARRATION` table inside
+`build-heygen-pptx.py`. Edit it there. The build refuses to run if the number of narration
+entries does not equal the number of PDF pages, which is what stops the speech and the slides
+drifting apart — if you add an overlay step, you must add its line.
+
+**Rules that keep the video from looking broken:**
+
+- **Cumulative, never re-flowing.** Each step adds; nothing already on screen moves. Every frame
+  fixes its own bounding box (`\useasboundingbox`, `\onslide` rather than `\only`, `\item<n->`
+  rather than `\item<only@n>`). A line that shifts a few pixels between steps reads as a glitch.
+- **`\setbeamercovered{invisible}`** — no ghosted preview of the next bullet.
+- **Numbers spoken, not written.** Same rule as the main script: `one point two seconds`, `A-I`.
+- **Under four minutes.** The build prints the estimate at 150 words per minute and warns if it
+  goes over. If you add narration, cut some elsewhere.
+- **Under fifty slides.** HeyGen charges per rendered segment, and the deck gets unwieldy past
+  that. 35 is the current count.
+
+Upload the `.pptx` to HeyGen, pick the avatar and voice, and check two things on the first
+render: that the notes came through as the script for the right slide, and that the 16:9 frames
+are not letterboxed.
 
 ---
 
