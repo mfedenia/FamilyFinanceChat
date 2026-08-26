@@ -84,7 +84,7 @@
 
 \begin{document}
 
-%== 1 == Title ============================================== 1 step =========
+%== 1 == Title ============================================== 2 steps ========
 \begin{frame}[plain]
   \begin{tikzpicture}[remember picture,overlay]
     \fill[ffcInk] (current page.south west) rectangle (current page.north east);
@@ -92,10 +92,15 @@
                    ([xshift=2.9cm,yshift=1.56cm]current page.west);
     \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=0.6cm]current page.west)
       {\color{white}\Huge\bfseries FamilyFinanceChat};
-    \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-0.8cm]current page.west)
+    \node<2->[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-0.8cm]current page.west)
       {\color{ffcRule}\LARGE Fall 2026: make it solid, give it a face};
-    \node[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-2.4cm]current page.west)
-      {\color{ffcGrey}\small FIN 602 Capstone Engineering Team};
+    \node<1->[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-2.2cm]current page.west)
+      {\color{white}\small\bfseries Professor Mark Fedenia\hspace{0.5em}%
+       \color{ffcGrey}\mdseries directing the project};
+    \node<1->[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-3.0cm]current page.west)
+      {\color{ffcGrey}\footnotesize FIN 602 Capstone Engineering Team};
+    \node<1->[anchor=west,text width=0.82\paperwidth] at ([xshift=1.3cm,yshift=-3.55cm]current page.west)
+      {\color{ffcGrey}\footnotesize For a spring class in Wealth Management \& Financial Planning};
   \end{tikzpicture}
 \end{frame}
 

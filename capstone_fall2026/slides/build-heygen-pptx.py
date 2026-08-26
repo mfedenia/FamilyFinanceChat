@@ -81,17 +81,18 @@ WPM = 150
 # check_tts() below enforces the mechanical half of this on every build.
 # ---------------------------------------------------------------------------
 NARRATION = [
-    (1, 1, "This is Family Finance Chat. Two jobs this semester: make it solid, and "
-           "give it a face."),
+    (1, 1, "This is Family Finance Chat, directed by Professor Mark Fedenia, and headed "
+           "for a spring class in Wealth Management and Financial Planning."),
+    (1, 2, "Two jobs this semester: make it solid, and give it a face."),
 
     (2, 1, "Picture a student practising a hard conversation about money. Across from "
            "them, an A-I family built from the course documents. It never invents facts."),
     (2, 2, "Every question is scored, and the professor sees it all in one place."),
-    (2, 3, "And that's the real gift. Practice at midnight, a hundred times, with "
-           "nobody's schedule to book."),
+    (2, 3, "And that's the real gift. Practice at midnight, a hundred times, no schedule "
+           "to book."),
 
     (3, 1, "It works. Students use it today. But three things hold it back. We're three "
-           "versions behind the software underneath, and the gap grows monthly."),
+           "versions behind the software underneath, and falling further."),
     (3, 2, "The professor's grading tool only runs on a laptop, and takes a terminal and "
            "a developer."),
     (3, 3, "And every deployment leans on steps someone has to remember. Sometimes they don't."),
@@ -100,7 +101,7 @@ NARRATION = [
 
     (4, 1, "One rule shapes everything: we never touch the core of Open Web U-I, the "
            "platform underneath."),
-    (4, 2, "The last team learned the hard way. Six and a half thousand lines of copied "
+    (4, 2, "We learned this the hard way. Six and a half thousand lines of copied "
            "code, frozen on one old version. They deleted it all. Ours is one line."),
     (4, 3, "Before we build anything we ask: if they shipped a release tomorrow, would we "
            "still work?"),
@@ -119,27 +120,27 @@ NARRATION = [
     (7, 1, "So how do we add a face without breaking our rule?"),
     (7, 2, "We don't build it inside the platform. We build it alongside. Its own container."),
     (7, 3, "The student talks to it, it asks Open Web U-I for the answer, and the platform "
-           "never notices. Same brain, same grading."),
+           "never notices."),
     (7, 4, "And if it doesn't pan out, we delete one container. The rule didn't limit the "
            "design. It gave us a better one."),
 
-    (8, 1, "Three numbers tell us whether this is real. Speed. It answers in about one "
+    (8, 1, "Three numbers tell us if this is real. Speed. It answers in about one "
            "point two seconds, or it stops feeling like a conversation."),
-    (8, 2, "Cost. Around four hundred dollars a semester for a class of forty, capped so "
-           "it can't surprise us."),
+    (8, 2, "Cost. Around four hundred dollars a semester for a class of forty, with a "
+           "firm cap."),
     (8, 3, "And permission. A student's voice and face are protected records. Consent is "
            "settled in week two."),
     (8, 4, "If any one fails, we stop. And stopping is a perfectly good answer."),
 
     (9, 1, "By late September, students can talk to it. Voice only, no face yet."),
-    (9, 2, "By the twentieth of October, we pick an avatar provider, or decide not to."),
+    (9, 2, "By the twentieth of October, we pick an avatar provider, or stop."),
     (9, 3, "A week later, the platform is current."),
     (9, 4, "And by the middle of November, five students hold full spoken sessions, graded "
-           "like everyone else."),
+           "normally."),
     (9, 5, "The voice version ships in September no matter what. That's what makes the "
            "ambitious half safe."),
 
-    (10, 1, "So picture December. A professor grading from a web address. No laptop, no help."),
+    (10, 1, "So picture December. A professor grading from a web address. No laptop."),
     (10, 2, "Deployments that run themselves, so a bad change never reaches a student."),
     (10, 3, "And real evidence about whether talking to a face makes better advisors. It "
             "might not. We publish either way."),
