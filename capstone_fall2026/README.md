@@ -32,10 +32,10 @@ capstone_fall2026/
 │   ├── familyfinancechat-fall2026.tex     Beamer source (self-contained theme)
 │   ├── familyfinancechat-fall2026.pdf      10 slides / 5 minutes
 │   ├── familyfinancechat-fall2026-notes.pdf  slides + presenter cue cards
-│   ├── familyfinancechat-fall2026-build.tex  the same deck, 35 cumulative build steps
+│   ├── familyfinancechat-fall2026-build.tex  the same deck, 36 cumulative build steps
 │   ├── familyfinancechat-fall2026-build.pdf  one page per build step
 │   ├── build-heygen-pptx.py                PDF pages -> PowerPoint + speaker notes
-│   ├── familyfinancechat-fall2026-heygen.pptx  the HeyGen deliverable, 35 slides / 4 min
+│   ├── familyfinancechat-fall2026-heygen.pptx  the HeyGen deliverable, 36 slides / 4 min
 │   └── build.sh                            build helper
 ├── script/
 │   ├── presentation-script.md      verbatim narration, one block per slide  ← source of truth
@@ -122,10 +122,10 @@ that slide say only what belongs to what has just appeared.
 cd slides && ./build.sh video
 ```
 
-That produces **`slides/familyfinancechat-fall2026-heygen.pptx`** — 35 slides, 595 words of
+That produces **`slides/familyfinancechat-fall2026-heygen.pptx`** — 36 slides, 596 words of
 narration, just under **four minutes**. The pipeline is:
 
-`familyfinancechat-fall2026-build.tex` → `latexmk` → a 35-page PDF (one page per overlay step) →
+`familyfinancechat-fall2026-build.tex` → `latexmk` → a 36-page PDF (one page per overlay step) →
 `pdftoppm` → one 1920×1080 PNG per page → `python-pptx` → a 16:9 PPTX whose slides are full-bleed
 images with the narration in the notes.
 
@@ -135,7 +135,7 @@ images with the narration in the notes.
 |---|---|---|
 | `familyfinancechat-fall2026.tex` | a live human presenting | 10 slides / 5 min |
 | `script/presentation-script.md` | that human's speech, or a plain voice-over | 801 words |
-| `familyfinancechat-fall2026-build.tex` + `build-heygen-pptx.py` | the HeyGen video | 35 steps / 595 words / 4 min |
+| `familyfinancechat-fall2026-build.tex` + `build-heygen-pptx.py` | the HeyGen video | 36 steps / 596 words / 4 min |
 
 The video narration is a **separate, shorter script** and lives in the `NARRATION` table inside
 `build-heygen-pptx.py`. Edit it there. The build refuses to run if the number of narration
@@ -164,7 +164,15 @@ drifting apart — if you add an overlay step, you must add its line.
 - **Under four minutes.** The build prints the estimate at 150 words per minute and warns if it
   goes over. If you add narration, cut some elsewhere.
 - **Under fifty slides.** HeyGen charges per rendered segment, and the deck gets unwieldy past
-  that. 35 is the current count.
+  that. 36 is the current count.
+
+**The title slide names the director**, in both decks — they are the same deck in two renderings,
+so a change to one belongs in the other. In the video it is a two-step build: the byline appears
+first, while the narration introduces Professor Mark Fedenia and the spring Wealth Management &
+Financial Planning class, and the `make it solid, give it a face` line lands on the second step,
+exactly as it is spoken. The narration introduces him in the **third person**, on the assumption
+that the avatar is a presenter rather than a stand-in for him; if you pick an avatar meant to be
+him, rewrite entry `(1, 1)` in the first person.
 
 Upload the `.pptx` to HeyGen, pick the avatar and voice, and check two things on the first
 render: that the notes came through as the script for the right slide, and that the 16:9 frames
