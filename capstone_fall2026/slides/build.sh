@@ -28,9 +28,13 @@ case "${1:-slides}" in
     ;;
 
   notes)
+    # twice each: tikz "remember picture" needs the .aux from a previous pass
     pdflatex -interaction=nonstopmode -halt-on-error "$HANDOUT"
-    pdflatex -interaction=nonstopmode -halt-on-error -jobname="$DOC-notes" \
-      '\PassOptionsToClass{handout}{beamer}\def\SHOWNOTES{}\input{'"$DOC"'}'
+    pdflatex -interaction=nonstopmode -halt-on-error "$HANDOUT"
+    for _ in 1 2; do
+      pdflatex -interaction=nonstopmode -halt-on-error -jobname="$DOC-notes" \
+        '\PassOptionsToClass{handout}{beamer}\def\SHOWNOTES{}\input{'"$DOC"'}'
+    done
     echo "built: $DOC.pdf and $DOC-notes.pdf"
     ;;
 
@@ -45,6 +49,7 @@ case "${1:-slides}" in
     ;;
 
   slides|*)
+    pdflatex -interaction=nonstopmode -halt-on-error "$HANDOUT"
     pdflatex -interaction=nonstopmode -halt-on-error "$HANDOUT"
     echo "built: $DOC.pdf (10 slides)"
     ;;

@@ -24,7 +24,7 @@ capstone_fall2026/
 │   ├── familyfinancechat-fall2026.tex        ONE source, three outputs
 │   ├── familyfinancechat-fall2026.pdf         10 slides, for a live presenter
 │   ├── familyfinancechat-fall2026-notes.pdf   the same, plus presenter cue cards
-│   ├── familyfinancechat-fall2026-build.pdf   27 pages, one per build step
+│   ├── familyfinancechat-fall2026-build.pdf   28 pages, one per build step
 │   ├── familyfinancechat-fall2026-heygen.pptx the video deliverable  ← upload this
 │   ├── build-heygen-pptx.py                   narration + PDF pages → PowerPoint
 │   └── build.sh                               build helper
@@ -80,10 +80,10 @@ HeyGen takes a **PowerPoint**, renders one video segment per slide, and reads ea
 deck — it is a build-step version where each revealed element is its own slide, with notes that
 say only what belongs to what has just appeared.
 
-`./build.sh video` produces **`slides/familyfinancechat-fall2026-heygen.pptx`** — 27 slides,
-573 words, about **3:49**. The pipeline:
+`./build.sh video` produces **`slides/familyfinancechat-fall2026-heygen.pptx`** — 28 slides,
+574 words, about **3:49**. The pipeline:
 
-`familyfinancechat-fall2026.tex` + `\VIDEO` → `pdflatex` → a 27-page PDF (one page per overlay
+`familyfinancechat-fall2026.tex` + `\VIDEO` → `pdflatex` → a 28-page PDF (one page per overlay
 step) → `pdftoppm` → one 1920×1080 PNG per page → `python-pptx` → a 16:9 PPTX whose slides are
 full-bleed images with the narration in the notes.
 
@@ -94,6 +94,16 @@ column down the right-hand side for HeyGen to composite the presenter into. Noth
 body, diagram, page number — may cross that line, or the avatar will sit on top of the content.
 Use the `\contentwidth` length rather than hard-coding a width, and check a rendered page in
 `build-png/` after any layout change.
+
+### The thumbnail scene
+
+**Page 1 of the video deck is a duplicate of the title slide**, held for about a second by a
+two-word line of narration. HeyGen takes the video's opening frame as its thumbnail, and a
+thumbnail showing a presenter already mid-sentence looks like a mistake. The script proper starts
+on page 2. The scene is `\VIDEO`-only — the presenter handout does not want the same slide twice.
+
+Keep the narration on it short but **not empty**: an empty notes field can render as a
+zero-length segment.
 
 ### Rules that keep the video from looking broken
 
@@ -116,11 +126,19 @@ Use the `\contentwidth` length rather than hard-coding a width, and check a rend
   not. Only the speech is respelled — the slides still show the real spelling. `check_tts()`
   enforces the mechanical half of this on every build and **fails** rather than warns, because a
   mispronounced word is not something you notice until the video is rendered and paid for.
+- **Spell names so they sound right.** The narration says `Fedeenia`, because a speech engine
+  reads the surname *Fedenia* as FED-en-ya unless the long e is written in. Getting somebody's own
+  name wrong is the one mistake an audience is guaranteed to notice. The slides show the real
+  spelling.
+- **Build twice, always.** The title art is positioned with tikz `remember picture`, whose
+  coordinates are only known once written to the `.aux`. A single pass silently produces a title
+  slide with everything in the wrong place — which is exactly the frame used as the thumbnail.
+  `build.sh` and `build-heygen-pptx.py` both run pdflatex twice for this reason.
 - **Contractions on purpose.** "We're" and "doesn't" are what a person says; "we are" and
   "does not" are what a document says, and an avatar reading the document version sounds like a
   kiosk.
 - **Under four minutes, under fifty slides.** The build prints the estimate at 150 words per
-  minute and warns if it runs over. HeyGen charges per rendered segment; 27 is the current count.
+  minute and warns if it runs over. HeyGen charges per rendered segment; 28 is the current count.
 
 The narration lives in the `NARRATION` table in `build-heygen-pptx.py`, one entry per build step.
 **The build fails if the number of entries does not equal the number of PDF pages** — that is
@@ -138,7 +156,7 @@ slide, and that the frames are not letterboxed.
 |---|---|---|
 | `slides/…-notes.pdf` (`\note{}` in the `.tex`) | cue cards for a live presenter | a line per slide |
 | `script/presentation-script.md` | that presenter's full speech, or a voice-over | 703 words / ~4:34 |
-| `slides/build-heygen-pptx.py` → `NARRATION` | the HeyGen video | 573 words / ~3:49 |
+| `slides/build-heygen-pptx.py` → `NARRATION` | the HeyGen video | 574 words / ~3:49 |
 
 They tell the same story at three levels of detail. If you change the story, change all three.
 

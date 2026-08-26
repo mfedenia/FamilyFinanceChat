@@ -5,8 +5,8 @@
 per minute, 4:41 at a measured 150.
 **Intended use:** a live human presenter reading aloud, or a plain voice-over of the ten-slide
 deck.
-**Not the video script.** The HeyGen video runs on a shorter, separately maintained script — 27
-build steps, 573 words — in the `NARRATION` table of
+**Not the video script.** The HeyGen video runs on a shorter, separately maintained script — 28
+build steps, 574 words — in the `NARRATION` table of
 [`../slides/build-heygen-pptx.py`](../slides/build-heygen-pptx.py). Do not feed this file to
 HeyGen: it is written for ten slides, not for the build steps the video advances through. Both
 tell the same story; this one has room to breathe.
@@ -23,6 +23,9 @@ tell the same story; this one has room to breathe.
   change "I" to "the sponsor" on slide 1 and slide 10; nothing else needs touching.
 - **Numbers are written the way they should be said**, not the way they appear on the slide, so
   a speech engine does not read them as dates or decimals.
+- **If you feed this to a speech engine, respell the surname `Fedeenia`.** It is left spelled
+  correctly here because a human is reading it; an engine says FED-en-ya without the long e. The
+  video script spells it phonetically throughout.
 - `../slides/familyfinancechat-fall2026-notes.pdf` has short **presenter cues** for a live
   speaker. Those cues are deliberately different text — they are reminders, this is the speech.
 - A machine-readable version with per-slide timings is in

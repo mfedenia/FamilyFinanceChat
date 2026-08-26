@@ -60,13 +60,23 @@ WPM = 150
 #   product names as spoken     "Family Finance Chat", "Open Web U-I" -- solid
 #                           capitals get read as one invented word.  The SLIDES
 #                           still show the real spelling; only speech is respelled.
+#   names spelled to sound right    "Fedeenia" -- the surname is Fedenia, and a
+#                           speech engine says FED-en-ya unless the long e is
+#                           written in.  Getting somebody's own name wrong is the
+#                           one mistake an audience is guaranteed to notice.
 #   no em dashes, no semicolons, no hyphenated words     a full stop is an
 #                           unambiguous pause; an em dash is engine-dependent.
 #
 # check_tts() enforces the mechanical half of this on every build.
 # ---------------------------------------------------------------------------
 NARRATION = [
-    (1, 1, "Hi. I'm Mark Fedenia. I teach finance at Wisconsin, and I want to show you "
+    # Scene zero is the thumbnail: a duplicate of the title slide, held for about
+    # a second. Two words, so HeyGen renders a real segment rather than a
+    # zero-length one, and the video opens on a clean frame instead of a face
+    # already mid-sentence.
+    (0, 1, "Hi there."),
+
+    (1, 1, "I'm Mark Fedeenia. I teach finance at Wisconsin, and I want to show you "
            "something my students use, and where I'd like to take it next."),
     (1, 2, "It's called Family Finance Chat, and right now it's a chat box. By the end of "
            "this project, I want it to be a face you talk to."),
@@ -164,9 +174,14 @@ def build_pdf():
     # \VIDEO turns on the avatar column and keeps every overlay step a separate
     # page.  Without it the same file builds the ten-slide presenter handout.
     (HERE / "familyfinancechat-fall2026-build.aux").unlink(missing_ok=True)
-    run(["pdflatex", "-interaction=nonstopmode", "-halt-on-error",
-         "-jobname=familyfinancechat-fall2026-build",
-         "\\def\\VIDEO{}\\input{%s}" % TEX.stem], cwd=HERE)
+    # Twice, always.  The title art is positioned with tikz "remember picture",
+    # whose coordinates are only known once they have been written to the .aux --
+    # a single pass silently produces a title slide with everything in the wrong
+    # place, which is exactly the frame HeyGen uses as the thumbnail.
+    for _ in range(2):
+        run(["pdflatex", "-interaction=nonstopmode", "-halt-on-error",
+             "-jobname=familyfinancechat-fall2026-build",
+             "\\def\\VIDEO{}\\input{%s}" % TEX.stem], cwd=HERE)
 
 
 def render_pngs():
