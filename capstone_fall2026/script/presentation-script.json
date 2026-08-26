@@ -3,18 +3,18 @@
   "deck": "../slides/familyfinancechat-fall2026.pdf",
   "source": "presentation-script.md",
   "slide_count": 10,
-  "total_words": 801,
-  "estimated_runtime_seconds": 290,
-  "runtime_from_word_count_seconds": 331,
+  "total_words": 821,
+  "estimated_runtime_seconds": 297,
+  "runtime_from_word_count_seconds": 340,
   "speaking_rate_wpm": 145,
   "notes": "One narration string per slide, spoken verbatim. Version numbers and acronyms are already written the way they should be pronounced.",
   "slides": [
     {
       "slide": 1,
       "title": "Title",
-      "estimated_seconds": 14,
-      "narration": "This is FamilyFinanceChat. In five minutes: what it is, what is wrong with it, and what this team is going to do about it.\n\nTwo jobs this semester. Make the platform solid, and give the client a face.",
-      "word_count": 38
+      "estimated_seconds": 21,
+      "narration": "This is FamilyFinanceChat. In five minutes: what it is, what is wrong with it, and what this team is going to do about it.\n\nThe project is directed by Professor Mark Fedenia, and heads into a spring class in Wealth Management and Financial Planning.\n\nTwo jobs this semester. Make the platform solid, and give the client a face.",
+      "word_count": 58
     },
     {
       "slide": 2,

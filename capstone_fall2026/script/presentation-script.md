@@ -1,10 +1,14 @@
 # Presentation Script — FamilyFinanceChat, Fall 2026
 
 **Deck:** [`../slides/familyfinancechat-fall2026.pdf`](../slides/) — 10 slides
-**Runtime:** 801 words — **about 5 minutes**: 5:00 at a brisk 160 words per minute, 5:20 at a
+**Runtime:** 821 words — **about five minutes**: 5:08 at a brisk 160 words per minute, 5:28 at a
 measured 150.
-**Intended use:** verbatim narration for an AI presenter (HeyGen-class avatar or TTS voice-over),
-and equally usable by a human presenter reading aloud.
+**Intended use:** a live human presenter reading aloud, or a plain TTS voice-over of the
+ten-slide deck.
+**Not the video script.** The HeyGen video runs on a shorter, separately maintained script — 36
+build steps, 596 words — in the `NARRATION` table of
+[`../slides/build-heygen-pptx.py`](../slides/build-heygen-pptx.py). Do not feed this file to
+HeyGen: it is written for ten slides, not for the build steps the video advances through.
 
 ---
 
@@ -14,6 +18,10 @@ and equally usable by a human presenter reading aloud.
   the top-right corner of each slide.
 - **The narration is meant to be spoken exactly as written.** No stage directions, no bracketed
   asides — everything between the rules is speech.
+- **The introduction on slide 1 is third person**, so it reads correctly when a student, a team
+  member, or a voice-over is presenting. If Professor Fedenia is presenting himself, say it in
+  the first person: *I direct this project, and the work heads into a spring class in Wealth
+  Management and Financial Planning.*
 - **Numbers are written the way they should be said**, not the way they appear on the slide, so
   a speech engine does not read them as dates or decimals.
 - `../slides/familyfinancechat-fall2026-notes.pdf` has short **presenter cues** for a live human
@@ -33,10 +41,13 @@ the material into a report instead.
 
 ## Slide 1 — Title
 
-*Approx. 0:14*
+*Approx. 0:21*
 
 This is FamilyFinanceChat. In five minutes: what it is, what is wrong with it, and what this
 team is going to do about it.
+
+The project is directed by Professor Mark Fedenia, and heads into a spring class in Wealth
+Management and Financial Planning.
 
 Two jobs this semester. Make the platform solid, and give the client a face.
 
