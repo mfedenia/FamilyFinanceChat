@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-TEX = HERE / "familyfinancechat-fall2026-build.tex"
+TEX = HERE / "familyfinancechat-fall2026.tex"
 PDF = HERE / "familyfinancechat-fall2026-build.pdf"
 PNG_DIR = HERE / "build-png"
 PPTX = HERE / "familyfinancechat-fall2026-heygen.pptx"
@@ -44,108 +44,88 @@ WPM = 150
 
 # ---------------------------------------------------------------------------
 # One entry per build step, in page order.  (deck_slide, step, narration)
-# deck_slide/step are documentation only -- the order of this list is what maps
-# narration onto pages.
 #
-# VOICE: this is somebody talking, not a slide read aloud.  The deck already
-# carries the facts; the narration carries the reason to care about them.  So:
-# whole sentences with connective tissue ("so", "because", "here's why"), a
-# concrete picture before an abstraction, and the stakes said out loud.  Where
-# the deck has a fragment, the speech has a thought.
+# VOICE: Mark talking to a room of computer science students about a project he
+# wants them to take on.  Not a reading of the slides -- the slides show, the
+# speech explains.  If a line could be deleted and nothing would be lost because
+# the slide already says it, it is the wrong line.  Whole sentences, contractions
+# where a person would use them, and the reason to care said out loud.
 #
-# Contractions are deliberate.  "We're" and "doesn't" are what a person says;
-# "we are" and "does not" are what a document says, and an avatar reading the
-# document version sounds like a kiosk.
+# WRITTEN FOR THE EAR, NOT THE EYE.  A text-to-speech engine reads this with no
+# idea what any of it means, so it is spelled the way it should sound:
 #
-# WRITTEN FOR THE EAR, NOT THE EYE.  Every one of these is spoken aloud by a
-# text-to-speech engine that has no idea what any of it means, so the script is
-# spelled the way it should sound, not the way it is written elsewhere:
+#   numbers as words        "about a second", "forty students" -- never "1s"
+#   acronyms letter by letter   "A-I", "U-I"; hyphens force the letters apart.
+#                           Same for any acronym added later: S-Q-L, A-P-I.
+#   product names as spoken     "Family Finance Chat", "Open Web U-I" -- solid
+#                           capitals get read as one invented word.  The SLIDES
+#                           still show the real spelling; only speech is respelled.
+#   no em dashes, no semicolons, no hyphenated words     a full stop is an
+#                           unambiguous pause; an em dash is engine-dependent.
 #
-#   numbers as words        "one point two seconds", not "1.2s" -- a speech
-#                           engine reads "1.2" as "one point two" if you are
-#                           lucky and as a date or version number if you are not
-#   acronyms letter by letter   "A-I", "U-I" -- hyphens force the letters apart.
-#                           Written solid, "AI" and "UI" get guessed at as words
-#                           ("ay", "ooey").  Same trick for any acronym added
-#                           later: S-Q-L, A-P-I, U-R-L.
-#   product names as spoken     "Family Finance Chat", "Open Web U-I" -- run-together
-#                           capitals (FamilyFinanceChat, WebUI) are read as one
-#                           invented word.  The SLIDES still show the real
-#                           spelling; only the speech is respelled.
-#   dates spoken in full    "the twentieth of October", "the middle of November"
-#                           -- never "20 Oct" or "mid-Nov".
-#   no em dashes, no semicolons     a full stop or a comma is an unambiguous
-#                           pause.  An em dash is read as anything from a beat
-#                           to nothing at all, depending on the engine.
-#
-# check_tts() below enforces the mechanical half of this on every build.
+# check_tts() enforces the mechanical half of this on every build.
 # ---------------------------------------------------------------------------
 NARRATION = [
-    (1, 1, "This is Family Finance Chat, directed by Professor Mark Fedenia, and headed "
-           "for a spring class in Wealth Management and Financial Planning."),
-    (1, 2, "Two jobs this semester: make it solid, and give it a face."),
+    (1, 1, "Hi. I'm Mark Fedenia. I teach finance at Wisconsin, and I want to show you "
+           "something my students use, and where I'd like to take it next."),
+    (1, 2, "It's called Family Finance Chat, and right now it's a chat box. By the end of "
+           "this project, I want it to be a face you talk to."),
 
-    (2, 1, "Picture a student practising a hard conversation about money. Across from "
-           "them, an A-I family built from the course documents. It never invents facts."),
-    (2, 2, "Every question is scored, and the professor sees it all in one place."),
-    (2, 3, "And that's the real gift. Practice at midnight, a hundred times, no schedule "
-           "to book."),
+    (2, 1, "Here's the problem I'm trying to solve. My students are learning to advise "
+           "families about money, and the hard part isn't the arithmetic."),
+    (2, 2, "It's sitting across from people and asking uncomfortable questions well. So we "
+           "built them somebody to practise on. An A-I family with a real financial "
+           "situation, taken from the course material, so it doesn't make things up."),
+    (2, 3, "And because every question gets scored automatically, I can see how forty "
+           "students are doing without reading forty transcripts."),
 
-    (3, 1, "It works. Students use it today. But three things hold it back. We're three "
-           "versions behind the software underneath, and falling further."),
-    (3, 2, "The professor's grading tool only runs on a laptop, and takes a terminal and "
-           "a developer."),
-    (3, 3, "And every deployment leans on steps someone has to remember. Sometimes they don't."),
-    (3, 4, "None of it's glamorous. But it's the distance between a system that works and "
-           "one you can hand over."),
+    (3, 1, "Today the whole thing lives in a browser, on a cloud machine, built on an open "
+           "source platform called Open Web U-I."),
+    (3, 2, "Underneath there are about eight moving parts, and one language model doing "
+           "the talking."),
+    (3, 3, "It works. Students use it every week, and that's exactly why the next step is "
+           "worth taking seriously."),
 
-    (4, 1, "One rule shapes everything: we never touch the core of Open Web U-I, the "
-           "platform underneath."),
-    (4, 2, "We learned this the hard way. Six and a half thousand lines of copied "
-           "code, frozen on one old version. They deleted it all. Ours is one line."),
-    (4, 3, "Before we build anything we ask: if they shipped a release tomorrow, would we "
-           "still work?"),
+    (4, 1, "There are two things I want to fix. The first isn't glamorous. We've drifted "
+           "behind the software underneath us, and every update takes somebody who knows "
+           "where everything is."),
+    (4, 2, "The second is the one I'm excited about. I want the student to stop typing."),
 
-    (5, 1, "The first job is what the course depends on. Upgrade to current, one careful "
-           "step at a time. These rewrite the database. There's no undo."),
-    (5, 2, "Give the professor a web address. No laptop, no terminal, no developer."),
-    (5, 3, "Automate the testing, so a bad change is caught by us, not a student."),
-    (5, 4, "And clear out the last of that old fork, so nobody drags it back."),
+    (5, 1, "So, the groundwork. Get current with the platform, and stay current, so "
+           "upgrades stop being frightening."),
+    (5, 2, "Put the grading on the web where any instructor can open it, instead of on one "
+           "laptop in my office."),
+    (5, 3, "And make deployment automatic, so improving this thing doesn't depend on one "
+           "person remembering the steps."),
 
-    (6, 1, "Now the part we're excited about. Today, the student types."),
-    (6, 2, "We want them to speak. To a face that listens and answers out loud, in character."),
-    (6, 3, "Because soon they'll sit with a real family, asking the hardest question out "
-           "loud, once, while everyone watches. You can't rehearse that with a backspace key."),
+    (6, 1, "Now the interesting part. Right now a student types a question and reads an "
+           "answer, which is nothing like the job."),
+    (6, 2, "I want them to say it out loud, to a face that listens, waits, and answers "
+           "back in character."),
 
-    (7, 1, "So how do we add a face without breaking our rule?"),
-    (7, 2, "We don't build it inside the platform. We build it alongside. Its own container."),
-    (7, 3, "The student talks to it, it asks Open Web U-I for the answer, and the platform "
-           "never notices."),
-    (7, 4, "And if it doesn't pan out, we delete one container. The rule didn't limit the "
-           "design. It gave us a better one."),
+    (7, 1, "Because in a real meeting you get one shot. You ask the hard question out "
+           "loud, once, while a family watches your face."),
+    (7, 2, "You can't practise that with a keyboard. There's no backspace key in that room."),
 
-    (8, 1, "Three numbers tell us if this is real. Speed. It answers in about one "
-           "point two seconds, or it stops feeling like a conversation."),
-    (8, 2, "Cost. Around four hundred dollars a semester for a class of forty, with a "
-           "firm cap."),
-    (8, 3, "And permission. A student's voice and face are protected records. Consent is "
-           "settled in week two."),
-    (8, 4, "If any one fails, we stop. And stopping is a perfectly good answer."),
+    (8, 1, "So here's the actual project. There are a dozen companies now doing real time "
+           "avatars, and none of them have been tested for something like this. Somebody "
+           "has to find out which one holds up."),
+    (8, 2, "Speed matters most. If it takes longer than about a second to answer, it stops "
+           "feeling like a conversation and starts feeling like a machine."),
+    (8, 3, "Then cost, per student, per semester, with a ceiling we can actually live with."),
+    (8, 4, "And permission, because a student's voice and face are protected records, and "
+           "that gets settled before anyone records anything."),
 
-    (9, 1, "By late September, students can talk to it. Voice only, no face yet."),
-    (9, 2, "By the twentieth of October, we pick an avatar provider, or stop."),
-    (9, 3, "A week later, the platform is current."),
-    (9, 4, "And by the middle of November, five students hold full spoken sessions, graded "
-           "normally."),
-    (9, 5, "The voice version ships in September no matter what. That's what makes the "
-           "ambitious half safe."),
+    (9, 1, "Whatever wins has to bolt on beside what we already have, not replace it."),
+    (9, 2, "A separate service that handles the talking."),
+    (9, 3, "It asks the existing system for the answer, so the grading and the course "
+           "material keep working exactly as they do now. And if it turns out not to be "
+           "worth it, we switch it off and lose nothing."),
 
-    (10, 1, "So picture December. A professor grading from a web address. No laptop."),
-    (10, 2, "Deployments that run themselves, so a bad change never reaches a student."),
-    (10, 3, "And real evidence about whether talking to a face makes better advisors. It "
-            "might not. We publish either way."),
-    (10, 4, "Because we're not here just to finish a system. We're here to leave one where "
-            "the interesting work is the teaching, not the plumbing."),
+    (10, 1, "What I want by the end of the term is students actually talking to this thing."),
+    (10, 2, "And I want to know whether it makes them better at the job. Measured, not guessed."),
+    (10, 3, "It might turn out that it doesn't, and that's a finding worth publishing too. "
+            "If that sounds like a semester well spent, come build it with us."),
 ]
 
 
@@ -181,7 +161,12 @@ def run(cmd, **kw):
 
 def build_pdf():
     print("1/4  compiling the build-step deck")
-    run(["latexmk", "-pdf", "-interaction=nonstopmode", "-halt-on-error", TEX.name], cwd=HERE)
+    # \VIDEO turns on the avatar column and keeps every overlay step a separate
+    # page.  Without it the same file builds the ten-slide presenter handout.
+    (HERE / "familyfinancechat-fall2026-build.aux").unlink(missing_ok=True)
+    run(["pdflatex", "-interaction=nonstopmode", "-halt-on-error",
+         "-jobname=familyfinancechat-fall2026-build",
+         "\\def\\VIDEO{}\\input{%s}" % TEX.stem], cwd=HERE)
 
 
 def render_pngs():

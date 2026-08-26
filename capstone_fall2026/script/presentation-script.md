@@ -1,207 +1,188 @@
 # Presentation Script — FamilyFinanceChat, Fall 2026
 
 **Deck:** [`../slides/familyfinancechat-fall2026.pdf`](../slides/) — 10 slides
-**Runtime:** 821 words — **about five minutes**: 5:08 at a brisk 160 words per minute, 5:28 at a
-measured 150.
-**Intended use:** a live human presenter reading aloud, or a plain TTS voice-over of the
-ten-slide deck.
-**Not the video script.** The HeyGen video runs on a shorter, separately maintained script — 36
-build steps, 596 words — in the `NARRATION` table of
+**Runtime:** 703 words — **about four and a half minutes**: 4:24 at a brisk 160 words
+per minute, 4:41 at a measured 150.
+**Intended use:** a live human presenter reading aloud, or a plain voice-over of the ten-slide
+deck.
+**Not the video script.** The HeyGen video runs on a shorter, separately maintained script — 27
+build steps, 573 words — in the `NARRATION` table of
 [`../slides/build-heygen-pptx.py`](../slides/build-heygen-pptx.py). Do not feed this file to
-HeyGen: it is written for ten slides, not for the build steps the video advances through.
+HeyGen: it is written for ten slides, not for the build steps the video advances through. Both
+tell the same story; this one has room to breathe.
 
 ---
 
 ## How to use this script
 
-- **One block per slide, in order.** The `Slide N` heading matches the page number printed in
-  the top-right corner of each slide.
+- **One block per slide, in order.** The `Slide N` heading matches the slide's position in the
+  deck.
 - **The narration is meant to be spoken exactly as written.** No stage directions, no bracketed
   asides — everything between the rules is speech.
-- **The introduction on slide 1 is third person**, so it reads correctly when a student, a team
-  member, or a voice-over is presenting. If Professor Fedenia is presenting himself, say it in
-  the first person: *I direct this project, and the work heads into a spring class in Wealth
-  Management and Financial Planning.*
+- **It is written in the first person, as Mark.** If a student or a team member is presenting,
+  change "I" to "the sponsor" on slide 1 and slide 10; nothing else needs touching.
 - **Numbers are written the way they should be said**, not the way they appear on the slide, so
   a speech engine does not read them as dates or decimals.
-- `../slides/familyfinancechat-fall2026-notes.pdf` has short **presenter cues** for a live human
+- `../slides/familyfinancechat-fall2026-notes.pdf` has short **presenter cues** for a live
   speaker. Those cues are deliberately different text — they are reminders, this is the speech.
 - A machine-readable version with per-slide timings is in
   [`presentation-script.json`](presentation-script.json). Regenerate it with
   `python3 build-script-json.py` after any edit here — this file is the source of truth.
 
-**This is a five-minute overview, and it is meant to stay that way.** Every detail someone asks
+**This is a five-minute pitch, and it is meant to stay that way.** Every detail someone asks
 about lives in the reports — [`../PROJECT_PLAN.md`](../PROJECT_PLAN.md),
 [`../COMPATIBILITY_POLICY.md`](../COMPATIBILITY_POLICY.md),
 [`../AVATAR_TRACK.md`](../AVATAR_TRACK.md) — with a Q&A prep sheet in
-[`../reference/system-facts.md`](../reference/system-facts.md). If a slide starts growing, move
-the material into a report instead.
+[`../reference/system-facts.md`](../reference/system-facts.md), and the one-page version students
+see is [`../CS620_Project_fall2026.pdf`](../CS620_Project_fall2026.pdf).
 
 ---
 
 ## Slide 1 — Title
 
-*Approx. 0:21*
+*Approx. 0:23*
 
-This is FamilyFinanceChat. In five minutes: what it is, what is wrong with it, and what this
-team is going to do about it.
+Hi. I'm Mark Fedenia. I teach finance here at Wisconsin, and I want to show you something my
+students use every week, and where I would like to take it next.
 
-The project is directed by Professor Mark Fedenia, and heads into a spring class in Wealth
-Management and Financial Planning.
-
-Two jobs this semester. Make the platform solid, and give the client a face.
+It is called Family Finance Chat. Right now it is a chat box. By the end of this project, I want
+it to be a face you talk to.
 
 ---
 
-## Slide 2 — What we have
+## Slide 2 — What it is
 
-*Approx. 0:25*
+*Approx. 0:42*
 
-Here is the whole system.
+Here is the problem I am trying to solve. My students are learning to advise families about
+money, and the hard part of that job is not the arithmetic. It is sitting across from people and
+asking uncomfortable questions well.
 
-A student practises financial advising against an A-I client — a realistic family, grounded in
-the actual course documents so it does not invent its facts. Every question the student asks is
-scored automatically, and the instructor sees the results in a dashboard.
+You cannot learn that from a textbook, and I cannot hire forty families to practise on.
 
-The point is scale. Unlimited practice, at any hour, without booking a human role-player.
+So we built them somebody to practise on. An A-I family, with a real financial situation taken
+from the course material, so it does not invent its own facts. And because every question a
+student asks is scored automatically, I can see how the whole class is doing without reading
+forty transcripts.
 
 ---
 
-## Slide 3 — It works. Three things hurt.
+## Slide 3 — How it works today
 
 *Approx. 0:32*
 
-It works today. Students use it. But three things hurt.
+Today the whole thing lives in a browser, on a cloud machine, built on an open source platform
+called Open Web U-I. Underneath there are about eight moving parts, and one language model doing
+the talking.
 
-We are three versions behind the open-source software this is built on, and every month we
-wait, catching up gets harder.
+I want to be clear that it works. Students use it every week, and it is a real part of the
+course.
 
-The professor's grading tool runs on a laptop. Using it takes a terminal and a developer, which
-is the biggest barrier to anyone adopting this.
-
-And every deployment needs manual steps that people forget — and things break quietly.
-
-That is the gap between a system that works and a system you can hand to someone else.
+That is exactly why the next step is worth taking seriously. You are not rescuing something
+broken. You are improving something people depend on.
 
 ---
 
-## Slide 4 — The one rule
+## Slide 4 — Two ways to make it better
 
-*Approx. 0:35*
+*Approx. 0:20*
 
-One rule governs everything, because this project learned it the hard way.
+There are two things I want to fix.
 
-We never modify the core of Open WebUI — the open-source platform underneath us.
+The first is not glamorous. We have drifted behind the software we are built on, and every
+update takes somebody who knows where all the pieces are.
 
-The team before us inherited six and a half thousand lines of that project's code, copied and
-modified locally. It froze us on one old version, because every upgrade meant merging someone
-else's software by hand.
-
-They removed all of it. Today our version is one line long. We just run their release.
-
-So the test for everything we build is simple. Could we take their next release tomorrow,
-unchanged, and still work?
+The second is the one I am excited about. I want the student to stop typing.
 
 ---
 
-## Slide 5 — First job: make it solid
+## Slide 5 — One: solid ground
 
-*Approx. 0:28*
+*Approx. 0:23*
 
-The first job is unglamorous, and it is what the course depends on.
+So, the groundwork first.
 
-Upgrade to the current version — carefully, one step at a time, because these upgrades change
-the database and you cannot undo that.
+Get current with the platform, and stay current, so that upgrading stops being frightening and
+becomes routine.
 
-Give the professor a web address instead of a laptop.
+Put the grading on the web, where any instructor can open it, instead of on one laptop in my
+office.
 
-Automate deployment and testing, so a bad change is caught before it reaches students.
-
-And delete the last of that old copied code, so nobody can bring it back by accident.
-
----
-
-## Slide 6 — Second job: give the client a face
-
-*Approx. 0:31*
-
-Now the new part.
-
-Today the student types to the client. We want them to talk to it — to a face that listens and
-answers out loud, in character.
-
-Here is why that matters. This course prepares students for a room with a real family in it. In
-that room you ask the hard question about money out loud, once, while somebody is looking at you.
-
-You cannot rehearse that with a backspace key.
+And make deployment automatic, so that improving this system does not depend on one person
+remembering the steps.
 
 ---
 
-## Slide 7 — How, without breaking the rule
+## Slide 6 — Two: the leap
 
-*Approx. 0:31*
+*Approx. 0:21*
 
-So how do we add a talking face without breaking that rule?
+Now the interesting part.
 
-We do not put it inside the platform. We build it beside the platform — a separate application
-in its own container. The student speaks to it, it asks Open WebUI for the answer, and Open
-WebUI stays untouched.
+Right now a student types a question, waits, and reads an answer. That is nothing like the job
+they are training for.
 
-Same brain, same documents, same grading. And if this turns out not to be worth shipping, we
-delete one container.
-
-The rule did not get in the way of the design. It chose the better design for us.
+I want them to say it out loud. To a face that listens, waits, and answers back in character —
+as the client, not as a chatbot.
 
 ---
 
-## Slide 8 — Three numbers decide whether it works
+## Slide 7 — Why that matters
 
-*Approx. 0:33*
+*Approx. 0:20*
 
-Three numbers will decide whether this is real.
+Here is why I care about that difference.
 
-Speed. The client has to start answering in about one point two seconds. Slower, and it stops
-feeling like a conversation.
+In a real meeting you get one shot. You ask the hard question out loud, once, while a family
+watches your face and decides whether they trust you.
 
-Cost. Roughly four hundred dollars a semester for a class of forty, with hard caps so it cannot
-run away from us.
-
-Permission. Voice and video of students are education records. Consent and deletion get settled
-in week two, before anything is recorded.
-
-If any one of those fails, the answer is no — and no is an acceptable answer.
+You cannot practise that with a keyboard. There is no backspace key in that room.
 
 ---
 
-## Slide 9 — The semester
+## Slide 8 — The project: evaluate, then build
 
-*Approx. 0:28*
+*Approx. 0:39*
 
-We meet every Tuesday from mid-September to the first week of December. Four checkpoints along
-the way.
+So here is the actual project.
 
-By the end of September, students can talk to it — voice only, no face yet. By the twentieth of
-October, we pick an avatar provider, or decide to stop. A week later the platform is upgraded.
-And by mid-November, five students complete full spoken sessions, graded like any other.
+There are a dozen companies now selling real time avatars, and the field changes every month.
+None of them have been tested for anything like this. Somebody has to find out which one holds
+up, honestly, with numbers.
 
-The voice-only version ships in September either way. That is what makes the ambitious part
-safe to attempt.
+Speed matters most. If it takes longer than about a second to answer, it stops feeling like a
+conversation and starts feeling like a machine.
+
+Then cost, per student, per semester, with a ceiling we can live with.
+
+And permission. A student's voice and face are protected records, and that gets settled before
+anyone records anything.
 
 ---
 
-## Slide 10 — What finished looks like
+## Slide 9 — How it bolts on
 
-*Approx. 0:33*
+*Approx. 0:24*
 
-Here is what finished looks like.
+Whatever wins has to bolt on beside what we already have, not replace it.
 
-A professor grades from a web address, with no laptop and no help from a student. Deployments
-are automatic, and a bad change is caught before it ships. And we know — with evidence from the
-scoring system we already have — whether talking to an avatar makes better advisors.
+A separate service that handles the talking, and asks the existing system for the answer. Same
+grounding in the course material, same scoring, same everything the course already depends on.
 
-That last one might come back negative. We publish it either way.
+And if it turns out not to be worth it, we switch it off and lose nothing.
 
-Because the goal is not to finish this system. It is to leave one where the interesting work is
-the teaching, not the plumbing.
+---
 
-Thank you — happy to take questions.
+## Slide 10 — What we are after
+
+*Approx. 0:30*
+
+What I want by the end of the term is students actually talking to this thing. Not a demo. A
+working part of the course.
+
+And I want to know whether it makes them better at the job — measured against the scoring we
+already have, not guessed at.
+
+It might turn out that it does not, and that is a finding worth publishing too.
+
+If that sounds like a semester well spent, come build it with us.
