@@ -62,7 +62,7 @@ We evaluated running a local model via Ollama on the VM. The VM does not have a 
 OpenWebUI does not expose a `/metrics` endpoint. We considered a scraping sidecar but settled on the Filter Function + Pushgateway approach because it uses OpenWebUI's official plugin mechanism and survives upgrades. The trade-off is that Pushgateway is a single-point accumulator — if it restarts, metrics between the last scrape and the restart are lost.
 
 ### Grading uses REST API, not SQLite
-The previous implementation read OpenWebUI's SQLite database directly with raw SQL. This broke every time OpenWebUI changed its schema. We migrated to the public REST API (`/api/v1/users/all`, `/api/v1/chats/all/db`) which is versioned and stable. The `--legacy` flag in `extract_chats.py` is a stub placeholder in case the API ever becomes unavailable.
+The previous implementation read OpenWebUI's SQLite database directly with raw SQL. This broke every time OpenWebUI changed its schema. We migrated to the public REST API (`/api/v1/users/all`, `/api/v1/chats/all/db`) which is versioned and stable. The `--legacy` flag and stub in `extract_chats.py` have been deleted — direct SQLite reads are forbidden (policy F5), and the REST API is the only supported extraction path.
 
 ### GCS for file uploads
 File uploads are routed to a GCS bucket mounted at `/mnt/gcs/fin602` on the VM. This means uploads persist independently of the container lifecycle. The downside is that the GCS mount must be configured on the host before `docker compose up` — it is not handled by Docker.

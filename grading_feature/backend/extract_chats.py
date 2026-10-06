@@ -509,7 +509,6 @@ def main(argv: list[str] | None = None):
     global OPENWEBUI_BASE_URL, OUTPUT_PATH
     
     parser = argparse.ArgumentParser(description="Extract OpenWebUI chats into grading JSON")
-    parser.add_argument("--legacy", action="store_true", help="Run the legacy SQLite extraction path")
     parser.add_argument("--limit", type=int, help="Limit the number of users to process")
     parser.add_argument("--test", action="store_true", help="Quick test mode: uses localhost tunnel and temporary output")
     
@@ -526,19 +525,8 @@ def main(argv: list[str] | None = None):
             OUTPUT_PATH = "grading_feature/test_extraction.json"
 
     try:
-        if args.legacy:
-            logger.info("Running in legacy mode")
-            # TODO: Insert legacy SQLite extraction here
-            all_users, metadata = [], {
-                "users_processed": 0,
-                "chat_entries_processed": 0,
-                "message_pairs_processed": 0,
-                "latest_message_timestamp_found": None,
-                "malformed_chat_rows_skipped": 0,
-            }
-        else:
-            logger.info("Running in API mode")
-            all_users, metadata = build_hieracrchy(limit=args.limit)
+        logger.info("Running in API mode")
+        all_users, metadata = build_hieracrchy(limit=args.limit)
 
         output_file_path = export_json(all_users)
 
