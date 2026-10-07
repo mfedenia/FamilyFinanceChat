@@ -171,14 +171,14 @@ The dashboard will be available at `http://localhost:8000`. Click **Refresh** to
 
 ---
 
-## CI/CD Recommendation
+## CI Smoke Test
 
-`.github/workflows/smoke-test.yml` runs on every push. Add a repository
-Actions secret named `OPENAI_API_KEY` before running it. The key needs access to the
-configured chat model (`gpt-4o-mini` by default) and `text-embedding-3-small`.
-Change `SMOKE_MODEL` in the workflow if your key uses a different compatible model.
-The workflow creates a fresh `.env.test` on the runner and starts the isolated
-`docker-compose.test.yml` stack. No production volume or port is used.
+`.github/workflows/smoke-test.yml` runs on every push. It starts the isolated
+`docker-compose.test.yml` stack with the `docker-compose.ci.yml` override. The
+override routes chat and embeddings to a deterministic OpenAI-compatible test
+provider, so CI needs no external API key or paid model calls. This checks
+OpenWebUI model routing and Qdrant retrieval, but does not check live OpenAI
+availability or credentials. No production volume or port is used.
 
 The test waits for `/health` and `/ready`, registers the first admin user, checks a
 non-empty chat response, uploads a text document, adds it to a new knowledge base,
@@ -186,16 +186,18 @@ and queries that collection for a unique marker in the uploaded text. It fails a
 the first broken step and prints the test stack logs on failure. The stack and
 volumes are removed at the end of each run.
 
-To run the same API checks against a fresh local test stack, create `.env.test`
-from `.env.test.example`, set real `OPENAI_API_KEY` and `RAG_OPENAI_API_KEY` values,
-and set `RAG_EMBEDDING_ENGINE=openai`. Then run:
+To run the CI stack locally, copy `.env.test.example` to `.env.test`. Then run:
 
 ```bash
-docker compose -f docker-compose.test.yml up -d --build open-webui-test qdrant-test redis-test
+docker compose -f docker-compose.test.yml -f docker-compose.ci.yml up -d --build open-webui-test qdrant-test redis-test mock-openai-test
 python -m pip install requests==2.32.5
 python scripts/smoke_test.py --model gpt-4o-mini
-docker compose -f docker-compose.test.yml down -v
+docker compose -f docker-compose.test.yml -f docker-compose.ci.yml down -v
 ```
+
+To test a real provider locally, omit the CI override and set real
+`OPENAI_API_KEY` and `RAG_OPENAI_API_KEY` values plus
+`RAG_EMBEDDING_ENGINE=openai` in `.env.test`.
 
 For the A3 red/green demonstration, push a commit on the feature branch with
 `SMOKE_MODEL` set to a nonexistent model and capture the failed Actions run.
