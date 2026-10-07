@@ -1,0 +1,52 @@
+name: Open WebUI smoke test
+
+on:
+  push:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SMOKE_MODEL: deliberately-invalid-model-for-a3
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check OpenAI secret
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo 'Repository secret OPENAI_API_KEY is required for chat and embedding smoke tests.' >&2
+            exit 1
+          fi
+
+      - name: Create isolated test configuration
+        run: |
+          cp .env.test.example .env.test
+          sed -i '/^OPENAI_API_KEY=/d; /^RAG_OPENAI_API_KEY=/d; /^WEBUI_SECRET_KEY=/d' .env.test
+          {
+            printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
+            printf 'RAG_OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
+            printf 'WEBUI_SECRET_KEY=%s\n' "$(openssl rand -hex 32)"
+            printf 'RAG_EMBEDDING_ENGINE=openai\n'
+          } >> .env.test
+          chmod 600 .env.test
+
+      - name: Start test stack
+        run: docker compose -f docker-compose.test.yml up -d --build open-webui-test qdrant-test redis-test
+
+      - name: Install smoke test dependency
+        run: python -m pip install requests==2.32.5
+
+      - name: Run API smoke test
+        run: python scripts/smoke_test.py --model "$SMOKE_MODEL"
+
+      - name: Show service state on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.test.yml ps
+          docker compose -f docker-compose.test.yml logs --tail=100 open-webui-test qdrant-test redis-test
+
+      - name: Remove test stack
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v --remove-orphans

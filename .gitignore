@@ -12,6 +12,7 @@ build/
 
 # Environment files (keep example files)
 .env
+.env.test
 .env.local
 *.env
 !*.env.example

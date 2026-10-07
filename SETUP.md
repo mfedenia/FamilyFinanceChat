@@ -173,40 +173,34 @@ The dashboard will be available at `http://localhost:8000`. Click **Refresh** to
 
 ## CI/CD Recommendation
 
-There is currently no CI/CD pipeline. The following is the recommended starting point for the next team.
+`.github/workflows/smoke-test.yml` runs on every push. Add a repository
+Actions secret named `OPENAI_API_KEY` before running it. The key needs access to the
+configured chat model (`gpt-4o-mini` by default) and `text-embedding-3-small`.
+Change `SMOKE_MODEL` in the workflow if your key uses a different compatible model.
+The workflow creates a fresh `.env.test` on the runner and starts the isolated
+`docker-compose.test.yml` stack. No production volume or port is used.
 
-### Minimum viable pipeline (GitHub Actions)
+The test waits for `/health` and `/ready`, registers the first admin user, checks a
+non-empty chat response, uploads a text document, adds it to a new knowledge base,
+and queries that collection for a unique marker in the uploaded text. It fails at
+the first broken step and prints the test stack logs on failure. The stack and
+volumes are removed at the end of each run.
 
-Create `.github/workflows/smoke-test.yml`:
+To run the same API checks against a fresh local test stack, create `.env.test`
+from `.env.test.example`, set real `OPENAI_API_KEY` and `RAG_OPENAI_API_KEY` values,
+and set `RAG_EMBEDDING_ENGINE=openai`. Then run:
 
-```yaml
-on: [push, pull_request]
-jobs:
-  smoke-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build OpenWebUI image
-        run: docker build -t open-webui-test .
-      - name: Start stack
-        run: |
-          cp .env.example .env
-          echo "OPENAI_API_KEY=sk-test" >> .env
-          echo "WEBUI_SECRET_KEY=$(openssl rand -hex 32)" >> .env
-          docker compose up -d open-webui qdrant redis
-      - name: Wait for health
-        run: |
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/health && break
-            sleep 5
-          done
-      - name: Smoke test
-        run: curl -sf http://localhost:3000/health
+```bash
+docker compose -f docker-compose.test.yml up -d --build open-webui-test qdrant-test redis-test
+python -m pip install requests==2.32.5
+python scripts/smoke_test.py --model gpt-4o-mini
+docker compose -f docker-compose.test.yml down -v
 ```
 
-### Why this matters
-
-The v0.6.41 → v0.8.12 upgrade broke things that weren't caught until manual testing. A build + health-check gate would have caught the most common failure (image build error, OW failing to start) automatically on every PR.
+For the A3 red/green demonstration, push a commit on the feature branch with
+`SMOKE_MODEL` set to a nonexistent model and capture the failed Actions run.
+Restore the configured model in a follow-up commit, push, and capture the passing
+run. Keep both commits on the PR so the failure and recovery are reviewable.
 
 ### What to add next
 
