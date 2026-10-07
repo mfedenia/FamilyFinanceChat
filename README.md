@@ -59,14 +59,14 @@ docker compose up -d
 
 - **Filter Function must be re-installed after every deployment** — not auto-deployed
 - **Grading dashboard requires local run** — professors need to SSH to the VM or run it on their machine; not hosted yet
-- **No CI/CD** — upgrades have broken things silently in the past; see SETUP.md for the recommended pipeline
+- **No automated deployment** — the API smoke test runs on every push, but deployment is still manual
 
 ---
 
 ## What the Next Team Should Work On
 
 1. Host the grading dashboard on the VM behind Nginx with basic auth
-2. Add CI/CD (GitHub Actions build + `/health` smoke test — see SETUP.md)
+2. Add an automated deployment pipeline and compatibility guards (see SETUP.md)
 3. Wire the `/ready` endpoint into GCP uptime monitoring and alerting
 4. Automate Filter Function installation as part of deployment
 
@@ -95,7 +95,7 @@ archive/                # Stale files from Spring 2026 cleanup
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — component diagram, data flow, config values
-- [SETUP.md](SETUP.md) — how to run this, environment variables, common errors, CI/CD recommendation
+- [SETUP.md](SETUP.md) — how to run this, environment variables, common errors, CI smoke test
 - [HANDOFF.md](HANDOFF.md) — what was built, known bugs, architectural decisions, what to do next
 - [CLAUDE.md](CLAUDE.md) — working instructions: the one rule, where things are, conventions
 - [docs/memory/](docs/memory/) — project memory: durable, non-obvious facts kept in the repo
