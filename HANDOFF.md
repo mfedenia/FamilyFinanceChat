@@ -102,7 +102,7 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **The vendor fork was the root of everything.** Every weird environment issue traced back to the fact that we were running a fork of OpenWebUI internals. Once we removed it, almost every mysterious startup and upgrade issue disappeared.
 
-**Filter Functions share in-memory state between requests.** The `_state` dict in `chat_metrics_filter.py` is keyed by `user_id` and held in the Filter object instance. If two users chat simultaneously or a request times out mid-flight, state can leak across requests. This is unlikely to cause visible problems at low traffic volumes but is worth knowing.
+**Filter Functions share in-memory state between requests.** The `_state` dict in `chat_metrics_filter.py` was previously keyed by `user_id` and held synchronously. As part of task A9 (v0.9.x migration), it has been ported to `async def` with non-blocking HTTP and is now keyed by `(chat_id, message_id)` with automated stale-state pruning, preventing cross-request leaks between concurrent users.
 
 **GCS mount must exist before Docker starts.** If the GCS bucket isn't mounted at `/mnt/gcs/fin602` when you run `docker compose up`, OpenWebUI will start but file uploads silently fail. There is no error in the logs — the upload just disappears.
 
