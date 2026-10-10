@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   BarChart,
   Bar,
@@ -73,7 +73,7 @@ export default function StudentFeedback() {
     async function fetchUsers() {
       try {
         setLoadingUsers(true);
-        const response = await axios.get("/users");
+        const response = await api.get("api/users");
         setUsers(response.data || []);
       } catch (error) {
         setStatus(`Unable to load users: ${error.message}`);
@@ -99,8 +99,8 @@ export default function StudentFeedback() {
     try {
       setLoading(true);
       setStatus(scope === "all" ? "Loading dashboard for all users..." : "Loading feedback...");
-      const response = await axios.get(
-        `/api/student-feedback?user_id=${encodeURIComponent(scope)}&useAbi=${String(useAbi)}`
+      const response = await api.get(
+        `api/student-feedback?user_id=${encodeURIComponent(scope)}&useAbi=${String(useAbi)}`
       );
       setPayload(response.data);
       setStatus("Feedback loaded.");
