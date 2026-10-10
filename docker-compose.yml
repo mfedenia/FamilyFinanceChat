@@ -148,7 +148,29 @@ services:
     volumes:
       - /opt/grafana/data:/var/lib/grafana
 
+  # Grading dashboard: frontend + API in one container (grading_feature/Dockerfile).
+  # Bound to localhost only: it has no authentication until A16, so reach it over an SSH tunnel.
+  grading:
+    build: ./grading_feature
+    container_name: grading
+    restart: unless-stopped
+    networks: [ai-net]
+    depends_on: [open-webui]
+    env_file:
+      - path: ./grading_feature/.env
+        required: false
+    environment:
+      # Override the host-oriented values a local grading_feature/.env may carry.
+      - OPENWEBUI_BASE_URL=http://open-webui:8080
+      - DATA_PATH=/data/extracted_chats.json
+      - OUTPUT_PATH=/data/extracted_chats.json
+    ports:
+      - "127.0.0.1:9500:9500"
+    volumes:
+      - grading-data:/data
+
 volumes:
   redis-data:
+  grading-data:
 # volumes:
 #   ollama: {}
