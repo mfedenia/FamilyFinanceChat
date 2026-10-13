@@ -1,11 +1,11 @@
 # ==============================================================================
 # Upgrade Test Stack
 #
-# Runs a completely isolated OW v0.8.12 instance alongside production.
+# Runs a completely isolated OW v0.9.x (v0.9.5) instance alongside production.
 # All container names, ports, networks, and volumes are namespaced with "-test"
 # so nothing touches the live stack.
 #
-# Usage (on the GCP VM, from the repo root on the version_upgrade branch):
+# Usage (on the GCP VM, from the repo root):
 #
 #   # 1. Copy your production .env and adjust the Qdrant URI + Redis URLs:
 #   cp .env .env.test
@@ -15,10 +15,10 @@
 #   #      WEBSOCKET_REDIS_URL=redis://redis-test:6379/1
 #
 #   # 2. Start the test stack:
-#   docker compose -f docker-compose.test.yml up -d --build
+#   docker compose -f docker-compose.test.yml up -d
 #
-#   # 3. Open http://<VM_IP>:3002 — fresh OW v0.8.12 instance
-#   #    Create an admin account, upload a test KB file, send a test chat
+#   # 3. Open http://<VM_IP>:3003 — OW v0.9.5 test instance
+#   #    Restore production data snapshot (A2) and run smoke suite (A3)
 #
 #   # 4. Verify pushgateway received metrics:
 #   curl -s http://localhost:9093/metrics | grep openwebui_chat
@@ -33,7 +33,7 @@ networks:
 
 services:
   qdrant-test:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.9.2
     container_name: qdrant-test
     restart: unless-stopped
     networks: [ai-net-test]
@@ -66,7 +66,7 @@ services:
       retries: 5
 
   open-webui-test:
-    build: .
+    image: ghcr.io/open-webui/open-webui:v0.9.5
     container_name: open-webui-test
     depends_on: [qdrant-test, redis-test]
     restart: unless-stopped

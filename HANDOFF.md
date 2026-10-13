@@ -62,7 +62,7 @@ We evaluated running a local model via Ollama on the VM. The VM does not have a 
 OpenWebUI does not expose a `/metrics` endpoint. We considered a scraping sidecar but settled on the Filter Function + Pushgateway approach because it uses OpenWebUI's official plugin mechanism and survives upgrades. The trade-off is that Pushgateway is a single-point accumulator — if it restarts, metrics between the last scrape and the restart are lost.
 
 ### Grading uses REST API, not SQLite
-The previous implementation read OpenWebUI's SQLite database directly with raw SQL. This broke every time OpenWebUI changed its schema. We migrated to the public REST API (`/api/v1/users/all`, `/api/v1/chats/all/db`) which is versioned and stable. The `--legacy` flag in `extract_chats.py` is a stub placeholder in case the API ever becomes unavailable.
+The previous implementation read OpenWebUI's SQLite database directly with raw SQL. This broke every time OpenWebUI changed its schema. We migrated to the public REST API (`/api/v1/users/all`, `/api/v1/chats/all/db`) which is versioned and stable. The `--legacy` flag and stub in `extract_chats.py` have been deleted — direct SQLite reads are forbidden (policy F5), and the REST API is the only supported extraction path.
 
 ### GCS for file uploads
 File uploads are routed to a GCS bucket mounted at `/mnt/gcs/fin602` on the VM. This means uploads persist independently of the container lifecycle. The downside is that the GCS mount must be configured on the host before `docker compose up` — it is not handled by Docker.
@@ -102,7 +102,7 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **The vendor fork was the root of everything.** Every weird environment issue traced back to the fact that we were running a fork of OpenWebUI internals. Once we removed it, almost every mysterious startup and upgrade issue disappeared.
 
-**Filter Functions share in-memory state between requests.** The `_state` dict in `chat_metrics_filter.py` is keyed by `user_id` and held in the Filter object instance. If two users chat simultaneously or a request times out mid-flight, state can leak across requests. This is unlikely to cause visible problems at low traffic volumes but is worth knowing.
+**Filter Functions share in-memory state between requests.** The `_state` dict in `chat_metrics_filter.py` was originally keyed by `user_id` and held synchronously. As part of task A9, it was ported to `async def` and keyed strictly by `(chat_id, message_id)` with automated stale-state pruning (requests without both IDs are rejected from timing state). Note: While in-memory state is isolated per message, Pushgateway still overwrites concurrent gauges across identical model labels within a scrape interval — full multi-user metric isolation requires counters/histograms or native OpenTelemetry export (A18).
 
 **GCS mount must exist before Docker starts.** If the GCS bucket isn't mounted at `/mnt/gcs/fin602` when you run `docker compose up`, OpenWebUI will start but file uploads silently fail. There is no error in the logs — the upload just disappears.
 

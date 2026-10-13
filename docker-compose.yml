@@ -6,7 +6,7 @@ networks:
 
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.19.1
     container_name: qdrant
     restart: unless-stopped
     networks: [ai-net]
@@ -54,7 +54,7 @@ services:
   #     - "11435:11434"
 
   open-webui:
-    build: .
+    image: ghcr.io/open-webui/open-webui:v0.11.4
     container_name: open-webui
     # depends_on: [ qdrant, ollama ]
     depends_on: [qdrant, redis]
@@ -79,7 +79,7 @@ services:
         max-size: "50m"
         max-file: "3"
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: ghcr.io/google/cadvisor:0.55.1
     container_name: cadvisor
     restart: unless-stopped
     command:
