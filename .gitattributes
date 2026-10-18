@@ -1,0 +1,4 @@
+# Shell scripts run on the Linux VM and in CI. Keep LF endings in every
+# checkout, including Windows with core.autocrlf=true, or bash fails with
+# "$'\r': command not found" when a script is copied to the VM.
+*.sh text eol=lf
