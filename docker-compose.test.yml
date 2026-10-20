@@ -33,7 +33,7 @@ networks:
 
 services:
   qdrant-test:
-    image: qdrant/qdrant:v1.9.2
+    image: qdrant/qdrant:v1.17.0
     container_name: qdrant-test
     restart: unless-stopped
     networks: [ai-net-test]

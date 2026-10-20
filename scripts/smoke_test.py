@@ -71,6 +71,7 @@ def main():
     session.headers.update({"Authorization": f"Bearer {token}"})
     print("Admin signup: passed", flush=True)
 
+    
     completion = api(
         session,
         "POST",
@@ -78,10 +79,17 @@ def main():
         "/api/chat/completions",
         json={
             "model": args.model,
+            "chat_id": f"smoke-test-{run_id}",
             "stream": False,
-            "messages": [{"role": "user", "content": "Reply with one short greeting."}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Reply with one short greeting."
+                }
+            ],
         },
     )
+
     choices = completion.get("choices") or []
     content = (choices[0].get("message") or {}).get("content") if choices else None
     if not isinstance(content, str) or not content.strip():
