@@ -1,10 +1,12 @@
-"""End-to-end smoke test for the isolated Open WebUI test stack.
+"""Check Open WebUI chat, document upload, and knowledge retrieval.
 
-Requires a fresh stack, requests, and a configured OpenAI-compatible model.
-The first signup becomes admin in Open WebUI v0.8.12.
+By default, requires a fresh stack whose first signup becomes admin.
+Use --existing-token-env for an existing instance. Both modes create test resources.
 """
 
 import argparse
+import json
+import os
 import secrets
 import sys
 import time
@@ -17,9 +19,13 @@ def fail(message):
 
 
 def api(session, method, base_url, path, **kwargs):
-    response = session.request(method, base_url + path, timeout=120, **kwargs)
+    try:
+        response = session.request(method, base_url + path, timeout=120, **kwargs)
+    except requests.RequestException as exc:
+        fail(f"{method} {path} request failed ({type(exc).__name__})")
     if not response.ok:
-        fail(f"{method} {path} returned HTTP {response.status_code}: {response.text[:500]}")
+        # An upstream error body can echo credentials or private data.
+        fail(f"{method} {path} returned HTTP {response.status_code}")
     try:
         return response.json()
     except ValueError as exc:
@@ -40,12 +46,26 @@ def wait_for_endpoint(session, base_url, path, deadline):
     fail(f"{path} did not become ready before the deadline")
 
 
-def main():
+def record_resource(kind, resource_id):
+    print("Smoke resource: " + json.dumps({"kind": kind, "id": resource_id}), flush=True)
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:3003")
     parser.add_argument("--model", default="gpt-4o-mini")
     parser.add_argument("--startup-timeout", type=int, default=600)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--existing-token-env",
+        metavar="ENV_NAME",
+        help="Read an existing user's bearer token from this environment variable; skip signup",
+    )
+    args = parser.parse_args(argv)
+    token = None
+    if args.existing_token_env is not None:
+        token = os.environ.get(args.existing_token_env, "").strip()
+        if not token:
+            fail("The environment variable selected by --existing-token-env is missing or empty")
     base_url = args.base_url.rstrip("/")
     session = requests.Session()
 
@@ -54,24 +74,29 @@ def main():
     wait_for_endpoint(session, base_url, "/ready", deadline)
 
     run_id = secrets.token_hex(8)
-    signup = api(
-        session,
-        "POST",
-        base_url,
-        "/api/v1/auths/signup",
-        json={
-            "name": "CI Smoke Test",
-            "email": f"smoke-{run_id}@example.invalid",
-            "password": secrets.token_urlsafe(32),
-        },
-    )
-    token = signup.get("token")
-    if not token or signup.get("role") != "admin":
-        fail("First-user signup did not return an admin bearer token")
+    print(f"Smoke run: {run_id}", flush=True)
+    if args.existing_token_env is None:
+        signup = api(
+            session,
+            "POST",
+            base_url,
+            "/api/v1/auths/signup",
+            json={
+                "name": "CI Smoke Test",
+                "email": f"smoke-{run_id}@example.invalid",
+                "password": secrets.token_urlsafe(32),
+            },
+        )
+        if signup.get("id"):
+            record_resource("user", signup["id"])
+        token = signup.get("token")
+        if not token or signup.get("role") != "admin":
+            fail("First-user signup did not return an admin bearer token")
+        print("Admin signup: passed", flush=True)
+    else:
+        print("Using existing bearer token; signup skipped", flush=True)
     session.headers.update({"Authorization": f"Bearer {token}"})
-    print("Admin signup: passed", flush=True)
 
-    
     completion = api(
         session,
         "POST",
@@ -112,20 +137,22 @@ def main():
     kb_id = knowledge.get("id")
     if not kb_id:
         fail("Knowledge base creation returned no id")
+    record_resource("knowledge", kb_id)
 
     uploaded = api(
         session,
         "POST",
         base_url,
         "/api/v1/files/?process=true&process_in_background=false",
-        files={"file": ("smoke.txt", document.encode("utf-8"), "text/plain")},
+        files={"file": (f"smoke-{run_id}.txt", document.encode("utf-8"), "text/plain")},
     )
     file_id = uploaded.get("id")
     if not file_id:
         fail("File upload returned no id")
+    record_resource("file", file_id)
     status = api(session, "GET", base_url, f"/api/v1/files/{file_id}/process/status")
     if status.get("status") != "completed":
-        fail(f"File processing did not complete: {status.get('status')}")
+        fail("File processing did not complete")
     print("Document upload and processing: passed", flush=True)
 
     attached = api(
