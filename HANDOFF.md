@@ -14,8 +14,7 @@ When we inherited the project it was locked to OpenWebUI v0.6.41 because our cus
 
 We decoupled the project completely. The Dockerfile is now a single line. All customization happens through OpenWebUI's official plugin system (Filter Functions) and public REST API. The project can now track upstream OpenWebUI releases without any forking.
 
-See `legacy/openwebui_upgrade_decoupling.plan.md.done` for the full migration record.
-
+See [legacy/README.md](legacy/README.md) for the removal rationale and the commit containing the full migration record.
 ### ABI Trust Scoring
 
 We implemented an Ability / Benevolence / Integrity scoring framework on top of the question quality rubric. It maps 7 rubric dimensions (scored 0–2 each) through 12 sub-dimensions to produce three trust scores and a composite ABI total. The research pipeline for this is in `archive/abi_trust_pipeline/`; the production implementation is in `grading_feature/backend/scoring_service.py`.
@@ -140,7 +139,7 @@ FamilyFinanceChat/
 │   ├── backfill_history.py       # One-time Prometheus history import utility
 │   └── run_backfill.sh           # Wrapper for backfill (uses promtool)
 ├── docs/                         # PDF guides, setup notes, feature docs
-├── legacy/                       # Old vendor fork code (reference only, not active)
+├── legacy/                       # Vendor-fork tombstone and historical recovery reference
 ├── archive/                      # Stale files moved here during Spring 2026 cleanup
 ├── README.md                     # Project overview
 ├── SETUP.md                      # This is how you run it
