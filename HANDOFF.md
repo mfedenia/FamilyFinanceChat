@@ -6,6 +6,42 @@ This document is what we wish we had when we started. Read it before touching an
 
 ---
 
+## Fall 2026 update: A13 preparation (2026-10-20)
+
+The [A13 production upgrade runbook](SETUP.md#a13-production-upgrade-runbook-preparation)
+is prepared for review. It targets the existing production Compose setting v0.11.4;
+the actual running version must be inventoried on the server. This is **A13
+preparation**, not a record of a completed production upgrade.
+
+- Added a gated inventory, consistent backup procedure, per-version checks, paired
+  image/data rollback, GCS protection gate and execution record to `SETUP.md`.
+- `scripts/smoke_test.py --existing-token-env ENV_NAME` uses an existing account's
+  Bearer token without signup. The original fresh-stack admin signup remains the
+  default. Both modes keep chat/upload/retrieval assertions and print created
+  resource IDs for cleanup without printing credentials or raw HTTP error bodies.
+- `tests/test_smoke_test.py` covers both authentication modes, missing/empty tokens,
+  401/403 without signup fallback, chat/upload/processing/retrieval failures and
+  credential-safe error output using simulated HTTP responses. The smoke workflow
+  runs these tests before its existing integration check.
+- The current CI Compose tag is v0.9.6. CI exercises a blank database and mock model
+  provider; it does not prove production data migrates to v0.11.4. Consult this PR's
+  exact commit checks for the recorded automated results.
+
+Local preparation validation: all 11 mock tests passed; all 10 new Bash blocks
+passed syntax checks; the three embedded JSON generators and both upgrade/rollback
+Compose merges were checked with temporary, empty environment files. Compatibility
+guards and `git diff --check` passed. No runbook deployment command was executed.
+
+**Still pending:** A2 restore evidence; A9–A11 restored-data rehearsals and fixed
+intermediate versions; A12's recorded database decision; actual host/images/digests,
+mounts and bucket protection; named P1/P2 operators; instructor-approved window;
+production backup/upgrade/rollback rehearsal and execution; P2 extraction acceptance;
+completed execution record. No production service, database or image was changed by
+this preparation work. These pending items must not be marked complete based on CI.
+
+The sections below preserve earlier handoff notes; their historical completion
+claims do not supersede these A13 gates.
+
 ## What Was Built This Semester
 
 ### OpenWebUI Upgrade and Decoupling (biggest accomplishment)
