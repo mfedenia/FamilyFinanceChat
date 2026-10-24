@@ -57,8 +57,10 @@ active stack is fork-free.
 Total ≈ 6,500 lines. Delivery mechanism for the custom UI was a browser bookmarklet:
 `javascript:fetch('/api/v1/custom/inject-script?_='+Date.now()).then(r=>r.text()).then(eval)`.
 
-Source: `legacy/openwebui_upgrade_decoupling.plan.md.done`,
-`legacy/custom-code-vendor-fork/README.md`.
+Historical sources: `legacy/openwebui_upgrade_decoupling.plan.md.done` and
+`legacy/custom-code-vendor-fork/README.md` at commit
+`12fe7a18df6c23e12fa9c2021662e21c25bb3ecb`; see the
+[legacy tombstone](../../legacy/README.md) for recovery.
 
 **The removal plan has one item still marked `pending`:** the end-to-end post-upgrade smoke
 test (KB upload + chat metrics + grading, together). Components were tested individually. That

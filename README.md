@@ -86,7 +86,7 @@ grading_feature/        # Professor grading dashboard (FastAPI + React)
 rag_bio_project/        # Custom Python RAG pipeline for biography documents
 scripts/                # Prometheus backfill utility
 docs/                   # PDF guides and setup notes
-legacy/                 # Old vendor fork code (reference only)
+legacy/                 # Vendor-fork tombstone and historical recovery reference
 archive/                # Stale files from Spring 2026 cleanup
 ```
 
