@@ -21,7 +21,7 @@ We implemented an Ability / Benevolence / Integrity scoring framework on top of 
 
 ### Grading Dashboard
 
-A full FastAPI + React/Vite dashboard for professors to review student interactions. It pulls data from the OpenWebUI REST API (no direct database access), scores student questions via OpenAI, and presents per-student performance breakdowns with the ABI lens. Runs locally — see `SETUP.md` for how to run it.
+A full FastAPI + React/Vite dashboard for professors to review student interactions. It pulls data from the OpenWebUI REST API (no direct database access), scores student questions via OpenAI, and presents per-student performance breakdowns with the ABI lens. Hosted as the `grading` service in `docker-compose.yml` (frontend and API in one container, `grading_feature/Dockerfile`), or run locally for development — see `SETUP.md`.
 
 ### Monitoring Stack
 
@@ -47,8 +47,8 @@ The decoupling migration plan has one item still marked pending: a full smoke te
 ### Duplicate scoring logic — resolved 2026-08-19
 The 7-dimension rubric and ABI formulas used to be implemented twice: in `scoring_page/backend/server.js` (JavaScript) and `grading_feature/backend/scoring_service.py` (Python), kept in sync by hand. `scoring_page/` has been deleted; **the Python service is canonical.** Recover the old prototype from git history if you ever need it.
 
-### Grading dashboard is not hosted
-Professors currently need to SSH into the VM and run `./run_app.sh` locally. This is a real barrier for non-technical instructors. Containerizing the grading app and putting it behind Nginx with basic auth should be a high-priority task next semester.
+### Grading dashboard has no authentication
+The dashboard runs on the VM as the `grading` container (A15, which superseded A14's API-only `grading-api` container), but it is bound to `127.0.0.1:9500` because it has no login. Professors still need an SSH tunnel to reach it until a reverse proxy with authentication is in front (A16).
 
 ---
 

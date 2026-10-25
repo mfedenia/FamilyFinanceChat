@@ -40,38 +40,6 @@ services:
       options:
         max-size: "1m"
         max-file: "1"
-    
-  grading-api:
-    build:
-      context: ./grading_feature/backend
-      dockerfile: Dockerfile
-    container_name: grading-api
-    restart: unless-stopped
-    depends_on:
-      - open-webui
-    networks:
-      - ai-net
-    env_file:
-      - ./grading_feature/backend/grading.env
-    environment:
-      OPENWEBUI_BASE_URL: http://open-webui:8080
-      DATA_PATH: /app/data/chats.json
-      OUTPUT_PATH: /app/data/chats.json
-    ports:
-      - "127.0.0.1:8000:8000"
-    volumes:
-      - grading-data:/app/data
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
 
   # ollama:
   #   image: ollama/ollama:latest
@@ -198,6 +166,12 @@ services:
       - "127.0.0.1:9500:9500"
     volumes:
       - grading-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9500/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   redis-data:

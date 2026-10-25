@@ -1,6 +1,8 @@
 # Secrets come from compose at runtime, never from the image.
 .env
 **/.env
+**/.env.*
+**/*.env
 
 # Local build and dependency output; the image builds its own.
 frontend/node_modules
