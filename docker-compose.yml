@@ -40,38 +40,6 @@ services:
       options:
         max-size: "1m"
         max-file: "1"
-    
-  grading-api:
-    build:
-      context: ./grading_feature/backend
-      dockerfile: Dockerfile
-    container_name: grading-api
-    restart: unless-stopped
-    depends_on:
-      - open-webui
-    networks:
-      - ai-net
-    env_file:
-      - ./grading_feature/backend/grading.env
-    environment:
-      OPENWEBUI_BASE_URL: http://open-webui:8080
-      DATA_PATH: /app/data/chats.json
-      OUTPUT_PATH: /app/data/chats.json
-    ports:
-      - "127.0.0.1:8000:8000"
-    volumes:
-      - grading-data:/app/data
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
 
   # ollama:
   #   image: ollama/ollama:latest
@@ -178,8 +146,37 @@ services:
     volumes:
       - /opt/grafana/data:/var/lib/grafana
 
+  # Grading dashboard: frontend + API in one container (grading_feature/Dockerfile).
+  # Bound to localhost only: it has no authentication until A16, so reach it over an SSH tunnel.
+  grading:
+    build: ./grading_feature
+    container_name: grading
+    restart: unless-stopped
+    networks: [ai-net]
+    depends_on: [open-webui]
+    env_file:
+      - path: ./grading_feature/.env
+        required: false
+    environment:
+      # Override the host-oriented values a local grading_feature/.env may carry.
+      - OPENWEBUI_BASE_URL=http://open-webui:8080
+      - DATA_PATH=/data/extracted_chats.json
+      - OUTPUT_PATH=/data/extracted_chats.json
+    ports:
+      - "127.0.0.1:9500:9500"
+    volumes:
+      # Not "grading-data": A14's grading-api left a root-owned volume by that name, and this
+      # image runs as uid 10001, so reusing it would make /data unwritable and break refresh.
+      - grading-dashboard-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9500/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
 volumes:
   redis-data:
-  grading-data:
+  grading-dashboard-data:
 # volumes:
 #   ollama: {}

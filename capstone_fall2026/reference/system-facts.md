@@ -14,7 +14,7 @@ them will have moved.
 |---|---|---|
 | Open WebUI version | `v0.8.12` | `Dockerfile`, `docker-compose.yml` |
 | Dockerfile size | one `FROM` line | `Dockerfile` |
-| Container count (production) | 8 | `docker-compose.yml` |
+| Container count (production) | 9 (8 + `grading` since A15, Oct 2026) | `docker-compose.yml` |
 | LLM | `gpt-4o-mini` via OpenAI API | `.env`, `ARCHITECTURE.md` |
 | Embeddings | `text-embedding-3-small` | `ARCHITECTURE.md` |
 | Vector store (production) | Qdrant, `k=5`, relevance threshold `0.30` | `ARCHITECTURE.md` |
@@ -24,7 +24,7 @@ them will have moved.
 | Grafana version | `9.0.0`, default `admin/admin` | `docker-compose.yml` |
 | Unpinned images | `qdrant:latest`, `cadvisor:latest` | `docker-compose.yml` |
 | Uploads | GCS bucket mounted at `/mnt/gcs/fin602` | `docker-compose.yml` |
-| Grading dashboard | FastAPI + React/Vite, **runs locally, not containerised** | `grading_feature/`, `SETUP.md` §8 |
+| Grading dashboard | FastAPI + React/Vite, one `grading` container bound to `127.0.0.1:9500`, no auth until A16 (A15, Oct 2026; was local-only) | `grading_feature/Dockerfile`, `docker-compose.yml`, `SETUP.md` §8 |
 
 **Compliance check performed for this deck:** no compose file in the repository mounts a host
 path into `/app/backend/open_webui/**`. `docker-compose.test.yml` uses named volumes only. The

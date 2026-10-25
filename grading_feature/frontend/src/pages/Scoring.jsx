@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api";
 import {
   BarChart,
   Bar,
@@ -87,7 +87,7 @@ export default function Scoring() {
     async function fetchUsers() {
       try {
         setLoadingUsers(true);
-        const response = await axios.get("/users");
+        const response = await api.get("api/users");
         setUsers(response.data || []);
       } catch (error) {
         setStatus("Failed to load users. Refresh data and try again.");
@@ -140,7 +140,7 @@ export default function Scoring() {
     try {
       setIsScoring(true);
       setStatus("Scoring questions...");
-      const response = await axios.post("/api/score", {
+      const response = await api.post("api/score", {
         questions,
         useAbi,
       });

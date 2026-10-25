@@ -139,9 +139,22 @@ Add Prometheus as a data source:
 
 ---
 
-## 8. Running the Grading Dashboard (Local)
+## 8. Running the Grading Dashboard
 
-The grading dashboard runs on a developer workstation and connects to the production VM.
+**Hosted (on the VM).** `docker compose up -d` also starts the `grading` service, which serves
+the dashboard and its API on `127.0.0.1:9500`. It has no authentication yet, so it is not
+exposed publicly: reach it with `ssh -L 9500:localhost:9500 <user>@<vm-host>` and open
+`http://localhost:9500`. Put `OPENWEBUI_API_KEY` and `OPENAI_API_KEY` in `grading_feature/.env`
+on the VM. Details: [`grading_feature/README.md`](grading_feature/README.md#hosted-docker).
+
+*If the VM ran A14's `grading-api` container:* move its keys from
+`grading_feature/backend/grading.env` into `grading_feature/.env` (that file is no longer read),
+then remove the leftover container and volume — `docker compose up -d --remove-orphans`, and
+`docker volume rm <project>_grading-data` (`docker volume ls` shows the exact name). The
+`grading` service uses a new volume, `grading-dashboard-data`, so the old root-owned one is not
+needed.
+
+**Local development.** Runs on a developer workstation and connects to the production VM.
 
 ```bash
 cd grading_feature
@@ -150,7 +163,8 @@ cp .env.example .env
 ./run_app.sh
 ```
 
-The dashboard will be available at `http://localhost:8000`. Click **Refresh** to pull the latest chat data from the VM.
+The dashboard will be available at `http://localhost:5173` (the Vite dev server, which forwards
+`/api` calls to the backend on port 9500). Click **Refresh** to pull the latest chat data from the VM.
 
 ---
 
