@@ -165,7 +165,9 @@ services:
     ports:
       - "127.0.0.1:9500:9500"
     volumes:
-      - grading-data:/data
+      # Not "grading-data": A14's grading-api left a root-owned volume by that name, and this
+      # image runs as uid 10001, so reusing it would make /data unwritable and break refresh.
+      - grading-dashboard-data:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9500/api/health', timeout=3)"]
       interval: 30s
@@ -175,6 +177,6 @@ services:
 
 volumes:
   redis-data:
-  grading-data:
+  grading-dashboard-data:
 # volumes:
 #   ollama: {}

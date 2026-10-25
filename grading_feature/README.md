@@ -62,7 +62,7 @@ ssh -L 9500:localhost:9500 <user>@<vm-host>
 ```
 
 Inside the container, `OPENWEBUI_BASE_URL` is `http://open-webui:8080` and the extracted data
-lives in the `grading-data` volume; compose sets both, overriding any host values in `.env`.
+lives in the `grading-dashboard-data` volume; compose sets both, overriding any host values in `.env`.
 
 Build-time options (`docker compose build --build-arg NAME=value grading`):
 

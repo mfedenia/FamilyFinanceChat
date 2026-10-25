@@ -147,6 +147,13 @@ exposed publicly: reach it with `ssh -L 9500:localhost:9500 <user>@<vm-host>` an
 `http://localhost:9500`. Put `OPENWEBUI_API_KEY` and `OPENAI_API_KEY` in `grading_feature/.env`
 on the VM. Details: [`grading_feature/README.md`](grading_feature/README.md#hosted-docker).
 
+*If the VM ran A14's `grading-api` container:* move its keys from
+`grading_feature/backend/grading.env` into `grading_feature/.env` (that file is no longer read),
+then remove the leftover container and volume — `docker compose up -d --remove-orphans`, and
+`docker volume rm <project>_grading-data` (`docker volume ls` shows the exact name). The
+`grading` service uses a new volume, `grading-dashboard-data`, so the old root-owned one is not
+needed.
+
 **Local development.** Runs on a developer workstation and connects to the production VM.
 
 ```bash
