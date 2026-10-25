@@ -14,7 +14,7 @@ the actual running version must be inventoried on the server. This is **A13
 preparation**, not a record of a completed production upgrade.
 
 - Added a gated inventory, consistent backup procedure, per-version checks, paired
-  image/data rollback, GCS protection gate and execution record to `SETUP.md`.
+  image/data rollback, uploads protection gate and execution record to `SETUP.md`.
 - `scripts/smoke_test.py --existing-token-env ENV_NAME` uses an existing account's
   Bearer token without signup. The original fresh-stack admin signup remains the
   default. Both modes keep chat/upload/retrieval assertions and print created
@@ -27,10 +27,21 @@ preparation**, not a record of a completed production upgrade.
   provider; it does not prove production data migrates to v0.11.4. Consult this PR's
   exact commit checks for the recorded automated results.
 
-Local preparation validation: all 11 mock tests passed; all 10 new Bash blocks
-passed syntax checks; the three embedded JSON generators and both upgrade/rollback
-Compose merges were checked with temporary, empty environment files. Compatibility
-guards and `git diff --check` passed. No runbook deployment command was executed.
+The runbook now checks the deployed checkout's ownership and Compose labels before
+acting, discovers whether grading is absent, `grading-api`, or A15's `grading`, and
+backs up a plain uploads directory instead of assuming it is a GCS mount. It checks
+disk capacity before saving images. It requires a verified A2 live backup and retains
+the distinct cold rollback archive. The acceptance steps now have a fresh Pushgateway
+metric check, a saved-chat extraction comparison, and exact-ID smoke-resource cleanup.
+`docker-compose.rehearsal.yml` permits isolated pinned-image API checks at v0.10.x or
+v0.11.x; it does not restore production data or replace A9-A11's restored-data gates.
+
+Local preparation validation: 25 Python tests passed; 12 runbook Bash blocks passed
+syntax checks; the rehearsal Compose overlay resolved; an isolated Open WebUI v0.11.4
+stack passed chat/upload/retrieval with an existing token, then cleanup removed the
+verified file and knowledge base. A live local Pushgateway accepted the fresh-metric
+check and rejected a stale sample. Compatibility guards and `git diff --check` passed.
+No runbook deployment command was executed on the production VM.
 
 **Still pending:** A2 restore evidence; A9–A11 restored-data rehearsals and fixed
 intermediate versions; A12's recorded database decision; actual host/images/digests,
@@ -101,6 +112,9 @@ OpenWebUI does not expose a `/metrics` endpoint. We considered a scraping sideca
 The previous implementation read OpenWebUI's SQLite database directly with raw SQL. This broke every time OpenWebUI changed its schema. We migrated to the public REST API (`/api/v1/users/all`, `/api/v1/chats/all/db`) which is versioned and stable. The `--legacy` flag and stub in `extract_chats.py` have been deleted — direct SQLite reads are forbidden (policy F5), and the REST API is the only supported extraction path.
 
 ### GCS for file uploads
+**Fall 2026 correction:** the 2026-10-17 VM inspection did not find a mount at
+`/mnt/gcs/fin602`. Treat it as local VM data until the bucket and mount are
+verified. The following paragraph describes the intended earlier setup.
 File uploads are routed to a GCS bucket mounted at `/mnt/gcs/fin602` on the VM. This means uploads persist independently of the container lifecycle. The downside is that the GCS mount must be configured on the host before `docker compose up` — it is not handled by Docker.
 
 ### ChromaDB for the custom RAG pipeline, Qdrant for native RAG
@@ -135,6 +149,9 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 ---
 
 ## Gotchas That Took Us a Long Time to Figure Out
+
+The GCS warning below is historical and applies only after the mount has been
+verified; the current `/mnt/gcs/fin602` path may be a plain directory.
 
 **The vendor fork was the root of everything.** Every weird environment issue traced back to the fact that we were running a fork of OpenWebUI internals. Once we removed it, almost every mysterious startup and upgrade issue disappeared.
 

@@ -10,7 +10,7 @@ How to get FamilyFinanceChat running from scratch.
 |---|---|
 | Docker | 24+ with Compose v2 (`docker compose`, not `docker-compose`) |
 | GCP VM | e2-standard-4 or larger recommended (2 vCPU / 8 GB minimum; production uses 10 GB RAM limit for OpenWebUI alone) |
-| GCS Bucket | Mounted on the VM at `/mnt/gcs/fin602` for file uploads |
+| Upload storage | `/mnt/gcs/fin602` is the Compose bind source; verify whether it is a GCS mount or a local directory |
 | OpenAI API key | Required for chat completions and RAG embeddings |
 | Python 3.10+ | Only needed if running the grading dashboard or RAG pipeline locally |
 | Git | For cloning the repo |
@@ -69,7 +69,10 @@ sudo chown -R 65534:65534 /opt/prometheus/data   # prometheus runs as nobody
 sudo chown -R 472:0 /opt/grafana/data            # grafana user
 ```
 
-The GCS bucket mount at `/mnt/gcs/fin602` must be set up separately via the GCP VM's FUSE mount config before starting Docker.
+Create `/mnt/gcs/fin602` and decide whether it is local storage or a GCS FUSE
+mount before starting Docker. The 2026-10-17 VM inventory found it was not mounted;
+do not assume that files in this path are protected by a bucket. For a GCS-backed
+deployment, verify the bucket identity and mount before starting the stack.
 
 ---
 
@@ -227,7 +230,7 @@ are **pending verification** in this preparation PR.
 | A12 | Team's SQLite/PostgreSQL decision and reasoning in HANDOFF.md | Pending |
 | Window | Instructor-approved date/time/timezone, outside student deadline weeks; outage and rollback deadline | Pending |
 | Operators | Named P1 executor and P2 grading reviewer, both available throughout | Pending |
-| Upload protection | GCS bucket identity, version/snapshot manifest, exact restore procedure tested by A2, retention | Pending |
+| Upload protection | Verify whether the source is a bucket mount or local directory; matching snapshot or cold archive, restore procedure and retention | Pending |
 | Deployment | Host/project, active Compose files/overrides, Git SHA, actual image tags/IDs/repository digests, DB backend, all mounts | Pending |
 | Baseline | Existing-user smoke, known saved chats/files, P2 extraction and metrics results before change | Pending |
 
@@ -238,37 +241,59 @@ copies first. Do not paste the whole section as a script: there are human eviden
 gates between blocks. Keep a durable, access-restricted backup outside the repository
 and off the VM as required by A2; a VM-local archive alone is not disaster recovery.
 
-Start in the actual deployed checkout. Record the real Compose project name and
-all effective overrides from container labels. This procedure assumes the checked-in
-`docker-compose.yml` describes the active topology, with `.env` and
-`grading_feature/backend/grading.env`; only the recorded running image versions
-may differ. Stop and revise/rehearse the runbook if there are other overrides,
-uncommitted deployment changes, extra data stores or different mounts.
+Start with the actual deployed checkout, not a fresh clone of `main`. The VM inventory
+from 2026-10-17 found an older, differently owned checkout, Open WebUI v0.8.12, no
+hosted grading service, and an uploads directory that was not a mount. Recheck each
+fact on the day of execution. Stop and revise/rehearse this procedure if the active
+Compose files, services, mounts, or database differ from the inventory below.
 
 ```bash
 set -euo pipefail
 umask 077
-REPO=$(git rev-parse --show-toplevel)
-test -z "$(git status --porcelain)"
-docker inspect open-webui --format '{{json .Config.Labels}}'
-read -rp 'Verified Compose project name: ' PROJECT
-test -n "$PROJECT"
+read -rp 'Absolute path of the deployed checkout: ' REPO
+REPO=$(realpath "$REPO")
+test -f "$REPO/docker-compose.yml" && test -f "$REPO/.env"
+# The deployed checkout has different ownership. Do not chown it or set a global exception.
+deployed_git() { git -c "safe.directory=$REPO" -C "$REPO" "$@"; }
+test "$(deployed_git rev-parse --show-toplevel)" = "$REPO"
+test -z "$(deployed_git status --porcelain)"
+read -rp 'Running Open WebUI container name: ' WEBUI_CONTAINER
+test -n "$WEBUI_CONTAINER"
+PROJECT=$(docker inspect "$WEBUI_CONTAINER" --format '{{index .Config.Labels "com.docker.compose.project"}}')
+WEBUI_SERVICE=$(docker inspect "$WEBUI_CONTAINER" --format '{{index .Config.Labels "com.docker.compose.service"}}')
+test -n "$PROJECT" && test "$PROJECT" != '<no value>'
+test -n "$WEBUI_SERVICE" && test "$WEBUI_SERVICE" != '<no value>'
+test "$WEBUI_SERVICE" = open-webui || {
+  echo 'Open WebUI service name differs from this runbook; stop and adapt the overrides' >&2
+  exit 1
+}
+COMPOSE_FILES=$(docker inspect "$WEBUI_CONTAINER" --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}')
+test "$COMPOSE_FILES" = "$REPO/docker-compose.yml" || {
+  echo "Active Compose files differ from the deployed checkout; stop and adapt the runbook" >&2
+  exit 1
+}
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 BACKUP="/var/backups/familyfinancechat/$STAMP"
 sudo install -d -m 700 -o "$(id -u)" -g "$(id -g)" "$BACKUP"
 export BACKUP STAMP
 dc() { docker compose -p "$PROJECT" --env-file "$REPO/.env" -f "$REPO/docker-compose.yml" "$@"; }
-git rev-parse HEAD > "$BACKUP/git-sha.txt"
+deployed_git rev-parse HEAD > "$BACKUP/git-sha.txt"
 printf '%s\n' "$PROJECT" > "$BACKUP/project.txt"
 dc config --quiet
 dc ps -a > "$BACKUP/containers.txt"
+dc config --services | sort > "$BACKUP/config-services.txt"
+docker ps --filter "label=com.docker.compose.project=$PROJECT" \
+  --format '{{.Label "com.docker.compose.service"}}' | sort -u > "$BACKUP/running-services.txt"
+diff -u "$BACKUP/config-services.txt" "$BACKUP/running-services.txt" || {
+  echo 'Running services differ from the deployed Compose file; stop and reconcile' >&2; exit 1;
+}
 for service in $(dc config --services); do
   cid=$(dc ps -a -q "$service")
-  test -n "$cid"
+  test -n "$cid" || { echo "Configured service $service is absent; stop and reconcile Compose" >&2; exit 1; }
   docker inspect "$cid" --format '{{.Name}} image={{.Config.Image}} id={{.Image}} mounts={{json .Mounts}}'
   docker image inspect "$(docker inspect "$cid" --format '{{.Image}}')" --format '{{json .RepoDigests}}'
 done > "$BACKUP/images-and-mounts.txt"
-dc exec -T open-webui python -c 'import os; u=os.getenv("DATABASE_URL", ""); print("database_backend=" + (u.split(":", 1)[0] if u else "default: verify SQLite path"))'
+dc exec -T "$WEBUI_SERVICE" python -c 'import os; u=os.getenv("DATABASE_URL", ""); print("database_backend=" + (u.split(":", 1)[0] if u else "default: verify SQLite path"))'
 ```
 
 Inspect the recorded mounts and the private deployment configuration. Never print
@@ -282,26 +307,79 @@ Do not read or alter Open WebUI's database schema to perform these checks.
 | Service | Expected persistent mount |
 |---|---|
 | `open-webui` | `/opt/openwebui/data` → `/app/backend/data` (SQLite and local app data) |
-| `open-webui` uploads | `/mnt/gcs/fin602` → `/app/backend/data/uploads` (separate GCS FUSE mount) |
+| `open-webui` uploads | Inspect the source of `/app/backend/data/uploads`; `/mnt/gcs/fin602` may be a plain VM directory |
 | `qdrant` | `/opt/qdrant/storage` → `/qdrant/storage` |
 | `redis` | Compose volume `redis-data` → `/data` |
-| `grading-api` | Compose volume `grading-data` → `/app/data` |
+| grading, if deployed | `grading-api` uses `grading-data` → `/app/data`; A15 `grading` uses `grading-dashboard-data` → `/data` |
 | `prometheus`, `grafana` | `/opt/prometheus/data`, `/opt/grafana/data` |
 
 Use the inspected volume names, which include the project prefix; do not guess them.
-Confirm both are local Docker volumes without custom driver options. Confirm no other
-project/process writes these stores. `mountpoint` only proves a mount exists: separately
-verify that its GCS bucket is the expected one. The four `/opt` data directories must
-be ordinary directories, not filesystem mountpoints or symlinks, because rollback
-moves them aside; otherwise adapt and rehearse the restore procedure first.
+Confirm any named volumes are local Docker volumes without custom driver options and
+no other process writes them. If uploads are a mount, identify the backing bucket and
+test its point-in-time restore. If uploads are a plain directory, include them in the
+cold archive. Every directory that rollback moves aside must be an ordinary directory,
+not a symlink or mountpoint.
 
 ```bash
+check_bind() {
+  local service=$1 destination=$2 expected=$3 cid actual
+  cid=$(dc ps -q "$service")
+  test -n "$cid"
+  actual=$(docker inspect "$cid" --format "{{range .Mounts}}{{if eq .Destination \"$destination\"}}{{.Source}}{{end}}{{end}}")
+  test "$actual" = "$expected" || {
+    echo "Unexpected mount for $service:$destination ($actual); stop and adapt" >&2; exit 1;
+  }
+}
+check_bind open-webui /app/backend/data /opt/openwebui/data
+check_bind qdrant /qdrant/storage /opt/qdrant/storage
+check_bind prometheus /prometheus /opt/prometheus/data
+check_bind grafana /var/lib/grafana /opt/grafana/data
 REDIS_VOLUME=$(docker inspect "$(dc ps -q redis)" --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}')
-GRADING_VOLUME=$(docker inspect "$(dc ps -q grading-api)" --format '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Name}}{{end}}{{end}}')
-test -n "$REDIS_VOLUME" && test -n "$GRADING_VOLUME"
-docker volume inspect "$REDIS_VOLUME" "$GRADING_VOLUME" > "$BACKUP/volumes.json"
-mountpoint -q /mnt/gcs/fin602
-for path in /opt/openwebui/data /opt/qdrant/storage /opt/prometheus/data /opt/grafana/data; do
+test -n "$REDIS_VOLUME"
+VOLUME_ITEMS=("redis:$REDIS_VOLUME")
+GRADING_SERVICE=''
+GRADING_VOLUME_KEY=''
+if dc config --services | grep -qx 'grading' && dc config --services | grep -qx 'grading-api'; then
+  echo 'Both grading services are configured; stop and choose the active data store' >&2
+  exit 1
+fi
+if dc config --services | grep -qx 'grading'; then
+  GRADING_SERVICE=grading; GRADING_VOLUME_KEY=grading-dashboard-data; GRADING_DATA_DEST=/data
+elif dc config --services | grep -qx 'grading-api'; then
+  GRADING_SERVICE=grading-api; GRADING_VOLUME_KEY=grading-data; GRADING_DATA_DEST=/app/data
+fi
+if [ -n "$GRADING_SERVICE" ]; then
+  GRADING_CID=$(dc ps -q "$GRADING_SERVICE")
+  test -n "$GRADING_CID" || { echo "Grading service is configured but not running" >&2; exit 1; }
+  GRADING_VOLUME=$(docker inspect "$GRADING_CID" --format "{{range .Mounts}}{{if eq .Destination \"$GRADING_DATA_DEST\"}}{{.Name}}{{end}}{{end}}")
+  test -n "$GRADING_VOLUME"
+  VOLUME_ITEMS+=("grading:$GRADING_VOLUME")
+fi
+printf '%s\n' "${VOLUME_ITEMS[@]}" > "$BACKUP/volume-items.txt"
+printf '%s\n' "$GRADING_VOLUME_KEY" > "$BACKUP/grading-volume-key.txt"
+docker volume inspect "${VOLUME_ITEMS[@]#*:}" > "$BACKUP/volumes.json"
+python3 - <<'PY'
+import json, os, pathlib
+volumes = json.loads((pathlib.Path(os.environ['BACKUP']) / 'volumes.json').read_text())
+if not volumes or any(v.get('Driver') != 'local' or v.get('Options') for v in volumes):
+    raise SystemExit('Non-local or custom-driver volume; stop and adapt the backup plan')
+PY
+UPLOADS_SOURCE=$(docker inspect "$WEBUI_CONTAINER" --format '{{range .Mounts}}{{if eq .Destination "/app/backend/data/uploads"}}{{.Source}}{{end}}{{end}}')
+test -n "$UPLOADS_SOURCE" && test -d "$UPLOADS_SOURCE"
+BIND_PATHS=(/opt/openwebui/data /opt/qdrant/storage /opt/prometheus/data /opt/grafana/data)
+if mountpoint -q "$UPLOADS_SOURCE"; then
+  UPLOADS_KIND=mount
+else
+  UPLOADS_KIND=local
+  for path in "${BIND_PATHS[@]}"; do
+    case "$UPLOADS_SOURCE/" in "$path/"* ) echo 'Uploads overlap another backup path; stop and adapt' >&2; exit 1;; esac
+    case "$path/" in "$UPLOADS_SOURCE/"* ) echo 'Uploads contain another backup path; stop and adapt' >&2; exit 1;; esac
+  done
+  BIND_PATHS+=("$UPLOADS_SOURCE")
+fi
+printf '%s\n' "${BIND_PATHS[@]}" > "$BACKUP/bind-paths.txt"
+printf 'source=%s\nkind=%s\n' "$UPLOADS_SOURCE" "$UPLOADS_KIND" > "$BACKUP/uploads.txt"
+for path in "${BIND_PATHS[@]}"; do
   sudo test -d "$path"
   test ! -L "$path"
   if mountpoint -q "$path"; then echo "Unexpected data mountpoint: $path" >&2; exit 1; fi
@@ -311,16 +389,19 @@ done
 ### 2. Freeze the rollback release and approve the version sequence
 
 Keep the deployed release, secrets (private backup only), and every running image,
-including locally built `grading-api` and `metrics-exporter`. Local rollback tags
+including locally built grading and metrics images. Local rollback tags
 below refer to the exact running image IDs; repository digests can be empty for local
 builds. Do not prune them during the window. The helper image is only for archiving
 volumes; record it and include it in the image archive.
 
 ```bash
 mkdir "$BACKUP/release"
-git archive HEAD | tar -xf - -C "$BACKUP/release"
+deployed_git archive HEAD | tar -xf - -C "$BACKUP/release"
 install -m 600 "$REPO/.env" "$BACKUP/release/.env"
-install -m 600 "$REPO/grading_feature/backend/grading.env" "$BACKUP/release/grading_feature/backend/grading.env"
+# Save only env files that the active Compose configuration actually uses.
+for env_file in grading_feature/backend/grading.env grading_feature/.env; do
+  if [ -f "$REPO/$env_file" ]; then install -m 600 "$REPO/$env_file" "$BACKUP/release/$env_file"; fi
+done
 : > "$BACKUP/frozen-images.tsv"
 for service in $(dc config --services); do
   cid=$(dc ps -a -q "$service")
@@ -338,6 +419,43 @@ services = {s: {'image': image} for s, image in
 PY
 docker pull alpine:3.21.3
 docker image inspect alpine:3.21.3 --format '{{.Id}} {{json .RepoDigests}}' > "$BACKUP/archive-helper.txt"
+# All local data and the archive must fit on the same filesystem for this procedure.
+# Reserve room for the cold archive, restored copy, saved images and 5 GiB headroom.
+DATA_DEVICE=$(stat -c %d "${BIND_PATHS[0]}")
+test "$(stat -c %d "$BACKUP")" = "$DATA_DEVICE" || {
+  echo 'Backup and data are on different disks; recalculate space and rehearse a revised plan' >&2; exit 1;
+}
+data_kb=0
+for path in "${BIND_PATHS[@]}"; do
+  test "$(stat -c %d "$path")" = "$DATA_DEVICE" || {
+    echo "Data is on another disk: $path; revise the space check" >&2; exit 1;
+  }
+  data_kb=$((data_kb + $(sudo du -sk "$path" | cut -f1)))
+done
+volume_kb=0
+for item in "${VOLUME_ITEMS[@]}"; do
+  volume=${item#*:}
+  mount=$(docker volume inspect "$volume" --format '{{.Mountpoint}}')
+  test "$(stat -c %d "$mount")" = "$DATA_DEVICE" || {
+    echo "Volume $volume is on another disk; revise the space check" >&2; exit 1;
+  }
+  volume_kb=$((volume_kb + $(sudo du -sk "$mount" | cut -f1)))
+done
+image_kb=0
+for service in $(dc config --services); do
+  cid=$(dc ps -a -q "$service")
+  bytes=$(docker image inspect "$(docker inspect "$cid" --format '{{.Image}}')" --format '{{.Size}}')
+  image_kb=$((image_kb + (bytes + 1023) / 1024))
+done
+reserve_kb=$((5 * 1024 * 1024))
+need_kb=$((2 * (data_kb + volume_kb) + image_kb + reserve_kb))
+free_kb=$(df -Pk "$BACKUP" | awk 'NR==2 {print $4}')
+test "$free_kb" -gt "$need_kb" || {
+  echo "Insufficient space: need ${need_kb} KiB, have ${free_kb} KiB; stop before saving images" >&2
+  exit 1
+}
+printf 'data_kb=%s\nvolume_kb=%s\nimage_kb=%s\nreserve_kb=%s\nfree_kb=%s\n' \
+  "$data_kb" "$volume_kb" "$image_kb" "$reserve_kb" "$free_kb" > "$BACKUP/space-check.txt"
 docker image save -o "$BACKUP/images.tar" alpine:3.21.3 $(cut -f2 "$BACKUP/frozen-images.tsv")
 ```
 
@@ -358,13 +476,31 @@ using the deployment's reviewed maintenance procedure. Stop external grading ref
 upload sync and all other writers. Run the baseline checks in section 4 and record
 P2's baseline before stopping the stack. Record the outage start and rollback deadline.
 
+The A2 `scripts/backup.sh` is a **live** application backup. Once A2 is complete,
+run that reviewed script and verify its manifest and restore-drill record before the
+window. This runbook retains the **cold** backup below because it also freezes the
+other running services, local volumes and exact images at one rollback point. Do not
+substitute one archive for the other. If A2's script or its restore drill is absent,
+the A2 gate above remains pending and the upgrade cannot start.
+
+```bash
+read -rp 'Reviewed A2 backup.sh absolute path: ' A2_SCRIPT
+test -f "$A2_SCRIPT"
+sudo bash "$A2_SCRIPT"
+read -rp 'Completed A2 backup directory (not .partial): ' A2_BACKUP
+test -d "$A2_BACKUP" && test -f "$A2_BACKUP/SHA256SUMS"
+case "$A2_BACKUP" in *.partial) echo 'Incomplete A2 backup' >&2; exit 1;; esac
+(cd "$A2_BACKUP" && sudo sha256sum -c SHA256SUMS)
+printf '%s\n' "$A2_BACKUP" > "$BACKUP/a2-backup-path.txt"
+```
+
 ```bash
 dc stop
 test -z "$(dc ps --status running -q)"
 sudo tar --numeric-owner --acls --xattrs -cpf "$BACKUP/bind-data.tar" -C / \
-  opt/openwebui/data opt/qdrant/storage opt/prometheus/data opt/grafana/data
+  "${BIND_PATHS[@]#/}"
 sudo chown "$(id -u):$(id -g)" "$BACKUP/bind-data.tar"
-for item in "redis:$REDIS_VOLUME" "grading:$GRADING_VOLUME"; do
+for item in "${VOLUME_ITEMS[@]}"; do
   name=${item%%:*}; volume=${item#*:}
   docker run --rm --network none \
     --mount "type=volume,src=$volume,dst=/source,readonly" \
@@ -373,18 +509,22 @@ for item in "redis:$REDIS_VOLUME" "grading:$GRADING_VOLUME"; do
   sudo chown "$(id -u):$(id -g)" "$BACKUP/$name.tar"
 done
 tar -tf "$BACKUP/bind-data.tar" > "$BACKUP/bind-data.contents.txt"
-tar -tf "$BACKUP/redis.tar" > "$BACKUP/redis.contents.txt"
-tar -tf "$BACKUP/grading.tar" > "$BACKUP/grading.contents.txt"
-(cd "$BACKUP" && sha256sum bind-data.tar redis.tar grading.tar images.tar > SHA256SUMS)
+checksum_files=(bind-data.tar images.tar)
+for item in "${VOLUME_ITEMS[@]}"; do
+  name=${item%%:*}
+  tar -tf "$BACKUP/$name.tar" > "$BACKUP/$name.contents.txt"
+  checksum_files+=("$name.tar")
+done
+(cd "$BACKUP" && sha256sum "${checksum_files[@]}" > SHA256SUMS)
 (cd "$BACKUP" && sha256sum -c SHA256SUMS)
 ```
 
-**GCS is not protected by `bind-data.tar`.** The uploads mount is inside the
-container; archiving `/opt/openwebui/data` on the host does not archive that bucket.
-While writers remain stopped, take the fresh GCS snapshot/version manifest using
-the A2-tested bucket procedure and record its matching restore point here. Confirm
-retention protects deleted/overwritten files, permissions and restoration to that
-point; copy the backup bundle to the A2 off-host destination and verify its checksums.
+If `UPLOADS_KIND=local`, `bind-data.tar` includes the uploads directory. If it is
+`mount`, the archive excludes it: while writers remain stopped, take the fresh
+bucket snapshot/version manifest using the A2-tested procedure and record its
+matching restore point. Confirm retention protects deleted/overwritten files and
+restoration to that point. Copy the backup bundle to the A2 off-host destination
+and verify its checksums.
 Also take the fresh VM/disk snapshot required by A2 and record its ID. **Stop before
 upgrade if these steps, archive inspection, or the rehearsed restore are unverified.**
 Checksums confirm archive integrity, not application recoverability.
@@ -404,14 +544,20 @@ read -rp 'Reviewed A13 smoke script absolute path: ' SMOKE_SCRIPT
 read -rp 'Smoke Python interpreter absolute path: ' SMOKE_PYTHON
 test -f "$SMOKE_SCRIPT" && test -x "$SMOKE_PYTHON"
 read -rp 'Enabled smoke model ID: ' SMOKE_MODEL
+read -rp 'Reviewed check_pushgateway_metric.py absolute path: ' METRICS_SCRIPT
+read -rp 'Host-reachable Pushgateway URL: ' METRICS_URL
+test -f "$METRICS_SCRIPT" && test -n "$METRICS_URL"
 read -rsp 'Existing smoke account token: ' OPENWEBUI_SMOKE_TOKEN; printf '\n'
 export OPENWEBUI_SMOKE_TOKEN
 read -rp 'Evidence label (baseline or version, no slash): ' CHECK_LABEL
 [[ "$CHECK_LABEL" =~ ^[a-zA-Z0-9._-]+$ ]]
+SMOKE_STARTED=$(date +%s)
 "$SMOKE_PYTHON" "$SMOKE_SCRIPT" --base-url http://127.0.0.1:3000 \
   --model "$SMOKE_MODEL" --existing-token-env OPENWEBUI_SMOKE_TOKEN \
   2>&1 | tee "$BACKUP/smoke-$CHECK_LABEL.log"
 unset OPENWEBUI_SMOKE_TOKEN
+python3 "$METRICS_SCRIPT" --url "$METRICS_URL" --since "$SMOKE_STARTED" \
+  2>&1 | tee "$BACKUP/metrics-$CHECK_LABEL.log"
 ```
 
 This waits for `/health` and `/ready`, requires a non-empty chat answer, processes an
@@ -424,33 +570,67 @@ blank CI stack shown above. Never run the CI `down -v` command against productio
 `Smoke run` identifies the run; `Smoke resource` lines record created user (fresh
 mode only), knowledge and file IDs as soon as available, including on later failure.
 The chat request uses `smoke-test-<run ID>` but does not create a saved chat fixture.
-After retaining results, remove only this run's knowledge base/file through the UI
-or reviewed public API procedure; confirm ownership and the unique filename
-`smoke-<run ID>.txt`. A timed-out create may have succeeded without returning an ID:
-check the account's resources by the run marker. Do not delete existing course data.
-Tokens and raw HTTP error bodies are not printed by the client. Keep evidence private.
+After retaining results, use `scripts/cleanup_smoke.py` with the printed run,
+knowledge and file IDs. It first reads both resources and checks their exact names
+and owner; it is a dry run unless `--execute` is supplied. Run the dry run, review
+the IDs, then repeat with `--execute`. It never removes the smoke user. If a
+timed-out create returned no ID, inspect the account's resources by the run marker
+manually; the tool will not guess an ID. Tokens and raw HTTP error bodies are not
+printed by the clients. Keep evidence private.
+
+```bash
+read -rp 'Reviewed cleanup_smoke.py absolute path: ' CLEANUP_SCRIPT
+read -rp 'Smoke run ID: ' RUN_ID
+read -rp 'Smoke knowledge ID: ' KNOWLEDGE_ID
+read -rp 'Smoke file ID: ' FILE_ID
+read -rsp 'Existing smoke account token: ' OPENWEBUI_SMOKE_TOKEN; printf '\n'
+export OPENWEBUI_SMOKE_TOKEN
+"$SMOKE_PYTHON" "$CLEANUP_SCRIPT" --base-url http://127.0.0.1:3000 \
+  --run-id "$RUN_ID" --knowledge-id "$KNOWLEDGE_ID" --file-id "$FILE_ID" \
+  --token-env OPENWEBUI_SMOKE_TOKEN
+# Only after inspecting the dry-run result and retaining the evidence:
+"$SMOKE_PYTHON" "$CLEANUP_SCRIPT" --base-url http://127.0.0.1:3000 \
+  --run-id "$RUN_ID" --knowledge-id "$KNOWLEDGE_ID" --file-id "$FILE_ID" \
+  --token-env OPENWEBUI_SMOKE_TOKEN --execute
+unset OPENWEBUI_SMOKE_TOKEN
+```
 
 P2 must compare extraction against known **saved** baseline chats with user ownership,
 message-pair counts and representative question/answer content. A successful exit or
 an empty JSON alone is not acceptance. The smoke's synthetic completion alone is not
-a saved conversation. Run extraction into a separate temporary file; do not overwrite
-`/app/data/chats.json` or trigger scoring. For the current container layout:
+a saved conversation. Run the reviewed extractor from the operator's Python
+environment into the restricted backup directory. This works when grading runs on
+a laptop, as `grading-api`, or as A15's `grading` service; it does not overwrite any
+dashboard data. Install its dependencies beforehand. The extraction token must have
+access to the users/chats API.
 
 ```bash
 read -rsp 'P2 extraction bearer token: ' OPENWEBUI_BEARER_TOKEN; printf '\n'
 export OPENWEBUI_BEARER_TOKEN
-dc exec -T -e OPENWEBUI_BEARER_TOKEN \
-  -e "OUTPUT_PATH=/tmp/a13-extraction-$CHECK_LABEL.json" \
-  grading-api python -c 'import json; from extract_chats import main; print(json.dumps(main([])))' \
+read -rp 'Reviewed extract_chats.py absolute path: ' EXTRACT_SCRIPT
+read -rp 'Extractor Python interpreter absolute path: ' EXTRACT_PYTHON
+test -f "$EXTRACT_SCRIPT" && test -x "$EXTRACT_PYTHON"
+OUTPUT_PATH="$BACKUP/extraction-$CHECK_LABEL.json" \
+  OPENWEBUI_BASE_URL=http://127.0.0.1:3000 \
+  "$EXTRACT_PYTHON" "$EXTRACT_SCRIPT" \
   > "$BACKUP/extraction-$CHECK_LABEL.log" 2>&1
 unset OPENWEBUI_BEARER_TOKEN
+test -s "$BACKUP/extraction-$CHECK_LABEL.json"
+if [ "$CHECK_LABEL" != baseline ]; then
+  read -rp 'Reviewed compare_extractions.py absolute path: ' COMPARE_SCRIPT
+  test -f "$COMPARE_SCRIPT"
+  python3 "$COMPARE_SCRIPT" \
+    "$BACKUP/extraction-baseline.json" "$BACKUP/extraction-$CHECK_LABEL.json"
+fi
 ```
 
-P2 privately inspects `/tmp/a13-extraction-<label>.json` in `grading-api`, compares
-the agreed fixtures/counts, records pass/fail and signs each row below. Protect
-extraction logs too: the existing extractor may log student identifiers. Remove the
-temporary JSON after acceptance per the team's retention policy. Verify the existing
-metrics filter still emits the expected metrics and check the grading UI's health.
+P2 privately inspects `extraction-<label>.json`, confirms the comparison and the
+agreed fixtures/counts, and signs each row below. Protect the JSON and logs: they
+contain student data. Remove them after acceptance per the team's retention policy.
+Verify the existing metrics filter still emits a **new** response-time sample after
+the chat and check the grading UI's health; a previously pushed sample is insufficient.
+The isolated CI stack has no installed metrics Filter, so this check runs only against
+an environment where that Filter is installed and Pushgateway is reachable.
 
 ### 5. Execute one approved version at a time
 
@@ -473,10 +653,11 @@ upgrade() { docker compose -p "$PROJECT" --env-file "$BACKUP/release/.env" \
   -f "$BACKUP/release/docker-compose.yml" -f "$BACKUP/frozen-images.json" \
   -f "$BACKUP/step.json" "$@"; }
 upgrade config --quiet
-mountpoint -q /mnt/gcs/fin602
+test -d "$UPLOADS_SOURCE"
+if [ "$UPLOADS_KIND" = mount ]; then mountpoint -q "$UPLOADS_SOURCE"; fi
 upgrade up -d --no-build --pull never
 upgrade ps
-docker inspect open-webui --format '{{.Config.Image}} {{.Image}}'
+docker inspect "$WEBUI_CONTAINER" --format '{{.Config.Image}} {{.Image}}'
 ```
 
 Re-run section 4 (health, chat, upload, retrieval, metrics and P2 extraction) after
@@ -491,30 +672,40 @@ migrated data as a production experiment; the A10 downgrade experiment belongs i
 ### 6. Roll back images AND the matching data
 
 Restore the **pre-window** snapshot as one set: SQLite/local app data, Qdrant,
-Redis, grading data and the matching protected GCS uploads. Returning only the old
+Redis, grading data when present, and matching uploads. Returning only the old
 image can fail on the migrated schema. Keep ingress and all external writers blocked.
 These commands retain failed bind data and use new Docker volumes instead of erasing
 the originals. Verify space and the backup manifest before moving any directories.
 
 Use the same shell variables from the window; after reconnecting, explicitly recover
-`BACKUP`, `STAMP`, `PROJECT` from the recorded bundle and redefine the functions.
+`BACKUP`, `STAMP`, `PROJECT`, `UPLOADS_SOURCE`, `UPLOADS_KIND`, `BIND_PATHS` and
+`VOLUME_ITEMS` from the recorded bundle and redefine the functions. Review every
+value before running a mutating command.
 
 ```bash
 upgrade stop
 test -z "$(upgrade ps --status running -q)"
 (cd "$BACKUP" && sha256sum -c SHA256SUMS)
 docker image load -i "$BACKUP/images.tar"
-for path in /opt/openwebui/data /opt/qdrant/storage /opt/prometheus/data /opt/grafana/data; do
+mapfile -t BIND_PATHS < "$BACKUP/bind-paths.txt"
+mapfile -t VOLUME_ITEMS < "$BACKUP/volume-items.txt"
+GRADING_VOLUME_KEY=$(cat "$BACKUP/grading-volume-key.txt")
+UPLOADS_SOURCE=$(sed -n 's/^source=//p' "$BACKUP/uploads.txt")
+UPLOADS_KIND=$(sed -n 's/^kind=//p' "$BACKUP/uploads.txt")
+test -n "$UPLOADS_SOURCE" && [[ "$UPLOADS_KIND" == local || "$UPLOADS_KIND" == mount ]]
+export GRADING_VOLUME_KEY
+for path in "${BIND_PATHS[@]}"; do
   sudo test -d "$path"
   test ! -L "$path"
   if mountpoint -q "$path"; then echo "Unexpected data mountpoint: $path" >&2; exit 1; fi
   sudo test ! -e "$path.failed-$STAMP"
 done
-for path in /opt/openwebui/data /opt/qdrant/storage /opt/prometheus/data /opt/grafana/data; do
+for path in "${BIND_PATHS[@]}"; do
   sudo mv -- "$path" "$path.failed-$STAMP"
 done
 sudo tar --numeric-owner --acls --xattrs -xpf "$BACKUP/bind-data.tar" -C /
-for name in redis grading; do
+for item in "${VOLUME_ITEMS[@]}"; do
+  name=${item%%:*}
   volume="ffc-a13-$name-$STAMP"
   if docker volume inspect "$volume" >/dev/null 2>&1; then
     echo "Restore volume already exists; stop and inspect before retrying" >&2
@@ -529,22 +720,26 @@ done
 python3 - <<'PY'
 import json, os, pathlib
 p = pathlib.Path(os.environ['BACKUP'])
-volumes = {f'{name}-data': {'name': f"ffc-a13-{name}-{os.environ['STAMP']}", 'external': True}
-           for name in ('redis', 'grading')}
+keys = {'redis': 'redis-data', 'grading': os.environ.get('GRADING_VOLUME_KEY', '')}
+names = [line.split(':', 1)[0] for line in (p / 'volume-items.txt').read_text().splitlines()]
+volumes = {keys[name]: {'name': f"ffc-a13-{name}-{os.environ['STAMP']}", 'external': True}
+           for name in names}
 (p / 'restored-volumes.json').write_text(json.dumps({'volumes': volumes}))
 PY
 ```
 
-**Before starting any service**, restore/verify GCS to the matching recorded point
-using the A2-approved bucket procedure; verify the FUSE mount and representative old
-uploads. This is a hard gate, even though the local archives passed checksums.
+**Before starting any service**, if uploads were mounted, restore/verify the bucket
+to the matching recorded point using the A2-approved procedure and verify the mount
+and representative old uploads. If uploads were local, confirm they came back from
+`bind-data.tar`. This is a hard gate even though the archive passed checksums.
 
 ```bash
 rollback() { docker compose -p "$PROJECT" --env-file "$BACKUP/release/.env" \
   -f "$BACKUP/release/docker-compose.yml" -f "$BACKUP/frozen-images.json" \
   -f "$BACKUP/restored-volumes.json" "$@"; }
 rollback config --quiet
-mountpoint -q /mnt/gcs/fin602
+test -d "$UPLOADS_SOURCE"
+if [ "$UPLOADS_KIND" = mount ]; then mountpoint -q "$UPLOADS_SOURCE"; fi
 rollback up -d --no-build --pull never
 rollback ps
 ```
@@ -573,7 +768,7 @@ links in the PR/HANDOFF; never attach tokens, environment files, backups or stud
 | Reopen access and clean test resources | Pending | Pending | Pending | Pending | Pending |
 
 Record the teacher's window confirmation, P1/P2 names, time budget, DB decision,
-GCS restore point, archive checksums, off-host copy, actual migration observations
+uploads restore point, archive checksums, off-host copy, actual migration observations
 and any data loss/reconciliation needed after rollback. On success, retain the final
 `step.json` and frozen images override as part of the recorded deployment command;
 reconcile the checked-in deployment with that state in review before discarding the
