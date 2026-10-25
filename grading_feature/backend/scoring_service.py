@@ -1,18 +1,160 @@
 import asyncio
+import hashlib
 import json
+import logging
 import os
-from typing import Any
+import sqlite3
+import threading
+from typing import Any, Callable
 
 try:
     from openai import OpenAI
 except Exception:  # pragma: no cover - handled at runtime based on env
     OpenAI = None
 
+logger = logging.getLogger("professor_dashboard")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 MOCK_SCORER = os.getenv("MOCK_SCORER", "0") == "1"
+
+_cache_lock = threading.Lock()
+_in_memory_cache: dict[str, dict[str, Any]] = {}
+_cache_stats = {"hits": 0, "misses": 0}
+
+
+def get_cache_db_path() -> str:
+    explicit = os.getenv("SCORE_CACHE_PATH")
+    if explicit:
+        return explicit
+    output_dir = os.path.dirname(os.getenv("OUTPUT_PATH") or os.getenv("DATA_PATH") or "")
+    if output_dir and os.path.exists(output_dir):
+        return os.path.join(output_dir, "score_cache.sqlite3")
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "score_cache.sqlite3")
+
+
+def init_score_cache() -> None:
+    db_path = get_cache_db_path()
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+        with sqlite3.connect(db_path, timeout=10.0) as conn:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS score_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    question_text TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    raw_score TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+            conn.commit()
+    except Exception as e:
+        logger.warning("Failed to initialize SQLite score cache at %s: %s. Using in-memory fallback.", db_path, e)
+
+
+def get_cache_key(question_text: str, model: str = OPENAI_MODEL) -> str:
+    normalized = (question_text or "").strip()
+    return hashlib.sha256(f"{model}::{normalized}".encode("utf-8")).hexdigest()
+
+
+def get_cached_raw_score(question_text: str, model: str = OPENAI_MODEL) -> dict[str, Any] | None:
+    cache_key = get_cache_key(question_text, model)
+    with _cache_lock:
+        if cache_key in _in_memory_cache:
+            _cache_stats["hits"] += 1
+            return dict(_in_memory_cache[cache_key])
+
+    db_path = get_cache_db_path()
+    try:
+        if os.path.exists(db_path):
+            with sqlite3.connect(db_path, timeout=5.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT raw_score FROM score_cache WHERE cache_key = ?", (cache_key,))
+                row = cursor.fetchone()
+                if row:
+                    raw_data = json.loads(row[0])
+                    with _cache_lock:
+                        _in_memory_cache[cache_key] = raw_data
+                        _cache_stats["hits"] += 1
+                    return raw_data
+    except Exception as e:
+        logger.warning("Error reading from score cache (%s): %s", db_path, e)
+
+    with _cache_lock:
+        _cache_stats["misses"] += 1
+    return None
+
+
+def set_cached_raw_score(question_text: str, raw_score: dict[str, Any], model: str = OPENAI_MODEL) -> None:
+    cache_key = get_cache_key(question_text, model)
+    cleaned_raw = {
+        "relevance": safe_number(raw_score.get("relevance")),
+        "politeness": safe_number(raw_score.get("politeness")),
+        "on_topic": safe_number(raw_score.get("on_topic")),
+        "neutrality": safe_number(raw_score.get("neutrality")),
+        "non_imperative": safe_number(raw_score.get("non_imperative")),
+        "clarity_optional": safe_number(raw_score.get("clarity_optional")),
+        "privacy_minimization_optional": safe_number(raw_score.get("privacy_minimization_optional")),
+        "notes": raw_score.get("notes", ""),
+    }
+
+    with _cache_lock:
+        _in_memory_cache[cache_key] = cleaned_raw
+
+    db_path = get_cache_db_path()
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+        with sqlite3.connect(db_path, timeout=5.0) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO score_cache (cache_key, question_text, model, raw_score)
+                VALUES (?, ?, ?, ?)
+                """,
+                (cache_key, (question_text or "").strip(), model, json.dumps(cleaned_raw)),
+            )
+            conn.commit()
+    except Exception as e:
+        logger.warning("Error writing to score cache (%s): %s", db_path, e)
+
+
+def get_cache_stats() -> dict[str, Any]:
+    db_path = get_cache_db_path()
+    db_count = 0
+    try:
+        if os.path.exists(db_path):
+            with sqlite3.connect(db_path, timeout=5.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT count(*) FROM score_cache")
+                db_count = cursor.fetchone()[0]
+    except Exception:
+        db_count = len(_in_memory_cache)
+
+    with _cache_lock:
+        return {
+            "cached_entries": db_count,
+            "hits": _cache_stats["hits"],
+            "misses": _cache_stats["misses"],
+            "db_path": db_path,
+        }
+
+
+def clear_score_cache() -> None:
+    with _cache_lock:
+        _in_memory_cache.clear()
+        _cache_stats["hits"] = 0
+        _cache_stats["misses"] = 0
+    db_path = get_cache_db_path()
+    try:
+        if os.path.exists(db_path):
+            with sqlite3.connect(db_path, timeout=5.0) as conn:
+                conn.execute("DELETE FROM score_cache")
+                conn.commit()
+    except Exception as e:
+        logger.warning("Failed to clear score cache (%s): %s", db_path, e)
 
 
 def round_num(value: float, digits: int = 2) -> float:
@@ -295,13 +437,29 @@ def build_aggregate(results: list[dict[str, Any]], abi_enabled: bool) -> dict[st
     }
 
 
-async def _score_one(question: dict[str, Any]) -> dict[str, Any]:
+async def _score_one(question: dict[str, Any], bypass_cache: bool = False) -> dict[str, Any]:
+    text = (question.get("text") or "").strip()
+    if not bypass_cache:
+        cached_raw = get_cached_raw_score(text, OPENAI_MODEL)
+        if cached_raw is not None:
+            return decorate_score(question, cached_raw)
+
     if MOCK_SCORER or not OPENAI_API_KEY:
-        return mock_score(question)
-    return await asyncio.to_thread(score_with_openai, question)
+        scored = mock_score(question)
+        set_cached_raw_score(text, scored, OPENAI_MODEL)
+        return scored
+
+    scored = await asyncio.to_thread(score_with_openai, question)
+    set_cached_raw_score(text, scored, OPENAI_MODEL)
+    return scored
 
 
-async def score_questions(questions: list[dict[str, Any]], use_abi: bool) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+async def score_questions(
+    questions: list[dict[str, Any]],
+    use_abi: bool,
+    bypass_cache: bool = False,
+    progress_callback: Callable[[int, int], Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     normalized = []
     for idx, item in enumerate(questions):
         if isinstance(item, str):
@@ -324,7 +482,28 @@ async def score_questions(questions: list[dict[str, Any]], use_abi: bool) -> tup
             }
         )
 
-    scored = await asyncio.gather(*[_score_one(q) for q in normalized])
+    total = len(normalized)
+    completed = 0
+    scored = []
+
+    # Use a worker semaphore or gather with progress tracking
+    sem = asyncio.Semaphore(5)
+
+    async def _worker(q: dict[str, Any]) -> dict[str, Any]:
+        nonlocal completed
+        async with sem:
+            res = await _score_one(q, bypass_cache=bypass_cache)
+            completed += 1
+            if progress_callback is not None:
+                try:
+                    cb_res = progress_callback(completed, total)
+                    if asyncio.iscoroutine(cb_res):
+                        await cb_res
+                except Exception as e:
+                    logger.warning("Error in progress_callback: %s", e)
+            return res
+
+    scored = await asyncio.gather(*[_worker(q) for q in normalized])
     if use_abi:
         scored = [{**row, "abi": compute_abi_for_question(row)} for row in scored]
 

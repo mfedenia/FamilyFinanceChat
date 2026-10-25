@@ -116,6 +116,12 @@ export default function StudentFeedback() {
 
   useEffect(() => {
     loadFeedback();
+    const handleRefreshDone = () => {
+      fetchUsers();
+      loadFeedback();
+    };
+    window.addEventListener("refreshCompleted", handleRefreshDone);
+    return () => window.removeEventListener("refreshCompleted", handleRefreshDone);
   }, [selectedUserId, useAbi]);
 
   const scopeLabel =
