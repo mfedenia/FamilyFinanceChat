@@ -5,3 +5,5 @@ description is relevant. Format and conventions: [`README.md`](README.md).
 
 - [Leaked key is not ours to revoke](leaked-key-not-ours-to-revoke.md) — a third party's API key was exposed in this public repo; Mark cannot revoke it, so stop assigning it as a task and treat it as closed on our side.
 - [Secrets never in the repo](secrets-never-in-repo.md) — why scrubbing is not remediation, why a fix on an unmerged branch is not a fix, and why prevention is the only control we actually own.
+- [Repo write access](repo-write-access.md) — who can push and merge since Mark trimmed the list on 2026-10-13 (six collaborators plus Mark), and why `main` deliberately has no branch protection.
+- [Agents do not merge PRs](agents-do-not-merge-prs.md) — Claude Code's auto mode refuses to merge an unreviewed PR; a person clicks Merge, and the agent pulls `main` afterwards.
