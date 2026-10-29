@@ -72,6 +72,19 @@ services:
       retries: 3
       start_period: 20s
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.135.0
+    container_name: otel-collector
+    restart: unless-stopped
+    networks: [ai-net]
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+    volumes:
+      - ./monitoring/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "127.0.0.1:8889:8889"
+
+
 
   # ollama:
   #   image: ollama/ollama:latest
@@ -83,14 +96,35 @@ services:
   #   ports:
   #     - "11435:11434"
 
+  
   open-webui:
     image: ghcr.io/open-webui/open-webui:v0.11.4
     container_name: open-webui
-    # depends_on: [ qdrant, ollama ]
-    depends_on: [qdrant, redis]
+    depends_on:
+      - qdrant
+      - redis
+      - otel-collector
     restart: unless-stopped
     environment:
       - PYTHONDONTWRITEBYTECODE=1
+
+      # Database connections
+      - VECTOR_DB=qdrant
+      - QDRANT_URI=http://qdrant:6333
+      - WEBSOCKET_MANAGER=redis
+      - REDIS_URL=redis://redis:6379/0
+      - WEBSOCKET_REDIS_URL=redis://redis:6379/1
+
+      # OpenTelemetry
+      - ENABLE_OTEL=true
+      - ENABLE_OTEL_METRICS=true
+      - ENABLE_OTEL_TRACES=false
+      - ENABLE_OTEL_LOGS=false
+      - OTEL_SERVICE_NAME=open-webui
+      - OTEL_METRICS_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_METRICS_EXPORTER_OTLP_INSECURE=true
+      - OTEL_METRICS_EXPORT_INTERVAL_MILLIS=10000
+
     env_file: .env
     networks: [ai-net]
     ports:
@@ -129,15 +163,18 @@ services:
     ports:
       - "8080:8080"
 
+  
   prometheus:
     image: prom/prometheus:v2.51.2
     container_name: prometheus
     restart: unless-stopped
     networks: [ai-net]
+    depends_on:
+      - otel-collector
     user: "65534:65534"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - /opt/prometheus/data:/prometheus
+      - prometheus-data:/prometheus
     ports:
       - "9090:9090"
     command:
@@ -145,16 +182,16 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=30d"
 
-  # Receives metrics from Open WebUI Filter Functions (HTTP push); Prometheus scrapes this target.
-  pushgateway:
-    image: prom/pushgateway:v1.8.0
-    container_name: pushgateway
-    restart: unless-stopped
-    networks: [ai-net]
-    ports:
-      - "9091:9091"
-    command:
-      - "--web.enable-lifecycle"
+  # # Receives metrics from Open WebUI Filter Functions (HTTP push); Prometheus scrapes this target.
+  # pushgateway:
+  #   image: prom/pushgateway:v1.8.0
+  #   container_name: pushgateway
+  #   restart: unless-stopped
+  #   networks: [ai-net]
+  #   ports:
+  #     - "9091:9091"
+  #   command:
+  #     - "--web.enable-lifecycle"
 
   metrics-exporter:
     build: ./monitoring/exporter
@@ -165,6 +202,7 @@ services:
     ports:
       - "8001:8000"
 
+  
   grafana:
     image: grafana/grafana:9.0.0
     container_name: grafana
@@ -172,14 +210,20 @@ services:
     networks: [ai-net]
     user: "472:0"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
     ports:
       - "3001:3000"
     volumes:
-      - /opt/grafana/data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
 
 volumes:
   redis-data:
   grading-data:
+  prometheus-data:
+  grafana-data:
 # volumes:
 #   ollama: {}
