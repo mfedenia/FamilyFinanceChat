@@ -140,22 +140,41 @@ The unified backend endpoint accepts ABI mode in scoring requests:
 
 This project is intended for academic use.  
 
-## Refresh Hardening And Operational Checks
+## Asynchronous Refresh & Scoring Cache
 
-The refresh endpoint now returns structured success metadata and fails with HTTP 500 when extraction or export fails.
+Refresh pulls every chat and scores questions in the background without blocking the UI or risking HTTP timeouts. It also caches scored results to avoid re-scoring unchanged chats.
 
-### Structured refresh success response
+### Endpoints
 
-`GET /refresh` returns JSON with:
+* `POST /refresh` (or `POST /api/refresh`):
+  * Starts a background refresh job (chat extraction + question pre-scoring).
+  * Returns HTTP 202 Accepted with `job_id`, `status: "in_progress"`, `stage: "extracting"`, and `progress: 5`.
+  * If a job is already in flight, returns HTTP 409 Conflict with `detail.job` to prevent concurrent duplicate runs.
+* `GET /refresh/status` (or `GET /api/refresh/status`):
+  * Returns current job status (`idle`, `in_progress`, `completed`, `failed`), progress percentage (0–100), current `stage` (`extracting`, `scoring`, `completed`), `refresh_metadata`, and `scoring_stats`.
+* `GET /refresh`:
+  * Default: Non-blocking; returns in-progress job or starts background refresh (HTTP 202).
+  * With `?sync=true`: Runs extraction synchronously and returns HTTP 200 with `refresh_metadata` (for legacy scripts/tests).
+* `GET /api/cache/stats`:
+  * Returns cache statistics (total cached questions, cache hits, cache misses, and database path).
+* `POST /api/cache/clear`:
+  * Clears the persistent scoring cache.
 
-* `status`
-* `message`
-* `refresh_metadata.users_processed`
-* `refresh_metadata.chat_entries_processed`
-* `refresh_metadata.message_pairs_processed`
-* `refresh_metadata.latest_message_timestamp_found`
-* `refresh_metadata.output_file_path`
-* `refresh_metadata.malformed_chat_rows_skipped`
+### Persistent Scoring Cache
+
+* Backed by SQLite (default: `score_cache.sqlite3` located next to `OUTPUT_PATH` or in backend root, configurable via `SCORE_CACHE_PATH`).
+* Keyed by SHA-256 hash of model name and normalized question text.
+* Whenever `/refresh`, `/api/score`, or `/api/student-feedback` scores questions, identical unchanged questions hit the cache in microseconds.
+* Clicking refresh twice or re-visiting the dashboard does not trigger duplicate calls to OpenAI, avoiding unbounded bills.
+
+### UI Progress & Locking
+
+The dashboard navbar:
+* Disables the "Refresh Data" button while a refresh job is in flight.
+* Displays a live progress bar and step indicator (e.g. `Extracting chats...`, `Scoring questions (12/30)...`).
+* Automatically resumes polling if the browser is reloaded or opened while a job is running.
+* Dispatches a `refreshCompleted` event upon completion to update active page data without disruption.
+
 
 ### Role filter configuration
 

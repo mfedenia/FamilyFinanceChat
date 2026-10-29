@@ -191,10 +191,13 @@ if ! kill -0 "$API_PID" >/dev/null 2>&1; then
   exit 1
 fi
 
-HTTP_CODE="$(curl -sS -o "$REFRESH_BODY" -w "%{http_code}" "http://127.0.0.1:${TEST_PORT}/refresh")"
+echo "==> Testing asynchronous /refresh and /refresh/status"
+STATUS_BODY="$TEST_TMPDIR/grading_status_response.json"
 
-if [[ "$HTTP_CODE" != "200" ]]; then
-  echo "ERROR: /refresh returned HTTP $HTTP_CODE"
+HTTP_CODE="$(curl -sS -o "$REFRESH_BODY" -w "%{http_code}" -X POST "http://127.0.0.1:${TEST_PORT}/refresh")"
+
+if [[ "$HTTP_CODE" != "202" ]]; then
+  echo "ERROR: POST /refresh returned HTTP $HTTP_CODE (expected 202)"
   echo "Response:"
   cat "$REFRESH_BODY"
   echo
@@ -202,49 +205,63 @@ if [[ "$HTTP_CODE" != "200" ]]; then
   exit 1
 fi
 
-$PYTHON_CMD - "$REFRESH_BODY" <<'PY'
+CONFLICT_CODE="$(curl -sS -o /dev/null -w "%{http_code}" -X POST "http://127.0.0.1:${TEST_PORT}/refresh" || true)"
+if [[ "$CONFLICT_CODE" == "409" ]]; then
+  echo "Verified re-run lock: concurrent POST /refresh returned 409 Conflict."
+fi
+
+echo "==> Polling /refresh/status until completion"
+$PYTHON_CMD - "$TEST_PORT" <<'PY'
 import json
 import sys
+import time
+import urllib.request
 
-body_path = sys.argv[1]
-with open(body_path, "r", encoding="utf-8") as f:
-    payload = json.load(f)
+port = sys.argv[1]
+status_url = f"http://127.0.0.1:{port}/refresh/status"
 
-if payload is None:
-  raise SystemExit("ERROR: /refresh returned JSON null. Check API logs.")
+start = time.time()
+while time.time() - start < 30:
+    req = urllib.request.Request(status_url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            status = data.get("status")
+            progress = data.get("progress")
+            stage = data.get("stage")
+            print(f"Status poll: {status} ({progress}%, stage={stage})")
+            if status == "completed":
+                meta = data.get("refresh_metadata")
+                if not meta or not isinstance(meta, dict):
+                    raise SystemExit("ERROR: Completed refresh missing refresh_metadata")
+                required = [
+                    "users_processed",
+                    "chat_entries_processed",
+                    "message_pairs_processed",
+                    "latest_message_timestamp_found",
+                    "output_file_path",
+                ]
+                missing = [k for k in required if k not in meta]
+                if missing:
+                    raise SystemExit(f"ERROR: Missing refresh_metadata keys: {missing}")
+                print("Asynchronous refresh completed and validated metadata successfully.")
+                sys.exit(0)
+            elif status == "failed":
+                raise SystemExit(f"ERROR: Refresh job failed: {data.get('error')}")
+    except Exception as e:
+        print(f"Polling error: {e}")
+    time.sleep(0.5)
 
-if not isinstance(payload, dict):
-  raise SystemExit(
-    "ERROR: /refresh returned non-object JSON. Full payload: "
-    + json.dumps(payload, indent=2)
-  )
-
-if payload.get("status") != "success":
-  raise SystemExit(
-    "ERROR: /refresh did not return status=success. Full payload: "
-    + json.dumps(payload, indent=2)
-  )
-
-meta = payload.get("refresh_metadata")
-if meta is None or not isinstance(meta, dict):
-  raise SystemExit(
-    "ERROR: /refresh payload is missing refresh_metadata. Full payload: "
-    + json.dumps(payload, indent=2)
-  )
-
-required = [
-    "users_processed",
-    "chat_entries_processed",
-    "message_pairs_processed",
-    "latest_message_timestamp_found",
-    "output_file_path",
-]
-missing = [k for k in required if k not in meta]
-if missing:
-    raise SystemExit(f"ERROR: Missing refresh_metadata keys: {missing}")
-
-print("/refresh success payload validated.")
-print(json.dumps({k: meta.get(k) for k in required}, indent=2))
+raise SystemExit("ERROR: Timed out waiting for refresh job to complete.")
 PY
+
+echo "==> Testing legacy/sync /refresh?sync=true"
+SYNC_HTTP_CODE="$(curl -sS -o "$REFRESH_BODY" -w "%{http_code}" "http://127.0.0.1:${TEST_PORT}/refresh?sync=true")"
+if [[ "$SYNC_HTTP_CODE" != "200" ]]; then
+  echo "ERROR: /refresh?sync=true returned HTTP $SYNC_HTTP_CODE"
+  cat "$REFRESH_BODY"
+  exit 1
+fi
+
 
 echo "PASS"

@@ -23,11 +23,18 @@ export default function Home() {
     const [currentPage, setCurrentPage] = useState(1)
 
     // Get all users
-    useEffect(() => {
+    const loadUsers = () => {
         axios.get("/users")
             .then(res => setUsers(res.data))
-            .catch(err => console.error(err))
+            .catch(err => console.error(err));
+    };
+
+    useEffect(() => {
+        loadUsers();
+        window.addEventListener("refreshCompleted", loadUsers);
+        return () => window.removeEventListener("refreshCompleted", loadUsers);
     }, []);
+
 
     // Sort users by num chats
     const sortedUsers = [...users].sort((a,b) =>{
