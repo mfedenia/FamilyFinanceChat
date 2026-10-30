@@ -43,4 +43,4 @@ unrehearsed, irreversible upgrade.
 (`sudo docker ps`, `sudo docker inspect <name>`) instead of trusting the compose file. Never
 run `docker compose up` from the deployed checkout until its pins match what production
 actually runs. When an item here gets resolved, update or delete this file. Backup procedure:
-[`docs/backup-restore.md`](../backup-restore.md). Related: [[secrets-never-in-repo]].
+[`docs/backup/backup-restore.md`](../backup/backup-restore.md) and [`docs/backup/restore-drill.md`](../backup/restore-drill.md). Related: [[secrets-never-in-repo]].
