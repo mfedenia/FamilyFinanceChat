@@ -105,6 +105,7 @@ def main(argv=None):
         json={
             "model": args.model,
             "chat_id": f"smoke-test-{run_id}",
+            "id": f"smoke-message-{run_id}",
             "stream": False,
             "messages": [
                 {
