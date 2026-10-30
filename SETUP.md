@@ -488,9 +488,10 @@ read -rp 'Reviewed A2 backup.sh absolute path: ' A2_SCRIPT
 test -f "$A2_SCRIPT"
 sudo bash "$A2_SCRIPT"
 read -rp 'Completed A2 backup directory (not .partial): ' A2_BACKUP
-test -d "$A2_BACKUP" && test -f "$A2_BACKUP/SHA256SUMS"
+sudo test -d "$A2_BACKUP"
+sudo test -f "$A2_BACKUP/SHA256SUMS"
 case "$A2_BACKUP" in *.partial) echo 'Incomplete A2 backup' >&2; exit 1;; esac
-(cd "$A2_BACKUP" && sudo sha256sum -c SHA256SUMS)
+sudo bash -euo pipefail -c 'cd -- "$1"; sha256sum -c SHA256SUMS' bash "$A2_BACKUP"
 printf '%s\n' "$A2_BACKUP" > "$BACKUP/a2-backup-path.txt"
 ```
 
@@ -556,7 +557,7 @@ SMOKE_STARTED=$(date +%s)
   --model "$SMOKE_MODEL" --existing-token-env OPENWEBUI_SMOKE_TOKEN \
   2>&1 | tee "$BACKUP/smoke-$CHECK_LABEL.log"
 unset OPENWEBUI_SMOKE_TOKEN
-python3 "$METRICS_SCRIPT" --url "$METRICS_URL" --since "$SMOKE_STARTED" \
+python3 "$METRICS_SCRIPT" --url "$METRICS_URL" --since "$SMOKE_STARTED" --model "$SMOKE_MODEL" \
   2>&1 | tee "$BACKUP/metrics-$CHECK_LABEL.log"
 ```
 
@@ -631,6 +632,11 @@ Verify the existing metrics filter still emits a **new** response-time sample af
 the chat and check the grading UI's health; a previously pushed sample is insufficient.
 The isolated CI stack has no installed metrics Filter, so this check runs only against
 an environment where that Filter is installed and Pushgateway is reachable.
+The checker matches the model and the full Pushgateway grouping labels (including
+job and instance) to a fresh push. It does not identify an individual request:
+keep other chat traffic and producers for this metrics job stopped during the check.
+For each supported version, rehearse the installed Filter's inlet/outlet lifecycle;
+client and Filter unit tests alone do not prove the server invokes both hooks.
 
 ### 5. Execute one approved version at a time
 
