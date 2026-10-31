@@ -27,6 +27,26 @@ jobs:
       - name: Install smoke test dependency
         run: python -m pip install requests==2.32.5
 
+      - name: Check smoke client authentication and failure handling
+        run: |
+          for pattern in test_smoke_test.py test_cleanup_smoke.py test_compare_extractions.py test_check_pushgateway_metric.py; do
+            python -m unittest discover -s tests -p "$pattern" -v
+          done
+
+      - name: Check smoke payload against metrics Filter hooks
+        # The official image supplies the same aiohttp/pydantic runtime as the Filter.
+        # This does not install the Filter in the smoke server.
+        run: |
+          image=$(docker compose -f docker-compose.test.yml -f docker-compose.ci.yml images -q open-webui-test)
+          docker run --rm --network none --entrypoint python \
+            --mount "type=bind,src=$PWD,dst=/review,readonly" --workdir /review \
+            "$image" -m unittest discover -s tests -p test_smoke_metrics_filter.py -v
+
+      - name: Validate isolated rehearsal Compose override
+        env:
+          REHEARSAL_OPENWEBUI_IMAGE: ghcr.io/open-webui/open-webui:v0.11.4
+        run: docker compose -p ffc-a13-rehearsal -f docker-compose.test.yml -f docker-compose.ci.yml -f docker-compose.rehearsal.yml config --quiet
+
       - name: Run API smoke test
         run: python scripts/smoke_test.py --model "$SMOKE_MODEL"
 
