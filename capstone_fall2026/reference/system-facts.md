@@ -21,7 +21,9 @@ them will have moved.
 | Reranker | configured but **no model set** | `RAG_TOP_K_RERANKER=3`, model empty |
 | Open WebUI resource limit | 2 CPU / 10 GB RAM | `docker-compose.yml` |
 | Prometheus retention | 30 days | `docker-compose.yml` |
-| Grafana version | `9.0.0`, default `admin/admin` | `docker-compose.yml` |
+| Grafana version | `13.2.5`; admin password from `GRAFANA_ADMIN_PASSWORD` | `docker-compose.yml` |
+| Prometheus version | `v3.15.1` | `docker-compose.yml` |
+| Alerting | GCP uptime check on `/ready`; Grafana rules on memory and chat error rate (A20) | `scripts/gcp_uptime_alert.sh`, `monitoring/grafana/provisioning/alerting/` |
 | Unpinned images | `qdrant:latest`, `cadvisor:latest` | `docker-compose.yml` |
 | Uploads | GCS bucket mounted at `/mnt/gcs/fin602` | `docker-compose.yml` |
 | Grading dashboard | FastAPI + React/Vite, **runs locally, not containerised** | `grading_feature/`, `SETUP.md` §8 |

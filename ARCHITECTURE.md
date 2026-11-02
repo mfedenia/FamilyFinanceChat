@@ -41,10 +41,10 @@ All services run on a shared bridge network `ai-net`.
 | `qdrant` | `qdrant/qdrant:latest` | none (internal) | — | Vector database for RAG |
 | `redis` | `valkey/valkey:8.0.1-alpine` | none (internal) | 512 MB | WebSocket session state |
 | `cadvisor` | `gcr.io/cadvisor/cadvisor:latest` | 8080 | 0.5 CPU / 256 MB | Container CPU/memory/network metrics |
-| `prometheus` | `prom/prometheus:v2.51.2` | 9090 | — | Metrics collection, 30-day retention |
+| `prometheus` | `prom/prometheus:v3.15.1` | 9090 | — | Metrics collection, 30-day retention |
 | `pushgateway` | `prom/pushgateway:v1.8.0` | 9091 | — | Receives chat metrics pushed by Filter Function |
 | `metrics-exporter` | custom FastAPI build | 8001 | — | Probes OpenWebUI `/health` every 15s |
-| `grafana` | `grafana/grafana:9.0.0` | 3001 | — | Dashboards (default login: admin/admin) |
+| `grafana` | `grafana/grafana:13.2.5` | 3001 | — | Dashboards and alerting, provisioned from `monitoring/grafana/provisioning/` (login: `admin` / `GRAFANA_ADMIN_PASSWORD`) |
 
 **Key volume mounts:**
 - `/mnt/gcs/fin602 → /app/backend/data/uploads` — file uploads route to a GCS bucket mounted on the VM

@@ -127,7 +127,7 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 1. **Host the grading dashboard.** Add it to `docker-compose.yml`, put it behind Nginx with HTTP basic auth (or the university's SSO), and give professors a URL. One to two days of engineering.
 
-2. **Wire `/ready` into GCP uptime monitoring.** OpenWebUI v0.8.9 added a `/ready` endpoint that only returns 200 when the DB and Redis are fully up. Set a GCP Uptime Check against it and alert the primary maintainer. The app went down once and we found out passively from students.
+2. **Done in A20:** a GCP uptime check on `/ready` emails a named person (`scripts/gcp_uptime_alert.sh`), and Grafana alerts on Open WebUI memory and chat error rate. **Still open:** the chat error-rate alert is built on Open WebUI's HTTP metrics, and web-UI chats report model-provider failures (quota, bad key, outage) over the websocket after the HTTP request has already returned 200. So the most likely real failure, the OpenAI key running out, does not trip any alert. Closing that needs a different signal, e.g. a sidecar that sends a tiny chat completion every few minutes through the public API and exposes success/failure to Prometheus.
 
 3. **Add CI/CD.** See the CI/CD section in `SETUP.md` for the recommended starting pipeline. The key insight from this semester: upgrades break things silently if there are no automated checks. A GitHub Actions workflow that builds the image and hits `/health` would catch 80% of issues with minimal effort.
 
