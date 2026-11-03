@@ -97,6 +97,8 @@ export default function Scoring() {
     }
 
     fetchUsers();
+    window.addEventListener("refreshCompleted", fetchUsers);
+    return () => window.removeEventListener("refreshCompleted", fetchUsers);
   }, []);
 
   useEffect(() => {

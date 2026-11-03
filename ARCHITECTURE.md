@@ -176,11 +176,15 @@ OpenWebUI (production VM)
        └─ Stored at OUTPUT_PATH (local file)
 
 Grading Backend (FastAPI, grading_feature/backend/)
-  └─ GET /refresh — triggers extraction, overwrites JSON file atomically
+  └─ POST /refresh — triggers asynchronous extraction and question pre-scoring in background
+  └─ GET /refresh/status — returns progress percentage, stage, and metadata
+  └─ GET /refresh?sync=true — legacy synchronous extraction fallback
   └─ GET /users — all students with chat counts
   └─ GET /user/{id} — full chat history
-  └─ POST /api/score — score a list of questions via OpenAI
-  └─ GET /api/student-feedback — per-student or aggregate feedback
+  └─ POST /api/score — score a list of questions via OpenAI (cached)
+  └─ GET /api/student-feedback — per-student or aggregate feedback (cached)
+  └─ GET /api/cache/stats — SQLite score cache metrics
+
 
 Scoring (scoring_service.py):
   7 dimensions scored 0–2 each (total 0–14):
