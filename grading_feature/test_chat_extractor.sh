@@ -155,7 +155,7 @@ echo "==> OUTPUT_PATH: $OUTPUT_PATH"
 ls -l "$OUTPUT_PATH"
 
 if [[ "$RUN_API_TEST" != "1" ]]; then
-  echo "Skipping /refresh API test (RUN_API_TEST=$RUN_API_TEST)."
+  echo "Skipping /api/refresh API test (RUN_API_TEST=$RUN_API_TEST)."
   echo "PASS"
   exit 0
 fi
@@ -163,7 +163,7 @@ fi
 TEST_PORT="$(find_free_port)"
 echo "==> Using free refresh test port: $TEST_PORT"
 
-echo "==> Starting API and testing /refresh"
+echo "==> Starting API and testing /api/refresh"
 TEST_TMPDIR="$(make_temp_dir)"
 API_LOG="$TEST_TMPDIR/grading_refresh_api.log"
 REFRESH_BODY="$TEST_TMPDIR/grading_refresh_response.json"
@@ -191,10 +191,10 @@ if ! kill -0 "$API_PID" >/dev/null 2>&1; then
   exit 1
 fi
 
-HTTP_CODE="$(curl -sS -o "$REFRESH_BODY" -w "%{http_code}" "http://127.0.0.1:${TEST_PORT}/refresh")"
+HTTP_CODE="$(curl -sS -o "$REFRESH_BODY" -w "%{http_code}" "http://127.0.0.1:${TEST_PORT}/api/refresh")"
 
 if [[ "$HTTP_CODE" != "200" ]]; then
-  echo "ERROR: /refresh returned HTTP $HTTP_CODE"
+  echo "ERROR: /api/refresh returned HTTP $HTTP_CODE"
   echo "Response:"
   cat "$REFRESH_BODY"
   echo
@@ -211,24 +211,24 @@ with open(body_path, "r", encoding="utf-8") as f:
     payload = json.load(f)
 
 if payload is None:
-  raise SystemExit("ERROR: /refresh returned JSON null. Check API logs.")
+  raise SystemExit("ERROR: /api/refresh returned JSON null. Check API logs.")
 
 if not isinstance(payload, dict):
   raise SystemExit(
-    "ERROR: /refresh returned non-object JSON. Full payload: "
+    "ERROR: /api/refresh returned non-object JSON. Full payload: "
     + json.dumps(payload, indent=2)
   )
 
 if payload.get("status") != "success":
   raise SystemExit(
-    "ERROR: /refresh did not return status=success. Full payload: "
+    "ERROR: /api/refresh did not return status=success. Full payload: "
     + json.dumps(payload, indent=2)
   )
 
 meta = payload.get("refresh_metadata")
 if meta is None or not isinstance(meta, dict):
   raise SystemExit(
-    "ERROR: /refresh payload is missing refresh_metadata. Full payload: "
+    "ERROR: /api/refresh payload is missing refresh_metadata. Full payload: "
     + json.dumps(payload, indent=2)
   )
 
@@ -243,7 +243,7 @@ missing = [k for k in required if k not in meta]
 if missing:
     raise SystemExit(f"ERROR: Missing refresh_metadata keys: {missing}")
 
-print("/refresh success payload validated.")
+print("/api/refresh success payload validated.")
 print(json.dumps({k: meta.get(k) for k in required}, indent=2))
 PY
 

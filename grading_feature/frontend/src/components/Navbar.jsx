@@ -1,10 +1,10 @@
-import axios from "axios";
+import api from "../api";
 import { NavLink } from "react-router-dom";
 
 export default function Navbar() {
     const handleRefresh = async () => {
         try {
-            await axios.get("/refresh");
+            await api.get("api/refresh");
             window.location.reload();
         } catch (err) {
             alert("Backend not responsive");

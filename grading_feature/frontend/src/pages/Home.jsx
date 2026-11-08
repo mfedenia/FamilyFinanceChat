@@ -1,4 +1,4 @@
-import axios from "axios";
+import api from "../api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Pagination from "../components/Pagination";
@@ -24,7 +24,7 @@ export default function Home() {
 
     // Get all users
     useEffect(() => {
-        axios.get("/users")
+        api.get("api/users")
             .then(res => setUsers(res.data))
             .catch(err => console.error(err))
     }, []);

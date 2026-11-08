@@ -8,25 +8,25 @@ Repository: https://github.com/mfedenia/FamilyFinanceChat
 ## Component Overview
 
 ```
-                        ┌─────────────────────────────────────────────────────┐
-                        │               GCP VM · Docker Compose                │
-                        │                                                       │
-  Student ──HTTPS──►   │  OpenWebUI :3000 ◄──── Qdrant (internal)            │
-                        │       │    │    └──── Valkey/Redis (internal)        │
-  Instructor            │       │    │                                          │
-      │                 │       │    └──push metrics──► Pushgateway :9091      │
-      ▼                 │       │                              │                │
-  React Dashboard       │       └──chat completions──►  OpenAI API (external)  │
-  (local workstation)   │       └──file uploads──────►  GCS Bucket (external)  │
-      │                 │                                      │                │
-      └──REST──►        │  Grading Backend (local workstation) │                │
-                        │                                      ▼                │
-                        │  Prometheus :9090 ◄── scrapes ── Pushgateway          │
-                        │       │              ◄── scrapes ── cAdvisor :8080    │
-                        │       │              ◄── scrapes ── metrics-exporter  │
-                        │       ▼                                               │
-                        │  Grafana :3001                                        │
-                        └─────────────────────────────────────────────────────┘
+                        ┌─────────────────────────────────────────────────────────┐
+                        │                 GCP VM · Docker Compose                 │
+                        │                                                         │
+  Student ──HTTPS──►    │ OpenWebUI :3000 ◄──── Qdrant (internal)                 │
+                        │   │  │  │    └──── Valkey/Redis (internal)              │
+                        │   │  │  └──push metrics──► Pushgateway :9091            │
+                        │   │  └──chat completions──► OpenAI API (external)       │
+                        │   └──file uploads──► GCS Bucket (external)              │
+                        │                                                         │
+  Instructor            │ Grading :9500 (dashboard + API, 127.0.0.1 only)         │
+  ──SSH tunnel──►       │   │  └──REST /api/v1/* (API key)──► OpenWebUI           │
+  (A16: proxy + auth)   │   └──scoring──► OpenAI API (external)                   │
+                        │                                                         │
+                        │ Prometheus :9090 ◄── scrapes ── Pushgateway             │
+                        │      │              ◄── scrapes ── cAdvisor :8080       │
+                        │      │              ◄── scrapes ── metrics-exporter     │
+                        │      ▼                                                  │
+                        │ Grafana :3001                                           │
+                        └─────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -45,6 +45,7 @@ All services run on a shared bridge network `ai-net`.
 | `pushgateway` | `prom/pushgateway:v1.8.0` | 9091 | — | Receives chat metrics pushed by Filter Function |
 | `metrics-exporter` | custom FastAPI build | 8001 | — | Probes OpenWebUI `/health` every 15s |
 | `grafana` | `grafana/grafana:9.0.0` | 3001 | — | Dashboards (default login: admin/admin) |
+| `grading` | built from `grading_feature/Dockerfile` | 9500 (`127.0.0.1` only) | — | Grading dashboard: React frontend + FastAPI API in one container |
 
 **Key volume mounts:**
 - `/mnt/gcs/fin602 → /app/backend/data/uploads` — file uploads route to a GCS bucket mounted on the VM
@@ -52,6 +53,7 @@ All services run on a shared bridge network `ai-net`.
 - `/opt/qdrant/storage → /qdrant/storage` — vector index on disk
 - `/opt/prometheus/data → /prometheus` — 30-day time-series store
 - `/opt/grafana/data → /var/lib/grafana` — dashboard and datasource config
+- `grading-dashboard-data → /data` (named volume) — the grading service's extracted chat JSON
 
 ---
 
@@ -166,19 +168,25 @@ Grafana (port 3001)
 
 ## Grading & Scoring Pipeline
 
-The professor grading tools run **locally on a developer workstation** — they are not in the Docker Compose stack.
+The professor grading dashboard runs in the Compose stack as the `grading` service: one container that builds the
+React frontend to static files and serves it from the FastAPI backend, so the page and its API share one origin.
+It is bound to `127.0.0.1:9500` because it has no authentication yet; instructors reach it over an SSH tunnel until
+A16 puts a reverse proxy with authentication in front. For development it can still run locally (`run_app.sh`,
+see `SETUP.md` §8).
 
 ```
 OpenWebUI (production VM)
   └─ REST API: GET /api/v1/users/all + GET /api/v1/chats/all/db
        └─ extract_chats.py — normalizes into structured JSON
             {user_id, name, email, role, chats: [{title, message_pairs: [{timestamp, question, answer}]}]}
-       └─ Stored at OUTPUT_PATH (local file)
+       └─ Stored at OUTPUT_PATH (hosted: /data/extracted_chats.json in the grading-dashboard-data volume)
 
 Grading Backend (FastAPI, grading_feature/backend/)
-  └─ GET /refresh — triggers extraction, overwrites JSON file atomically
-  └─ GET /users — all students with chat counts
-  └─ GET /user/{id} — full chat history
+  Every API route is under /api/; any other path serves the built frontend (client-side routes)
+  └─ GET /api/health — liveness probe (used by the compose healthcheck)
+  └─ GET /api/refresh — triggers extraction, overwrites JSON file atomically
+  └─ GET /api/users — all students with chat counts
+  └─ GET /api/user/{id} — full chat history
   └─ POST /api/score — score a list of questions via OpenAI
   └─ GET /api/student-feedback — per-student or aggregate feedback
 

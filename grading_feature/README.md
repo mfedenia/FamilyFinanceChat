@@ -19,9 +19,12 @@ The backend (FastAPI) reads OpenWebUI user/chat data via REST API or exported JS
 
 **Backend (FastAPI)**
 
-* `/users` → returns all students with aggregated chat data
+* `GET /api/users` → returns all students with aggregated chat data
 
-* `/user/{id}` → returns full chat history for a specific student
+* `GET /api/user/{id}` → returns full chat history for a specific student
+
+* Every API route lives under `/api/`. Any other path is a page of the dashboard, so the
+  backend can serve the built frontend from the same port (see *Hosted* below).
 
 * Organized directory structure 
   
@@ -38,6 +41,37 @@ The backend (FastAPI) reads OpenWebUI user/chat data via REST API or exported JS
 ## How to Run
 
 Run command: `./run_app.sh`
+
+### Hosted (Docker)
+
+The `grading` service in the root `docker-compose.yml` builds `Dockerfile` here: the frontend is
+compiled to static files and served by the FastAPI backend, so the page and its API share one
+origin and no API URL needs configuring.
+
+```bash
+# from the repo root; secrets are read from grading_feature/.env if present
+docker compose up -d --build grading
+```
+
+It listens on `127.0.0.1:9500` only — there is no login until a reverse proxy with
+authentication is in front (A16). From your machine, open an SSH tunnel to the VM and browse to
+`http://localhost:9500`:
+
+```bash
+ssh -L 9500:localhost:9500 <user>@<vm-host>
+```
+
+Inside the container, `OPENWEBUI_BASE_URL` is `http://open-webui:8080` and the extracted data
+lives in the `grading-dashboard-data` volume; compose sets both, overriding any host values in `.env`.
+
+Build-time options (`docker compose build --build-arg NAME=value grading`):
+
+| Arg | Default | Use |
+|---|---|---|
+| `VITE_BASE` | `/` | URL path the dashboard is served under, e.g. `/grading/`. Must end in `/`. |
+| `VITE_API_BASE_URL` | same origin | Only if the API is on a different origin; then set `CORS_ORIGINS` on the backend to the dashboard's origin. |
+
+Set `MOCK_SCORER=1` to exercise scoring without calling OpenAI.
 
 
 **Requirements**
@@ -146,7 +180,7 @@ The refresh endpoint now returns structured success metadata and fails with HTTP
 
 ### Structured refresh success response
 
-`GET /refresh` returns JSON with:
+`GET /api/refresh` returns JSON with:
 
 * `status`
 * `message`
@@ -169,7 +203,7 @@ Configure `EXTRACT_USER_ROLES` in your `.env`:
 
 ### Failure behavior
 
-If extraction or JSON export fails, `GET /refresh` responds with HTTP 500 and detail:
+If extraction or JSON export fails, `GET /api/refresh` responds with HTTP 500 and detail:
 
 * `status: error`
 * `message`
@@ -186,6 +220,6 @@ If extraction or JSON export fails, `GET /refresh` responds with HTTP 500 and de
   * Confirm backend process user can create and replace files in the `OUTPUT_PATH` directory.
   * The exporter uses atomic write (`temp file + os.replace`), so directory write and rename permissions are required.
 3. Confirm latest data is included after refresh:
-  * Run `GET /refresh` and read `refresh_metadata.latest_message_timestamp_found`.
+  * Run `GET /api/refresh` and read `refresh_metadata.latest_message_timestamp_found`.
   * Compare `refresh_metadata.output_file_path` file modification time with refresh time.
   * Validate counts (`users_processed`, `chat_entries_processed`, `message_pairs_processed`) match expected recent source activity.
