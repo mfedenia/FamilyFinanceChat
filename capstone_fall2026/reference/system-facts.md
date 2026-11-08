@@ -21,10 +21,11 @@ them will have moved.
 | Reranker | configured but **no model set** | `RAG_TOP_K_RERANKER=3`, model empty |
 | Open WebUI resource limit | 2 CPU / 10 GB RAM | `docker-compose.yml` |
 | Prometheus retention | 30 days | `docker-compose.yml` |
-| Grafana version | `9.0.0`, default `admin/admin` | `docker-compose.yml` |
+| Grafana version | `9.0.0`; admin password from `GRAFANA_ADMIN_PASSWORD`, served at `/grafana/` (A16). Production's existing database still had `admin/admin` until reset (`SETUP.md` §9) | `docker-compose.yml` |
 | Unpinned images | `qdrant:latest`, `cadvisor:latest` | `docker-compose.yml` |
 | Uploads | GCS bucket mounted at `/mnt/gcs/fin602` | `docker-compose.yml` |
-| Grading dashboard | FastAPI + React/Vite, one `grading` container bound to `127.0.0.1:9500`, no auth until A16 (A15, Oct 2026; was local-only) | `grading_feature/Dockerfile`, `docker-compose.yml`, `SETUP.md` §8 |
+| Grading dashboard | FastAPI + React/Vite, one `grading` container (A15, Oct 2026), served at `/grading/` behind the reverse proxy's basic auth (A16, Nov 2026) | `grading_feature/Dockerfile`, `docker-compose.yml`, `SETUP.md` §8–9 |
+| Public entry point | Caddy `proxy` container, ports 80/443, automatic Let's Encrypt TLS; every other port bound to `127.0.0.1` (A16) | `proxy/Caddyfile`, `docker-compose.yml`, `SETUP.md` §9 |
 
 **Compliance check performed for this deck:** no compose file in the repository mounts a host
 path into `/app/backend/open_webui/**`. `docker-compose.test.yml` uses named volumes only. The
