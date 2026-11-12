@@ -40,38 +40,7 @@ services:
       options:
         max-size: "1m"
         max-file: "1"
-    
-  grading-api:
-    build:
-      context: ./grading_feature/backend
-      dockerfile: Dockerfile
-    container_name: grading-api
-    restart: unless-stopped
-    depends_on:
-      - open-webui
-    networks:
-      - ai-net
-    env_file:
-      - ./grading_feature/backend/grading.env
-    environment:
-      OPENWEBUI_BASE_URL: http://open-webui:8080
-      DATA_PATH: /app/data/chats.json
-      OUTPUT_PATH: /app/data/chats.json
-    ports:
-      - "127.0.0.1:8000:8000"
-    volumes:
-      - grading-data:/app/data
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
+        
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.135.0
     container_name: otel-collector
@@ -84,7 +53,7 @@ services:
     ports:
       - "127.0.0.1:8889:8889"
 
-
+  # ollama:
 
   # ollama:
   #   image: ollama/ollama:latest
@@ -125,10 +94,17 @@ services:
       - OTEL_METRICS_EXPORTER_OTLP_INSECURE=true
       - OTEL_METRICS_EXPORT_INTERVAL_MILLIS=10000
 
+      # Served through the reverse proxy (A16). WEBUI_URL is stored in the database after the
+      # first start; on an existing install also set Admin Panel > Settings > General > WebUI URL.
+      # The localhost origins keep the SSH-tunnel route below working (socket.io checks Origin).
+      - WEBUI_URL=https://${PUBLIC_HOSTNAME:?Set PUBLIC_HOSTNAME in .env (SETUP.md section 9)}
+      - CORS_ALLOW_ORIGIN=https://${PUBLIC_HOSTNAME};http://localhost:3000;http://127.0.0.1:3000
+
     env_file: .env
     networks: [ai-net]
     ports:
-      - "0.0.0.0:3000:8080"
+      # Localhost only: the public route is the proxy. Operators and the smoke checks use this.
+      - "127.0.0.1:3000:8080"
     volumes:
       - /mnt/gcs/fin602:/app/backend/data/uploads
       - /opt/openwebui/data:/app/backend/data
@@ -161,11 +137,11 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
 
   
   prometheus:
-    image: prom/prometheus:v2.51.2
+    image: prom/prometheus:v3.15.1
     container_name: prometheus
     restart: unless-stopped
     networks: [ai-net]
@@ -176,7 +152,8 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"
+      # No authentication of its own: localhost only (SSH tunnel), never through the proxy.
+      - "127.0.0.1:9090:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -200,30 +177,102 @@ services:
     networks: [ai-net]
     depends_on: [open-webui]
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
 
   
   grafana:
-    image: grafana/grafana:9.0.0
+    image: grafana/grafana:13.2.5
     container_name: grafana
     restart: unless-stopped
     networks: [ai-net]
     user: "472:0"
     environment:
+      # Applies only when Grafana's database is first created. To change an existing admin
+      # password (production still had admin/admin), see SETUP.md section 9.
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
+      # Served by the reverse proxy at https://$PUBLIC_HOSTNAME/grafana/ (A16).
+      - GF_SERVER_ROOT_URL=https://${PUBLIC_HOSTNAME}/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      # Alert email (A20). Required: an alert that cannot be delivered is no alert.
+      - ALERT_EMAIL=${ALERT_EMAIL:?Set ALERT_EMAIL to the person who gets paged}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST:?Set SMTP_HOST, e.g. smtp.gmail.com:587}
+      - GF_SMTP_USER=${SMTP_USER:?Set SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD:?Set SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-${SMTP_USER}}
+      - GF_SMTP_FROM_NAME=FamilyFinanceChat alerts
     ports:
-      - "3001:3000"
+      # Localhost only; through a tunnel it is at http://localhost:3001/grafana/.
+      - "127.0.0.1:3001:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 
+  # Grading dashboard: frontend + API in one container (grading_feature/Dockerfile).
+  # Not published on the host: it is reached only through the proxy at /grading/, which adds
+  # authentication (A16). The frontend is built for that path.
+  grading:
+    build:
+      context: ./grading_feature
+      args:
+        VITE_BASE: /grading/
+    container_name: grading
+    restart: unless-stopped
+    networks: [ai-net]
+    depends_on: [open-webui]
+    env_file:
+      - path: ./grading_feature/.env
+        required: false
+    environment:
+      # Override the host-oriented values a local grading_feature/.env may carry.
+      - OPENWEBUI_BASE_URL=http://open-webui:8080
+      - DATA_PATH=/data/extracted_chats.json
+      - OUTPUT_PATH=/data/extracted_chats.json
+    volumes:
+      # Not "grading-data": A14's grading-api left a root-owned volume by that name, and this
+      # image runs as uid 10001, so reusing it would make /data unwritable and break refresh.
+      - grading-dashboard-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9500/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Reverse proxy (A16): the only service published beyond localhost. TLS, path routing, and
+  # the grading dashboard's login. Configuration: proxy/Caddyfile; setup: SETUP.md section 9.
+  proxy:
+    image: caddy:2.10.2-alpine
+    container_name: proxy
+    restart: unless-stopped
+    networks: [ai-net]
+    environment:
+      - PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME:?Set PUBLIC_HOSTNAME in .env (SETUP.md section 9)}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./proxy:/etc/caddy:ro
+      # Certificates and ACME account. Keep it: re-issuing on every recreate hits rate limits.
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   redis-data:
-  grading-data:
+  grading-dashboard-data:
   prometheus-data:
   grafana-data:
+  caddy-data:
+  caddy-config:
 # volumes:
 #   ollama: {}
