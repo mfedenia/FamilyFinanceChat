@@ -53,13 +53,10 @@ origin and no API URL needs configuring.
 docker compose up -d --build grading
 ```
 
-It listens on `127.0.0.1:9500` only — there is no login until a reverse proxy with
-authentication is in front (A16). From your machine, open an SSH tunnel to the VM and browse to
-`http://localhost:9500`:
-
-```bash
-ssh -L 9500:localhost:9500 <user>@<vm-host>
-```
+It publishes no host port. Instructors open `https://<PUBLIC_HOSTNAME>/grading/` and sign in
+at the reverse proxy (A16). Compose builds the image with `VITE_BASE=/grading/`, and the proxy
+strips that prefix before forwarding, so the backend still serves everything from `/`. Accounts,
+TLS and troubleshooting: [`SETUP.md` §9](../SETUP.md#9-reverse-proxy-tls-and-authentication-a16).
 
 Inside the container, `OPENWEBUI_BASE_URL` is `http://open-webui:8080` and the extracted data
 lives in the `grading-dashboard-data` volume; compose sets both, overriding any host values in `.env`.

@@ -11,21 +11,28 @@ Repository: https://github.com/mfedenia/FamilyFinanceChat
                         ┌─────────────────────────────────────────────────────────┐
                         │                 GCP VM · Docker Compose                 │
                         │                                                         │
-  Student ──HTTPS──►    │ OpenWebUI :3000 ◄──── Qdrant (internal)                 │
+  Student ───┐          │ proxy (Caddy) :80/:443 — TLS, the only public entry     │
+  Instructor ┼─HTTPS──► │   ├─ /          ──► OpenWebUI (own login)               │
+  Maintainer ┘          │   ├─ /grading/  ──► Grading (basic auth at the proxy)   │
+                        │   └─ /grafana/  ──► Grafana (own login)                 │
+                        │                                                         │
+                        │ OpenWebUI ◄──── Qdrant (internal)                       │
                         │   │  │  │    └──── Valkey/Redis (internal)              │
-                        │   │  │  └──push metrics──► Pushgateway :9091            │
+                        │   │  │  └──OTel metrics──► otel-collector               │
                         │   │  └──chat completions──► OpenAI API (external)       │
                         │   └──file uploads──► GCS Bucket (external)              │
                         │                                                         │
-  Instructor            │ Grading :9500 (dashboard + API, 127.0.0.1 only)         │
-  ──SSH tunnel──►       │   │  └──REST /api/v1/* (API key)──► OpenWebUI           │
-  (A16: proxy + auth)   │   └──scoring──► OpenAI API (external)                   │
+                        │ Grading (dashboard + API, no host port)                 │
+                        │   │  └──REST /api/v1/* (API key)──► OpenWebUI           │
+                        │   └──scoring──► OpenAI API (external)                   │
                         │                                                         │
-                        │ Prometheus :9090 ◄── scrapes ── Pushgateway             │
-                        │      │              ◄── scrapes ── cAdvisor :8080       │
-                        │      │              ◄── scrapes ── metrics-exporter     │
+                        │ Prometheus ◄── scrapes ── otel-collector                │
+                        │      │      ◄── scrapes ── cAdvisor                     │
+                        │      │      ◄── scrapes ── metrics-exporter             │
                         │      ▼                                                  │
-                        │ Grafana :3001                                           │
+                        │ Grafana                                                 │
+                        │                                                         │
+                        │ Every port except the proxy's is bound to 127.0.0.1.    │
                         └─────────────────────────────────────────────────────────┘
 ```
 
@@ -37,15 +44,16 @@ All services run on a shared bridge network `ai-net`.
 
 | Service | Image | Host Port | CPU / RAM Limit | Role |
 |---|---|---|---|---|
-| `open-webui` | `ghcr.io/open-webui/open-webui:v0.8.12` | 3000 | 2 CPU / 10 GB | Chat UI, LLM routing, user auth, chat history |
+| `proxy` | `caddy:2.10.2-alpine` | 80, 443 (public) | — | Reverse proxy: TLS, path routing, grading login (A16) |
+| `open-webui` | `ghcr.io/open-webui/open-webui:v0.11.4` | 3000 (`127.0.0.1`) | 2 CPU / 10 GB | Chat UI, LLM routing, user auth, chat history |
 | `qdrant` | `qdrant/qdrant:latest` | none (internal) | — | Vector database for RAG |
 | `redis` | `valkey/valkey:8.0.1-alpine` | none (internal) | 512 MB | WebSocket session state |
-| `cadvisor` | `gcr.io/cadvisor/cadvisor:latest` | 8080 | 0.5 CPU / 256 MB | Container CPU/memory/network metrics |
-| `prometheus` | `prom/prometheus:v2.51.2` | 9090 | — | Metrics collection, 30-day retention |
+| `cadvisor` | `ghcr.io/google/cadvisor:0.55.1` | 8080 (`127.0.0.1`) | 0.5 CPU / 256 MB | Container CPU/memory/network metrics |
+| `prometheus` | `prom/prometheus:v2.51.2` | 9090 (`127.0.0.1`) | — | Metrics collection, 30-day retention |
 | `pushgateway` | `prom/pushgateway:v1.8.0` | 9091 | — | Receives chat metrics pushed by Filter Function |
-| `metrics-exporter` | custom FastAPI build | 8001 | — | Probes OpenWebUI `/health` every 15s |
-| `grafana` | `grafana/grafana:9.0.0` | 3001 | — | Dashboards (default login: admin/admin) |
-| `grading` | built from `grading_feature/Dockerfile` | 9500 (`127.0.0.1` only) | — | Grading dashboard: React frontend + FastAPI API in one container |
+| `metrics-exporter` | custom FastAPI build | 8001 (`127.0.0.1`) | — | Probes OpenWebUI `/health` every 15s |
+| `grafana` | `grafana/grafana:9.0.0` | 3001 (`127.0.0.1`) | — | Dashboards at `/grafana/`; admin password from `GRAFANA_ADMIN_PASSWORD` |
+| `grading` | built from `grading_feature/Dockerfile` | none (via proxy at `/grading/`) | — | Grading dashboard: React frontend + FastAPI API in one container |
 
 **Key volume mounts:**
 - `/mnt/gcs/fin602 → /app/backend/data/uploads` — file uploads route to a GCS bucket mounted on the VM
@@ -170,8 +178,9 @@ Grafana (port 3001)
 
 The professor grading dashboard runs in the Compose stack as the `grading` service: one container that builds the
 React frontend to static files and serves it from the FastAPI backend, so the page and its API share one origin.
-It is bound to `127.0.0.1:9500` because it has no authentication yet; instructors reach it over an SSH tunnel until
-A16 puts a reverse proxy with authentication in front. For development it can still run locally (`run_app.sh`,
+It publishes no host port: instructors reach it at `https://<PUBLIC_HOSTNAME>/grading/`, where the reverse proxy
+requires a login (HTTP basic auth, A16; `SETUP.md` §9). The image is built with `VITE_BASE=/grading/` and the proxy
+strips that prefix before forwarding. For development it can still run locally (`run_app.sh`,
 see `SETUP.md` §8).
 
 ```
