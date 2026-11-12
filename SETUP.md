@@ -1,181 +1,561 @@
+<!--
+A24 REMINDER: documentation work still open. Do this LAST, after the team's feature freeze.
+  1. Professor-facing guides: rewrite for the v0.11 interface and re-shoot their screenshots.
+  2. This file: add every screenshot marked "SCREENSHOT:" and confirm every click-path marked "TODO-UI".
+  3. Resolve every "TODO-A19" and "TODO-A24" marker (pending decisions from P1/P2).
+  4. Newcomer acceptance test on a fresh VM, then remove this comment and the status note below.
+Full checklist: docs/A24_REMAINING_WORK.md
+Find everything left:  grep -rn -E "TODO-UI|TODO-A19|TODO-A24|SCREENSHOT:" --include=*.md .
+-->
+
 # Setup Guide
 
-How to get FamilyFinanceChat running from scratch.
+How to get FamilyFinanceChat running from scratch on a fresh Linux VM. Follow the steps in
+order. Each step tells you what you should see when it worked; if you see something else, check
+[Common errors](#common-errors) before moving on.
+
+> **Status (task A24, in progress):** the commands in this guide follow the current `main`
+> branch, including the A16 reverse proxy and the A15 hosted grading dashboard. Some menu
+> click-paths are still being re-checked against the Open WebUI v0.11 interface, and screenshots
+> will be added at the end of the semester. If a menu doesn't match what you see, add a line to
+> [`docs/A24_REMAINING_WORK.md`](docs/A24_REMAINING_WORK.md).
+
+<!-- TODO-A24: this guide was merged with main's A15/A16 changes. Walk through every step on a
+fresh VM before release to confirm the merged commands. -->
+
+---
+
+## What you will end up with
+
+| Service | Address | What it is |
+|---|---|---|
+| `proxy` | `https://<PUBLIC_HOSTNAME>` (ports 80 and 443) | Caddy reverse proxy: TLS certificates, routing, and the instructor login for grading. The only public entry point |
+| `open-webui` | `https://<PUBLIC_HOSTNAME>/` (`127.0.0.1:3000` on the VM) | The chat app students use (Open WebUI v0.11.4) |
+| `grading` | `https://<PUBLIC_HOSTNAME>/grading/` | Grading dashboard for instructors (no port of its own) |
+| `grafana` | `https://<PUBLIC_HOSTNAME>/grafana/` (`127.0.0.1:3001` on the VM) | Dashboards |
+| `prometheus` | `http://localhost:9090` on the VM | Metrics database (30-day retention) |
+| `pushgateway` | `http://localhost:9091` on the VM | Receives chat metrics from the Chat Metrics filter |
+| `otel-collector` | `127.0.0.1:8889` on the VM | Receives Open WebUI's built-in OpenTelemetry metrics |
+| `cadvisor` | `http://localhost:8080` on the VM | Container CPU/memory metrics |
+| `metrics-exporter` | `http://localhost:8001` on the VM | Health-probe sidecar for Open WebUI |
+| `qdrant` | internal only | Vector database for document search (RAG) |
+| `redis` | internal only | Valkey, for WebSocket session state |
+
+Only the proxy's ports 80 and 443 should ever be reachable from outside the VM. Everything else is
+bound to localhost or is internal-only, and most of those services have no login.
+
+<!-- TODO-A19: pushgateway is commented out in docker-compose.yml on main and has no scrape job in
+prometheus.yml. P1 must restore both (the team decided to keep the filter). Remove this
+comment once merged. -->
 
 ---
 
 ## Prerequisites
 
-| Requirement | Version / Notes |
+| Requirement | Details |
 |---|---|
-| Docker | 24+ with Compose v2 (`docker compose`, not `docker-compose`) |
-| GCP VM | e2-standard-4 or larger recommended (2 vCPU / 8 GB minimum; production uses 10 GB RAM limit for OpenWebUI alone) |
-| Upload storage | `/mnt/gcs/fin602` is the Compose bind source; verify whether it is a GCS mount or a local directory |
-| OpenAI API key | Required for chat completions and RAG embeddings |
-| Python 3.10+ | Only needed if running the grading dashboard or RAG pipeline locally |
-| Git | For cloning the repo |
+| Linux VM | Ubuntu 22.04 or 24.04 LTS. GCP `e2-standard-4` (4 vCPU, 16 GB RAM) recommended; Open WebUI alone is allowed up to 10 GB RAM |
+| Disk | Boot disk of at least 50 GB, with **at least 30 GB free** before you start. The Open WebUI image is several GB, and upgrades need room for the old image, the new image and a backup at the same time |
+| Hostname | A DNS name pointing at the VM's external IP. See [below](#choose-a-hostname-and-open-the-firewall-gcp) |
+| Docker | Docker Engine 24+ with Compose v2.24.4+ (`docker compose`, with a space, not `docker-compose`) |
+| Git | Any recent version |
+| OpenAI API key | Used for chat, document embeddings and grading. Set a spending limit on it |
+| Optional | Python 3.10+ (knowledge-base sync tool), Node.js **v20.19.5** with npm **10.8.2** (grading dashboard development on your laptop) |
+
+Check what you have:
+
+```bash
+docker --version          # 24.x or newer
+docker compose version    # v2.24.4 or newer
+git --version
+df -h /                   # "Avail" should be 30G or more
+```
+
+If `docker` commands fail with `permission denied ... docker.sock`, add yourself to the
+`docker` group, then **log out and back in**:
+
+```bash
+sudo usermod -aG docker "$USER"
+```
+
+### Choose a hostname and open the firewall (GCP)
+
+Everyone reaches the stack through the reverse proxy on ports 80 and 443, at one hostname you
+choose. The proxy gets a TLS certificate for that name from Let's Encrypt automatically.
+
+Testing on your own machine instead of a VM? Use `PUBLIC_HOSTNAME=localhost` in step 2a and skip
+this section.
+
+1. **Hostname.** Choose the name and create a DNS `A` record pointing it at the VM's external IP
+   (shown in the GCP console under **Compute Engine → VM instances**). Use a reserved (static)
+   external IP so the record does not go stale when the VM restarts. If no university DNS name
+   is available yet, `<external-ip>.sslip.io` resolves to that IP with no setup, and Let's Encrypt
+   issues certificates for it. Treat it as temporary: the URL changes if the IP does.
+2. **Firewall.** Open TCP 80 and 443 (and UDP 443 for HTTP/3) to the VM. Port 80 is required:
+   Let's Encrypt validates over it, and the proxy redirects it to HTTPS.
+
+   ```bash
+   gcloud compute instances add-tags <VM_NAME> --tags=http-server,https-server \
+     --zone <ZONE> --project <PROJECT_ID>
+   ```
+
+   The `http-server` and `https-server` tags only open ports if the project has the default
+   `default-allow-http` and `default-allow-https` firewall rules. Check with
+   `gcloud compute firewall-rules list`.
+3. **Close the old ports.** Remove any firewall rule that opened 3000, 3001, 8000, 8001, 8080,
+   8889, 9090 or 9091 to the internet. If you followed an older version of this guide, that
+   includes `ffc-allow-web`: `gcloud compute firewall-rules delete ffc-allow-web`.
+
+**Reaching the internal tools.** Prometheus, cAdvisor, the metrics exporter and the OTel collector
+are not routed through the proxy because they have no login. To open one from your laptop, use an
+SSH tunnel, for example:
+
+```bash
+gcloud compute ssh <VM_NAME> --zone <ZONE> -- -L 9090:localhost:9090
+```
+
+and then open `http://localhost:9090` while the session is open.
 
 ---
 
-## 1. Clone the Repository
+## 1. Clone the repository
 
 ```bash
 git clone https://github.com/mfedenia/FamilyFinanceChat
 cd FamilyFinanceChat
 ```
 
----
-
-## 2. Environment Variables
-
-Copy the example and fill in real values:
-
-```bash
-cp .env.staging.example .env   # use this as a starting template; rename to .env
-```
-
-**Every key you need to set:**
-
-| Variable | Required | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | **Yes** | OpenAI API key for chat completions |
-| `RAG_OPENAI_API_KEY` | **Yes** | OpenAI API key for RAG embeddings (can be the same key) |
-| `WEBUI_SECRET_KEY` | **Yes** | Random secret for JWT signing — generate with `openssl rand -hex 32` |
-| `PUBLIC_HOSTNAME` | **Yes** | DNS name the stack is served under, e.g. `fin602.example.edu` (no scheme, no slash). The reverse proxy gets its TLS certificate for this name. Use `localhost` on a workstation. See §9 |
-| `GRAFANA_ADMIN_PASSWORD` | **Yes** | Grafana's admin password on first start. Changing it later needs the reset command in §9 |
-| `OPENAI_API_BASE_URL` | No | Defaults to `https://api.openai.com/v1` |
-| `RAG_OPENAI_API_BASE_URL` | No | Defaults to `https://api.openai.com/v1` |
-| `WEBUI_BUILD_VERSION` | No | Informational; set to the OW version string or leave blank |
-| `DATA_DIR` | No | Defaults to `/app/backend/data` inside the container |
-| `QDRANT_URI` | No | Defaults to `http://qdrant:6333` — only change if using an external Qdrant |
-| `RAG_EMBEDDING_MODEL` | No | Defaults to `text-embedding-3-small` |
-| `RAG_TOP_K` | No | Number of RAG chunks returned; defaults to `5` |
-| `RAG_RELEVANCE_THRESHOLD` | No | Minimum similarity score (0–1); defaults to `0.30` |
-| `REDIS_URL` | No | Defaults to `redis://redis:6379/0` |
-| `WEBSOCKET_REDIS_URL` | No | Defaults to `redis://redis:6379/1` |
-| `GRAFANA_ADMIN_PASSWORD` | **Yes** | Grafana `admin` password; `docker compose up` refuses to start without it |
-| `ALERT_EMAIL` | **Yes** | The person Grafana alerts go to (A20). A real, monitored address |
-| `SMTP_HOST` | **Yes** | SMTP server Grafana sends alerts through, as `host:port` (e.g. `smtp.gmail.com:587`) |
-| `SMTP_USER` | **Yes** | SMTP login. For Gmail, the account address |
-| `SMTP_PASSWORD` | **Yes** | SMTP password. For Gmail, an [app password](https://myaccount.google.com/apppasswords), not the account password |
-| `SMTP_FROM_ADDRESS` | No | Sender address; defaults to `SMTP_USER` |
-
-**Do not commit `.env` to git.** It is already in `.gitignore`.
+All later commands are run from this `FamilyFinanceChat` directory unless a step says otherwise.
 
 ---
 
-## 3. Prepare Host Directories
+## 2. Create the configuration files
 
-These paths are bind-mounted from the host into containers. Create them before starting:
+The stack needs some files that are **not** in Git, because they hold secrets or passwords.
+
+### 2a. `.env` (Open WebUI, proxy, Grafana and alerts)
+
+Create it with placeholders:
 
 ```bash
-sudo mkdir -p /opt/openwebui/data
-sudo mkdir -p /opt/qdrant/storage
-sudo mkdir -p /opt/prometheus/data
-sudo mkdir -p /opt/grafana/data
-sudo chown -R 65534:65534 /opt/prometheus/data   # prometheus runs as nobody
-sudo chown -R 472:0 /opt/grafana/data            # grafana user
+cat > .env <<'EOF'
+# --- Public address (reverse proxy) ---
+PUBLIC_HOSTNAME=REPLACE_ME
+
+# --- Chat model provider ---
+OPENAI_API_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=REPLACE_ME
+ENABLE_OLLAMA_API=false
+
+# --- Document search (RAG) ---
+RAG_EMBEDDING_ENGINE=openai
+RAG_EMBEDDING_MODEL=text-embedding-3-small
+RAG_OPENAI_API_BASE_URL=https://api.openai.com/v1
+RAG_OPENAI_API_KEY=REPLACE_ME
+RAG_TOP_K=5
+RAG_RELEVANCE_THRESHOLD=0.30
+RAG_FILE_MAX_SIZE=50
+RAG_ALLOWED_FILE_EXTENSIONS=pdf,md,txt,docx
+
+# --- Security ---
+WEBUI_SECRET_KEY=REPLACE_ME
+ENABLE_PERSISTENT_CONFIG=true
+
+# --- Grafana (read by docker compose) ---
+GRAFANA_ADMIN_PASSWORD=REPLACE_ME
+
+# --- Alert email (A20; read by docker compose) ---
+ALERT_EMAIL=REPLACE_ME
+SMTP_HOST=REPLACE_ME
+SMTP_USER=REPLACE_ME
+SMTP_PASSWORD=REPLACE_ME
+# SMTP_FROM_ADDRESS=   optional; defaults to SMTP_USER
+EOF
+chmod 600 .env
 ```
 
-Create `/mnt/gcs/fin602` and decide whether it is local storage or a GCS FUSE
-mount before starting Docker. The 2026-10-17 VM inventory found it was not mounted;
-do not assume that files in this path are protected by a bucket. For a GCS-backed
-deployment, verify the bucket identity and mount before starting the stack.
+Generate the secret key automatically:
+
+```bash
+sed -i "s/^WEBUI_SECRET_KEY=.*/WEBUI_SECRET_KEY=$(openssl rand -hex 32)/" .env
+```
+
+Open the file (`nano .env`) and replace the remaining `REPLACE_ME` values:
+
+| Variable | What to put |
+|---|---|
+| `PUBLIC_HOSTNAME` | The hostname from [Prerequisites](#choose-a-hostname-and-open-the-firewall-gcp), e.g. `fin602.example.edu` (no `https://`, no trailing slash). Use `localhost` on your own machine |
+| `OPENAI_API_KEY` | Your OpenAI key (`sk-...`) |
+| `RAG_OPENAI_API_KEY` | The same key is fine |
+| `GRAFANA_ADMIN_PASSWORD` | A password you choose for Grafana's `admin` user. Save it in a password manager |
+| `ALERT_EMAIL` | The person Grafana alerts go to. A real, monitored address |
+| `SMTP_HOST` | The mail server Grafana sends alerts through, as `host:port`, e.g. `smtp.gmail.com:587` |
+| `SMTP_USER` | The SMTP login. For Gmail, the account address |
+| `SMTP_PASSWORD` | The SMTP password. For Gmail, an [app password](https://myaccount.google.com/apppasswords), not the account password |
+
+Check that nothing is left:
+
+```bash
+grep -n REPLACE_ME .env    # should print nothing
+```
+
+Do **not** add `QDRANT_URI`, `REDIS_URL`, `WEBSOCKET_REDIS_URL`, `VECTOR_DB`, `WEBUI_URL`,
+`CORS_ALLOW_ORIGIN` or the `OTEL_*` variables. `docker-compose.yml` already sets them.
+
+> **Important:** with `ENABLE_PERSISTENT_CONFIG=true`, most Open WebUI settings (connections,
+> document settings, the WebUI URL) are copied from `.env` into the database **on first start
+> only**. After that, editing `.env` does nothing for those settings; change them in the Admin
+> Panel instead.
+
+`.env` is already in `.gitignore`. Never commit it.
+
+<!-- TODO-A24 (P1): compare this template with the production .env (values redacted) and commit
+it as .env.example, so this step becomes "cp .env.example .env". -->
+
+### 2b. `grading_feature/.env` (grading dashboard)
+
+```bash
+cat > grading_feature/.env <<'EOF'
+OPENAI_API_KEY=REPLACE_ME
+OPENWEBUI_API_KEY=FILL_IN_AT_STEP_7
+EOF
+chmod 600 grading_feature/.env
+nano grading_feature/.env    # put your OpenAI key in OPENAI_API_KEY
+```
+
+Leave `OPENWEBUI_API_KEY` as it is for now. That key doesn't exist until you create an admin
+account, and you will come back to it in [step 7](#7-create-an-api-key-for-the-grading-backend).
+Details of the hosted grading service are in
+[`grading_feature/README.md`](grading_feature/README.md#hosted-docker).
+
+Note: the grading backend quietly switches to fake scores if `OPENAI_API_KEY` is empty. Make sure
+the key is filled in.
+
+Older versions of this guide used `grading_feature/backend/grading.env`. That file is no longer
+read.
+
+<!-- TODO-A24 (P2): confirm against grading_feature/README.md whether the hosted service also
+reads OPENAI_MODEL and MOCK_SCORER (the old grading.env had both) and add them here if so. -->
+
+### 2c. Instructor logins for the grading dashboard
+
+The proxy protects `/grading/` with one username and password per instructor.
+
+```bash
+cp proxy/grading_users.caddy.example proxy/grading_users.caddy
+docker compose run --rm --no-deps proxy caddy hash-password   # prompts for a password, prints a hash
+```
+
+The command prompts for the password, so it never reaches your shell history. Run it once per
+instructor, and add one line per instructor to `proxy/grading_users.caddy`:
+
+```
+<username> <bcrypt hash>
+```
+
+Then protect the file:
+
+```bash
+sudo chmod 600 proxy/grading_users.caddy
+```
+
+The file is in `.gitignore`. Without it the dashboard answers 401 to everyone, and the rest of the
+site still works.
+
+### 2d. Check the configuration before downloading anything
+
+```bash
+docker compose config --quiet && echo "Compose config OK"
+```
+
+You should see `Compose config OK`. This catches a missing `.env`, a missing `PUBLIC_HOSTNAME`,
+`GRAFANA_ADMIN_PASSWORD`, `ALERT_EMAIL` or `SMTP_*` value and YAML mistakes in seconds, before step 4 downloads several GB. It
+does **not** check whether your keys are valid; the `grep REPLACE_ME` check in 2a covers the
+placeholders.
+
+Always keep `--quiet`. Without it, the command prints the full configuration **including your
+secrets**, so never paste its output into chat, issues or pull requests.
 
 ---
 
-## 4. Start the Stack
+## 3. Prepare host directories
 
 ```bash
-docker compose up -d
+sudo mkdir -p /opt/openwebui/data /opt/qdrant/storage /mnt/gcs/fin602
 ```
 
-To check all containers came up healthy:
+- `/opt/openwebui/data` holds Open WebUI's database and app data.
+- `/opt/qdrant/storage` holds the document vectors.
+- `/mnt/gcs/fin602` holds uploaded files. For a new or test stack, the plain local directory
+  created above is all you need.
+
+Prometheus, Grafana, Redis, the grading dashboard and the proxy's certificates use Docker named
+volumes, so there is nothing to create for them.
+
+<!-- TODO-A24 (P1): document the production uploads storage. The 2026-10-17 inventory found
+/mnt/gcs/fin602 was a plain directory on the VM, not a GCS mount. State the decision here and,
+if it is a bucket, the exact mount steps. -->
+
+---
+
+## 4. Start the stack
+
+First check that nothing else on the VM is using ports 80 or 443 (other projects share some VMs):
+
+```bash
+sudo ss -ltnp '( sport = :80 or sport = :443 )'    # must list no listeners
+```
+
+Then start everything:
+
+```bash
+docker compose pull
+docker compose up -d --build
+```
+
+The first run downloads several GB of images and builds the local images (the grading dashboard
+and `metrics-exporter`). Expect 5–15 minutes.
+
+Check that everything is up:
 
 ```bash
 docker compose ps
-docker compose logs open-webui --tail 50
 ```
 
-OpenWebUI is available at `https://<PUBLIC_HOSTNAME>/` through the reverse proxy (§9). On first
-start it will prompt you to create an admin account. Port 3000 is bound to `127.0.0.1` on the VM;
-the proxy is the only public entry point.
+You should see these services with status `running` (or `Up`): `proxy`, `qdrant`, `redis`,
+`otel-collector`, `open-webui`, `grading`, `cadvisor`, `prometheus`, `pushgateway`,
+`metrics-exporter`, `grafana`. `open-webui` may show `health: starting` for the first minute or
+two while it creates its database.
+
+Then check Open WebUI directly on the VM:
+
+```bash
+curl -s http://localhost:3000/health
+```
+
+You should see `{"status":true}`. If you get nothing or an error, wait a minute and retry. If it
+still fails, look at the logs:
+
+```bash
+docker compose logs open-webui --tail 100
+```
+
+Finally, check that the proxy got its certificate (skip this on a workstation with
+`PUBLIC_HOSTNAME=localhost`):
+
+```bash
+docker compose logs -f proxy        # wait for "certificate obtained successfully", then Ctrl+C
+curl -s https://<PUBLIC_HOSTNAME>/ready
+```
+
+The `curl` should print `{"status":true}`. If the certificate never arrives, see
+[Common errors](#common-errors).
 
 ---
 
-## 5. Install the Chat Metrics Filter Function
+## 5. Create the admin account
 
-This step is required after every fresh deployment. The Filter Function is not auto-installed.
+1. Open `https://<PUBLIC_HOSTNAME>/` in your browser.
+2. Click **Get started** and sign up. **The first account created becomes the administrator.** Use
+   an email you control and save the password.
 
-1. Log into OpenWebUI as admin
-2. Navigate to **Workspace > Functions**
-3. Click **+** to create a new function
-4. Name: `Chat Metrics`
-5. Paste the contents of `monitoring/chat_metrics_filter.py`
-6. Click **Save**
-7. Toggle the **Global** switch to **ON**
-8. Click the gear icon → set `pushgateway_url` to `http://pushgateway:9091`
+<!-- SCREENSHOT: setup/05-first-signup.png | first-run sign-up page -->
+<!-- TODO-UI: confirm the first-run button and page wording on v0.11.4 -->
 
-Verify it is working:
+You should land on an empty chat page with a model selector at the top.
+
+---
+
+## 6. Send a test chat
+
+1. Open the model selector and choose `gpt-4o-mini` (any OpenAI model in the list works).
+2. Type `Hello` and send it.
+
+You should get a reply within a few seconds.
+
+<!-- SCREENSHOT: setup/06-model-picker.png | v0.11 model picker with OpenAI models listed -->
+<!-- TODO-UI: confirm where the model picker is in v0.11.4 (A11 says it moved) -->
+
+**If the model list is empty:** go to **Admin Panel → Settings → Connections** and check that
+the OpenAI connection is enabled and shows your key. You reach the Admin Panel by clicking your
+name or avatar in the bottom-left corner. <!-- TODO-UI -->
+
+**If the page loads but the reply never arrives:** see the WebSocket row in
+[Common errors](#common-errors).
+
+---
+
+## 7. Create an API key for the grading backend
+
+The grading dashboard and the knowledge-base sync tool talk to Open WebUI through its API.
+
+1. Allow API keys: **Admin Panel → Settings → General → Enable API Keys** → on → **Save**.
+   <!-- TODO-UI: confirm the toggle name and location on v0.11.4 -->
+2. Create a key: click your name (bottom-left) → **Settings → Account → API keys → Create new
+   key**. Copy the key; it starts with `sk-`. <!-- TODO-UI -->
+
+<!-- SCREENSHOT: setup/07-api-key.png | Settings > Account > API keys, key blurred -->
+
+3. Put it in the grading dashboard's config. Open `grading_feature/.env`, replace
+   `FILL_IN_AT_STEP_7` with the key, then recreate the container so it reads the new value:
+
+```bash
+docker compose up -d grading      # "restart" does NOT re-read env files; use "up -d"
+curl -s -o /dev/null -w '%{http_code}\n' -u <instructor-user> https://<PUBLIC_HOSTNAME>/grading/api/health
+```
+
+`curl` asks for the instructor password from step 2c, and should print `200`.
+
+This key has your admin account's permissions. Keep it private.
+
+---
+
+## 8. Install the Chat Metrics filter
+
+**Why this is a manual step:** Open WebUI's built-in OpenTelemetry export (already running) does
+not provide all the chat metrics we need, so the team kept our own filter. See
+<!-- TODO-A19: link to the A19 justification paragraph --> the A19 decision for exactly which
+metrics. Open WebUI has no documented way to install a filter from the command line, so it is
+pasted in through the admin screens.
+
+**When to do it:** once on every new deployment. The filter is stored in Open WebUI's
+database, so it survives restarts and upgrades of the same data. Redo it whenever you start from
+an empty database. <!-- TODO-A24: confirm on v0.11.4 that the filter survives an upgrade -->
+
+1. Go to **Admin Panel → Functions**. <!-- TODO-UI: older guides say "Workspace > Functions";
+   confirm the v0.11.4 location -->
+2. Click **+** (new function).
+3. Delete the example code, then paste the **entire** contents of
+   `monitoring/chat_metrics_filter.py`. To print the file on the VM:
+   `cat monitoring/chat_metrics_filter.py`.
+4. Give it the name `Chat Metrics`, then click **Save**.
+5. Back in the Functions list, switch **Chat Metrics** on, then open its **⋯** menu and turn
+   **Global** on, so it runs for every model and every user. <!-- TODO-UI -->
+6. Click the gear icon next to it (**Valves**) and check that `pushgateway_url` is
+   `http://pushgateway:9091` (this is the default). Click **Save**. <!-- TODO-UI -->
+
+<!-- SCREENSHOT: setup/08-functions-list.png | Chat Metrics enabled and Global on -->
+<!-- SCREENSHOT: setup/08-valves.png | Valves with pushgateway_url -->
+
+**Check that it works:** send one chat message (as in step 6), then on the VM run:
+
 ```bash
 curl -s http://localhost:9091/metrics | grep openwebui_chat
 ```
-(metrics appear after the first chat message is sent)
+
+You should see lines starting with `openwebui_chat`. Nothing appears until at least one chat
+message has been sent after the filter was enabled.
 
 ---
 
-## 6. Load Knowledge Base Documents
+## 9. Load the course documents (knowledge base)
 
-Use the KB Sync tool to load course documents into the OpenWebUI knowledge base:
+### 9a. Create the knowledge base in the browser
+
+1. Go to **Workspace → Knowledge → +** (new knowledge). Give it a name, for example
+   `FIN602 Client Data`. <!-- TODO-UI -->
+2. Upload files by dragging them onto the page. Wait until each file finishes processing.
+3. Note the knowledge base's ID: it is the last part of the page address, after
+   `/workspace/knowledge/`. You only need it for the sync tool in 9b. <!-- TODO-UI -->
+
+<!-- SCREENSHOT: setup/09-knowledge-upload.png -->
+
+### 9b. Bulk upload with the sync tool (optional)
+
+For many files, use the command-line tool instead of dragging:
 
 ```bash
 cd tools/kb_sync
-cp .env.example .env
-# set OPENWEBUI_BASE_URL, OPENWEBUI_API_KEY, OPENWEBUI_KB_ID in .env
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python sync_kb.py list                         # verify connection
-python sync_kb.py sync ./path/to/documents/   # bulk upload
+cp .env.example .env
+nano .env
 ```
 
-Alternatively, upload files directly via the OpenWebUI UI: **Workspace > Knowledge > drag-and-drop**.
+Set the three values in `tools/kb_sync/.env`:
+
+| Variable | Value |
+|---|---|
+| `OPENWEBUI_BASE_URL` | `http://localhost:3000` if you run the tool on the VM, or `https://<PUBLIC_HOSTNAME>` from your laptop. **The example file points at the production server; change it, or you will upload into production** |
+| `OPENWEBUI_API_KEY` | The key from step 7 |
+| `OPENWEBUI_KB_ID` | The ID from step 9a |
+
+```bash
+python sync_kb.py list                                  # should list the KB's files
+python sync_kb.py sync ./path/to/documents/ --dry-run   # shows what would change
+python sync_kb.py sync ./path/to/documents/             # does it
+deactivate && cd ../..
+```
+
+### 9c. Check that document search works
+
+Attach the knowledge base to a model: **Workspace → Models → (edit or create a model) →
+Knowledge → select your knowledge base → Save**. <!-- TODO-UI --> Then start a new chat with that
+model and ask a question that only the uploaded documents can answer. The answer should use the
+document, and a source citation should appear under the reply.
+
+The course's role-play "client" models (system prompts and attached documents) are set up by the
+professor; see the professor guide. <!-- TODO-A24: link the rewritten professor guide -->
 
 ---
 
-## 7. Grafana and Alerting
+## 10. Grafana and alerting
 
-Grafana is at `https://<PUBLIC_HOSTNAME>/grafana/`. Log in as `admin` with
-`GRAFANA_ADMIN_PASSWORD`. That variable is applied only when Grafana's database is first created;
-to change the password of an existing install, see §9.
-The Prometheus data source, the dashboards, the alert rules and the alert email are all
-provisioned from `monitoring/grafana/provisioning/` at startup. There is nothing to click.
-Change alerts by editing those files, not the Grafana UI (provisioned rules are read-only there).
+1. Open `https://<PUBLIC_HOSTNAME>/grafana/` and log in as `admin` with the
+   `GRAFANA_ADMIN_PASSWORD` from your `.env`.
+2. Go to **Dashboards → FamilyFinanceChat → Open WebUI OpenTelemetry**.
 
-**Grafana alert rules** (`monitoring/grafana/provisioning/alerting/rules.yml`), emailed to `ALERT_EMAIL`:
+The Prometheus data source, the dashboards, the alert rules and the alert email are all created
+automatically from `monitoring/grafana/provisioning/` at startup. There is nothing to click. The
+panels (requests per second, 95th percentile response time) fill in within about a minute of
+using the chat.
+
+<!-- SCREENSHOT: setup/10-grafana-dashboard.png -->
+
+To check that Prometheus is collecting from every source, run this on the VM:
+
+```bash
+curl -s http://localhost:9090/api/v1/targets | grep -o '"health":"[a-z]*"' | sort | uniq -c
+```
+
+Every target should be `"health":"up"`.
+
+### Alerts (A20)
+
+Grafana emails `ALERT_EMAIL` when one of these rules (in
+`monitoring/grafana/provisioning/alerting/rules.yml`) fires:
 
 | Rule | Fires when |
 |---|---|
 | Open WebUI memory above 80% of its limit | the `open-webui` container stays above 80% of its 10 GB limit for 10 minutes, or the memory metric disappears |
 | Chat completion error rate above 5% | more than 5% of `/api/chat/completions` requests return 400 or 5xx over 10 minutes (at least 5 requests), for 5 minutes |
 
+Change alerts by editing those files, not the Grafana UI; provisioned rules are read-only there.
+
 The error-rate rule cannot see model-provider failures in web-UI chats: Open WebUI processes
-those in a background task and reports the error over the websocket after the HTTP request has
+those in a background task and reports the error over the WebSocket after the HTTP request has
 already returned 200. See `HANDOFF.md`.
 
-**External uptime check (one-time, per GCP project).** Grafana runs on the same VM it watches,
-so it cannot report the VM going down. A GCP uptime check against Open WebUI's `/ready` (200 only
-when the database and Redis are both up) covers that. Create it from a machine with `gcloud`
-authenticated to the project:
+**Check that email works:** in Grafana, go to **Alerting → Contact points → `on-call-email` →
+Test**. <!-- TODO-UI --> A test email should reach `ALERT_EMAIL` within a minute or two.
+
+### External uptime check (once per GCP project)
+
+Grafana runs on the same VM it watches, so it cannot report the VM going down. A GCP uptime check
+against Open WebUI's `/ready` (which returns 200 only when the database and Redis are both up)
+covers that. Create it from a machine with `gcloud` signed in to the project:
 
 ```bash
-GCP_PROJECT=<project-id> UPTIME_HOST=<PUBLIC_HOSTNAME> ALERT_EMAIL=<person> \
+GCP_PROJECT=<PROJECT_ID> UPTIME_HOST=<PUBLIC_HOSTNAME> ALERT_EMAIL=<person> \
   bash scripts/gcp_uptime_alert.sh
 ```
 
-It is safe to re-run. It checks `https://<PUBLIC_HOSTNAME>:443/ready` through the Caddy reverse
-proxy (port `3000` is bound to `127.0.0.1`, so opening port `3000` in the firewall will not make
-it reachable). Ensure ports `80`/`443` are open to `gcloud monitoring uptime list-ips`.
+It is safe to re-run. It checks `https://<PUBLIC_HOSTNAME>:443/ready` through the reverse proxy,
+so ports 80 and 443 must be open to the addresses listed by `gcloud monitoring uptime list-ips`
+(the firewall step in [Prerequisites](#choose-a-hostname-and-open-the-firewall-gcp) already
+allows them). Opening port 3000 would not help: it is bound to `127.0.0.1`.
 
-**Acceptance test.** Run after any change to alerting, and once per semester:
+**Acceptance test.** Run it after any change to alerting, and once per semester:
 
 ```bash
 docker compose stop redis      # /ready starts returning 503
@@ -183,41 +563,118 @@ docker compose stop redis      # /ready starts returning 503
 docker compose start redis     # the incident closes; GCP sends a recovery email
 ```
 
-To check Grafana email delivery without waiting for a real incident: Alerting > Contact points >
-`on-call-email` > Test.
+Students can't chat while Redis is stopped, so do this outside class hours.
+
+### Grafana password
+
+**Forgot the Grafana password?** Changing `GRAFANA_ADMIN_PASSWORD` later has no effect, because
+it is only applied the first time Grafana starts. Reset it instead. This reads the new password
+from the keyboard, so it stays out of your shell history:
+
+```bash
+read -rs GF_PW && printf '%s\n' "$GF_PW" | \
+  docker compose exec -T grafana grafana-cli admin reset-admin-password --password-from-stdin
+unset GF_PW
+```
 
 ---
 
-## 8. Running the Grading Dashboard
+## 11. Grading dashboard
 
-**Hosted (on the VM).** `docker compose up -d` also starts the `grading` service. Instructors
-open `https://<PUBLIC_HOSTNAME>/grading/` and sign in with the account the proxy holds for them
-(§9). The container publishes no host port; the proxy is its only way in. Put
-`OPENWEBUI_API_KEY` and `OPENAI_API_KEY` in `grading_feature/.env` on the VM. Details:
-[`grading_feature/README.md`](grading_feature/README.md#hosted-docker).
+The `grading` service started with the rest of the stack in step 4. It has no port of its own;
+the proxy is the only way in.
 
-*If the VM ran A14's `grading-api` container:* move its keys from
-`grading_feature/backend/grading.env` into `grading_feature/.env` (that file is no longer read),
-then remove the leftover container and volume — `docker compose up -d --remove-orphans`, and
-`docker volume rm <project>_grading-data` (`docker volume ls` shows the exact name). The
-`grading` service uses a new volume, `grading-dashboard-data`, so the old root-owned one is not
-needed.
+1. Open `https://<PUBLIC_HOSTNAME>/grading/` and sign in with an instructor login from step 2c.
+2. Click **Refresh** to pull the latest chats from Open WebUI.
 
-**Local development.** Runs on a developer workstation and connects to the production VM.
+**Refresh costs money:** it scores student questions through the OpenAI API and can take several
+minutes on a full class. Click it once and wait.
+
+<!-- SCREENSHOT: grading/home.png and grading/refresh.png (re-shoot; current ones are pre-v0.11) -->
+
+**VM that ran the old `grading-api` container (A14):** move its keys from
+`grading_feature/backend/grading.env` into `grading_feature/.env` (the old file is no longer
+read), then remove the leftover container and volume:
+
+```bash
+docker compose up -d --remove-orphans
+docker volume ls                              # find the exact name of the old grading-data volume
+docker volume rm <project>_grading-data
+```
+
+The `grading` service uses a new volume, `grading-dashboard-data`, so the old root-owned one is
+not needed.
+
+### Developers: running the dashboard on your laptop
+
+<!-- TODO-A24: consider moving this subsection to grading_feature/README.md. -->
+
+This runs the dashboard on your own machine and connects it to a deployed Open WebUI. It uses its
+own `grading_feature/.env` **on your laptop**, separate from the one on the VM.
+
+1. Install Python 3.10+, and Node.js **exactly v20.19.5** with npm **exactly 10.8.2**.
+   `run_app.sh` refuses other versions. The easiest way is [nvm](https://github.com/nvm-sh/nvm):
+   `nvm install 20.19.5 && nvm use 20.19.5`, then check with `node --version` and `npm --version`.
+2. Configure it:
 
 ```bash
 cd grading_feature
 cp .env.example .env
-# set OPENWEBUI_BASE_URL (the production VM URL), OPENWEBUI_API_KEY, DATA_PATH, OUTPUT_PATH
+nano .env
+```
+
+| Variable | Value |
+|---|---|
+| `OPENWEBUI_BASE_URL` | `https://<PUBLIC_HOSTNAME>` |
+| `OPENWEBUI_API_KEY` | Uncomment the line and paste the key from step 7 |
+| `OUTPUT_PATH` and `DATA_PATH` | The same file path on your laptop, for example `/home/you/ffc-data/chats.json` (the folder must exist) |
+| `OPENAI_API_KEY` | Add this line with your OpenAI key; it is used for scoring |
+
+3. Start it:
+
+```bash
 ./run_app.sh
 ```
 
-The dashboard will be available at `http://localhost:5173` (the Vite dev server, which forwards
-`/api` calls to the backend on port 9500). Click **Refresh** to pull the latest chat data from the VM.
+The backend starts on port 9500 and the frontend dev server starts after it. Open the address
+the frontend prints (normally `http://localhost:5173`); it forwards `/api` calls to the backend.
+Then click **Refresh** (same cost warning as above).
 
 ---
 
-## 9. Reverse Proxy, TLS, and Authentication (A16)
+## You're done when
+
+- [ ] `docker compose ps` shows every service from step 4 running
+- [ ] `curl -sI http://<PUBLIC_HOSTNAME>/ | head -1` shows a 308 redirect, and
+      `https://<PUBLIC_HOSTNAME>/` opens in a browser with no certificate warning
+- [ ] A chat message gets a reply (step 6)
+- [ ] A question about an uploaded document gets an answer with a citation (step 9c)
+- [ ] `curl -s http://localhost:9091/metrics | grep openwebui_chat` prints lines (step 8)
+- [ ] Grafana's **Open WebUI OpenTelemetry** dashboard shows data (step 10)
+- [ ] The Grafana contact-point test email reaches `ALERT_EMAIL`, and the GCP uptime check
+      exists (step 10)
+- [ ] `https://<PUBLIC_HOSTNAME>/grading/` asks for a password, and an instructor login works
+      (steps 7 and 11)
+
+---
+
+## Day-to-day commands
+
+```bash
+docker compose ps                         # what is running
+docker compose logs <service> --tail 100  # recent logs, e.g. open-webui or proxy
+docker compose up -d <service>            # apply a changed config/env file to one service
+docker compose down                       # stop everything (data is kept)
+docker compose up -d                      # start everything again
+docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile   # apply edited instructor logins, no downtime
+```
+
+**Never run `docker compose down -v` on a real deployment.** `-v` deletes the named volumes
+(Redis, Prometheus, Grafana and grading data, and the proxy's certificates).
+
+---
+
+## Reverse proxy reference (A16)
 
 The `proxy` service (Caddy, configuration in [`proxy/Caddyfile`](proxy/Caddyfile)) is the only
 container published beyond `127.0.0.1`. It terminates TLS and routes by path:
@@ -229,61 +686,11 @@ container published beyond `127.0.0.1`. It terminates TLS and routes by path:
 | `https://<PUBLIC_HOSTNAME>/grafana/` | Grafana | Maintainers, with Grafana's own login |
 
 Prometheus, cAdvisor, the metrics exporter and the OTel collector are not routed: they have no
-login. Reach them over SSH (`ssh -L 9090:localhost:9090 ...`).
+login. Reach them over SSH (see [Prerequisites](#choose-a-hostname-and-open-the-firewall-gcp)).
 
 Open WebUI extension surface: reverse-proxy composition (policy A9). The only Open WebUI
 settings involved are `WEBUI_URL` and `CORS_ALLOW_ORIGIN`, both documented environment
 variables. Nothing here needs to change on the next upstream release.
-
-### First-time setup on the VM
-
-1. **Hostname.** Choose `PUBLIC_HOSTNAME` and create a DNS `A` record pointing it at the VM's
-   external IP. Use a reserved (static) external IP so the record does not go stale when the
-   VM restarts. If no university DNS name is available yet, `<external-ip>.sslip.io` resolves to
-   that IP with no setup and Let's Encrypt issues certificates for it. Treat it as temporary:
-   the URL changes if the IP does.
-2. **Firewall.** Open TCP 80 and 443 (and UDP 443 for HTTP/3) to the VM. Port 80 is required:
-   Let's Encrypt validates over it, and Caddy redirects it to HTTPS.
-
-   ```bash
-   gcloud compute instances add-tags qasap-vm01 --tags=http-server,https-server \
-     --zone us-east4-c --project wsb-hc-qasap-ae2e
-   ```
-
-   The `http-server` and `https-server` tags only open ports if the project has the default
-   `default-allow-http` and `default-allow-https` firewall rules. Check with
-   `gcloud compute firewall-rules list`. Then remove any firewall rule that opened 3000, 3001,
-   8080, 9090 or 8001 to the internet; those ports are now bound to localhost anyway.
-3. **Nothing else on 80/443.** `sudo ss -ltnp '( sport = :80 or sport = :443 )'` must print
-   no listener before you start the proxy. Other projects share this VM.
-4. **Environment.** In the root `.env`: `PUBLIC_HOSTNAME=<name>`, and `GRAFANA_ADMIN_PASSWORD`
-   if it is not already there.
-5. **Instructor accounts.** `cp proxy/grading_users.caddy.example proxy/grading_users.caddy`,
-   then add one line per instructor (`<username> <bcrypt hash>`). Generate each hash with the
-   command below, which prompts for the password, so it never reaches shell history:
-
-   ```bash
-   docker compose run --rm proxy caddy hash-password
-   ```
-
-   Then `sudo chmod 600 proxy/grading_users.caddy`. The file is gitignored. Without it the
-   dashboard answers 401 to everyone, and the rest of the site still works.
-6. **Start.** `docker compose up -d`. Caddy obtains the certificate within a minute; watch
-   `docker compose logs -f proxy` for `certificate obtained successfully`.
-7. **Existing install only: Open WebUI's stored URL.** `WEBUI_URL` is saved in Open WebUI's
-   database on first start, so the compose value does not replace an existing one. Set
-   Admin Panel → Settings → General → WebUI URL to `https://<PUBLIC_HOSTNAME>`.
-8. **Existing install only: Grafana password.** `GRAFANA_ADMIN_PASSWORD` only applies to a new
-   Grafana database; production's Grafana still accepted `admin`/`admin` in October 2026.
-   Reset it (the password is read from stdin, not the command line):
-
-   ```bash
-   read -rs GF_PW && printf '%s\n' "$GF_PW" | \
-     docker compose exec -T grafana grafana-cli admin reset-admin-password --password-from-stdin
-   unset GF_PW
-   ```
-
-   Then check that `admin`/`admin` is refused at `https://<PUBLIC_HOSTNAME>/grafana/login`.
 
 ### Checks after any change
 
@@ -299,21 +706,31 @@ curl -s -o /dev/null -w '%{http_code}\n' https://$H/grafana/login     # 200
 Then open the site in a browser and send one chat message. Chat replies stream over a WebSocket
 through the proxy, and a failure there only shows up in a browser.
 
-### Day-to-day operations
+### Operations
 
-- **Add, remove or change an instructor:** edit `proxy/grading_users.caddy`, then apply it with
-  no downtime: `docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile`.
+- **Add, remove or change an instructor:** edit `proxy/grading_users.caddy` (step 2c), then apply
+  it with no downtime: `docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile`.
 - **Certificates** renew automatically. They live in the `caddy-data` volume; do not delete it,
   or every recreate requests a new certificate and can hit Let's Encrypt's rate limits.
 - **Recovery route if the proxy is down:** `ssh -L 3000:localhost:3000 <user>@<vm>` and open
   `http://localhost:3000` (Open WebUI), or forward 3001 and open `http://localhost:3001/grafana/`.
   The grading dashboard has no such route, because it is built for `/grading/` behind the proxy.
 
-### Cutting over from the old URLs
+### Moving an existing install behind the proxy
 
-Students who bookmarked `http://<VM-IP>:3000` lose access when this lands, because that port
-becomes localhost-only. Announce the new URL first, and deploy outside a week with a student
-deadline. Open WebUI accounts, chats and sessions are unaffected: same container, same data.
+Only for a VM that ran the stack before A16:
+
+1. **Open WebUI's stored URL.** `WEBUI_URL` is saved in Open WebUI's database on first start, so
+   the compose value does not replace an existing one. Set **Admin Panel → Settings → General →
+   WebUI URL** to `https://<PUBLIC_HOSTNAME>`. <!-- TODO-UI -->
+2. **Grafana password.** `GRAFANA_ADMIN_PASSWORD` only applies to a new Grafana database;
+   production's Grafana still accepted `admin`/`admin` in October 2026. Reset it with the command
+   in [step 10](#grafana-password), then check that `admin`/`admin` is refused at
+   `https://<PUBLIC_HOSTNAME>/grafana/login`.
+3. **Cut-over.** Students who bookmarked `http://<VM-IP>:3000` lose access when this lands,
+   because that port becomes localhost-only. Announce the new URL first, and deploy outside a
+   week with a student deadline. Open WebUI accounts, chats and sessions are unaffected: same
+   container, same data.
 
 ### Single sign-on
 
@@ -330,23 +747,61 @@ is the documented fallback. When a client registration exists:
 
 ---
 
-## Common Errors
+## Common errors
 
-| Error | Likely Cause | Fix |
+| What you see | Likely cause | Fix |
 |---|---|---|
-| `open-webui` exits immediately | Missing or invalid `OPENAI_API_KEY` or `WEBUI_SECRET_KEY` | Check `.env` values |
-| Qdrant connection refused | `/opt/qdrant/storage` doesn't exist or wrong permissions | Create the directory; check Qdrant logs |
-| Chat metrics missing in Grafana | Filter Function not installed or not enabled globally | Re-do step 5 |
-| Grafana shows "No data" | No chat messages sent yet, or Prometheus is not scraping `otel-collector` | Send a test chat; check Prometheus > Status > Targets |
-| `docker compose up` fails with `Set ALERT_EMAIL...` or `Set SMTP_...` | Alerting variables missing from `.env` | Add them (section 2) |
-| Grafana alert email never arrives | Wrong SMTP settings (Gmail needs an app password) | `docker logs grafana \| grep -i smtp`; use the contact point Test button |
-| Grading dashboard `/refresh` returns 401 | `OPENWEBUI_API_KEY` invalid or expired | Generate a new API key in OpenWebUI Settings > Account |
-| `docker compose up` fails with port conflict | Port 80 or 443 (proxy), or 3000, 3001, 8080, 9090 on localhost, in use | Stop conflicting services or change the host port mappings |
-| `required variable PUBLIC_HOSTNAME is missing` | Root `.env` has no `PUBLIC_HOSTNAME` | Add it (§9); use `localhost` on a workstation |
-| Browser warns the certificate is invalid; proxy log shows ACME errors | DNS does not point at the VM yet, or port 80 is blocked | Fix the `A` record or firewall (§9), then `docker compose restart proxy` |
-| `/grading/` keeps asking for a password | No `proxy/grading_users.caddy`, a wrong hash, or the proxy was not reloaded | Re-create the line with `caddy hash-password`, then reload (§9) |
+| `required variable PUBLIC_HOSTNAME is missing` | Root `.env` has no `PUBLIC_HOSTNAME` | Add it (step 2a); use `localhost` on a workstation |
+| `docker compose up` says `Set GRAFANA_ADMIN_PASSWORD` | Missing from `.env` | Add `GRAFANA_ADMIN_PASSWORD=...` to `.env` (step 2a) |
+| `docker compose up` says `Set ALERT_EMAIL...` or `Set SMTP_...` | Alert email variables missing from `.env` | Add them (step 2a) |
+| `cp: cannot stat '.env.staging.example'` | Old instructions; that file doesn't exist | Use the template in step 2a |
+| `permission denied ... docker.sock` | Your user isn't in the `docker` group | `sudo usermod -aG docker "$USER"`, then log out and in |
+| `no space left on device` while pulling | Images need several GB | Free space (`docker image prune` removes unused images; check first with `docker images`), or enlarge the disk |
+| Browser can't reach `https://<PUBLIC_HOSTNAME>` at all | DNS not pointing at the VM, ports 80/443 blocked, or `proxy` not running | Check the `A` record and firewall ([Prerequisites](#choose-a-hostname-and-open-the-firewall-gcp)) and `docker compose ps` |
+| Browser warns the certificate is invalid; proxy log shows ACME errors | DNS does not point at the VM yet, or port 80 is blocked | Fix the `A` record or firewall, then `docker compose restart proxy` |
+| `open-webui` keeps restarting | Bad or missing `OPENAI_API_KEY` / `WEBUI_SECRET_KEY` | Check `.env`, then `docker compose logs open-webui --tail 100` |
+| Qdrant connection refused | `/opt/qdrant/storage` doesn't exist or has wrong permissions | Create the directory (step 3); check `docker compose logs qdrant` |
+| Model list is empty | OpenAI connection off or key wrong | **Admin Panel → Settings → Connections** (step 6) |
 | Chat page loads but replies never arrive | The WebSocket is blocked, or the page's origin is not in `CORS_ALLOW_ORIGIN` | Use the `https://<PUBLIC_HOSTNAME>` URL; check `docker compose logs open-webui` for `is not an accepted origin` |
-| Chat hangs after 7+ messages | Known OpenWebUI bug | Start a new chat session as a workaround |
+| Changed `.env` but Open WebUI behaves the same | Persistent config: `.env` only applies on first start | Change the setting in the Admin Panel instead |
+| Changed `grading_feature/.env` but nothing changed | `docker compose restart` doesn't re-read env files | `docker compose up -d grading` |
+| Uploading a document fails or search returns nothing | `RAG_EMBEDDING_ENGINE` not `openai`, or bad `RAG_OPENAI_API_KEY` | Fix in **Admin Panel → Settings → Documents** (persistent config) |
+| No `openwebui_chat` lines from the Pushgateway | Filter not installed, not enabled, not Global, or no chat sent yet | Redo step 8 and send a message |
+| `curl localhost:9091` refused | `pushgateway` service not running | `docker compose ps`; if it's not listed, your checkout predates the A19 change; pull the latest `main` |
+| Grafana shows "No data" | No chat traffic yet, or a Prometheus target is down | Send a chat; run the targets check in step 10 |
+| Can't log into Grafana | Password set on first start only | Reset it (step 10) |
+| Grafana alert email never arrives | Wrong SMTP settings (Gmail needs an app password) | `docker compose logs grafana \| grep -i smtp`; then use the contact point **Test** button (step 10) |
+| `/grading/` keeps asking for a password | No `proxy/grading_users.caddy`, a wrong hash, or the proxy was not reloaded | Re-create the line with `caddy hash-password` (step 2c), then reload the proxy |
+| Grading scores look generic or identical for every question | Mock scoring: `OPENAI_API_KEY` empty in the grading config | Set a real key in `grading_feature/.env`, then `docker compose up -d grading` (or restart `run_app.sh`) |
+| Grading **Refresh** fails with 401 after you have signed in | Open WebUI API key wrong, expired, or API keys disabled | Redo step 7 |
+| `run_app.sh` says the npm or Node version is wrong | Exact versions are required | `nvm install 20.19.5 && nvm use 20.19.5` |
+| `docker compose up` fails with "port is already allocated" | Something else uses 80 or 443 (proxy), or 3000, 3001, 8001, 8080, 8889, 9090 or 9091 on localhost | Stop the other program, or change the host port in `docker-compose.yml` |
+| Chat hangs after 7+ messages | Known Open WebUI bug in earlier versions | Start a new chat. <!-- TODO-A24: re-test on v0.11.4; delete this row if fixed --> |
+
+<!-- TODO-A24: add every stuck point from task 0.6 that isn't covered above. -->
+
+---
+
+## Upgrading Open WebUI
+
+The short version of a safe upgrade:
+
+1. **Back up** the database and data (`scripts/backup.sh`; see `docs/backup/backup-restore.md`).
+2. **Free disk space** for the new image (`df -h /`). You need room for the old and the new image
+   at the same time.
+3. **Keep the old image** for rollback. Don't prune it until the new version is accepted.
+4. Pull the new image, **stop** `open-webui`, change the `image:` tag in `docker-compose.yml`,
+   and **start** it again (`docker compose up -d open-webui`).
+5. **Test:** old chats and users are still there, a new chat works, document search works,
+   metrics still arrive, and the grading dashboard can still extract chats.
+
+Upgrade one minor version at a time. Some migrations are **one-way** (v0.10 changes the config
+table), so going back means restoring the backup, not just switching the image. For production,
+follow the full [A13 production upgrade runbook](#a13-production-upgrade-runbook-preparation)
+below.
+
+<!-- TODO-A24 (P1): this runbook is long for a setup guide. Consider moving it to
+docs/runbooks/upgrade.md. If moved, update the anchor link in HANDOFF.md. -->
 
 ---
 
@@ -969,9 +1424,3 @@ The mock tests validate both authentication paths and failure handling. CI addit
 runs the existing blank-data integration stack. Neither constitutes a restored-data
 rehearsal or production acceptance. No Open WebUI core files are modified: the
 extension surfaces are the public REST API and deployment configuration.
-
-### What to add next
-
-1. **Post-deploy Filter Function check** — after deploying, curl the Pushgateway and assert `openwebui_chat_completion_seconds` appears after a synthetic chat request. Automates the manual step 5 above.
-2. **Grading dashboard smoke test** — `pip install -r requirements.txt && python -m pytest` for the backend once tests are written.
-3. **Dependency pinning** — `qdrant:latest` and `cadvisor:latest` in `docker-compose.yml` are unpinned. Pin to specific versions so upgrades are explicit and tested.
