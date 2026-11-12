@@ -1,0 +1,22 @@
+# CI-only OpenAI-compatible provider. Compose this over docker-compose.test.yml.
+services:
+  open-webui-test:
+    environment:
+      OPENAI_API_BASE_URL: http://mock-openai-test:8080/v1
+      RAG_OPENAI_API_BASE_URL: http://mock-openai-test:8080/v1
+      OPENAI_API_KEY: ci-only-key
+      RAG_OPENAI_API_KEY: ci-only-key
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_EMBEDDING_MODEL: text-embedding-3-small
+
+  mock-openai-test:
+    image: python:3.12-alpine
+    command: ["python", "/srv/mock_openai.py"]
+    networks: [ai-net-test]
+    volumes:
+      - ./scripts/mock_openai.py:/srv/mock_openai.py:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pathlib import Path
 from pydantic import BaseModel
 from typing import Any
 from logger import logging
@@ -28,6 +30,12 @@ from contextlib import asynccontextmanager
 logger = logging.getLogger("professor_dashboard")
 
 DATA_PATH = os.getenv("DATA_PATH")
+# Built frontend (Vite dist/). When set, this service also serves the dashboard itself.
+STATIC_DIR = os.getenv("STATIC_DIR")
+# Comma-separated origins allowed to call the API cross-origin. Unset by default: the hosted
+# build and the Vite dev proxy are both same-origin, so CORS is only needed when the frontend
+# is built with VITE_API_BASE_URL pointing here from somewhere else.
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 
 
 @asynccontextmanager
@@ -38,13 +46,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Professor Dashboard", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # allow all origins for now
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 class RefreshJobManager:
@@ -361,13 +369,12 @@ async def student_feedback_dashboard(user_id: str = "all", useAbi: bool = True):
 async def student_feedback(user_id: str, useAbi: bool = True):
     return await student_feedback_dashboard(user_id=user_id, useAbi=useAbi)
 
-
-@app.get("/users")
+@app.get("/api/users")
 def get_all_users():
     return load_data()
 
 
-@app.get("/user/{user_id}")
+@app.get("/api/user/{user_id}")
 def get_user(user_id):
     data = load_data()
 
@@ -375,7 +382,6 @@ def get_user(user_id):
         if user['user_id'] == user_id:
             return user
     return {"error": "User not found"}
-
 
 @app.get("/refresh/status")
 @app.get("/api/refresh/status")
@@ -397,6 +403,7 @@ async def trigger_refresh_job():
 
 
 @app.get("/refresh")
+@app.get("/api/refresh")
 async def refresh_endpoint(sync: bool = Query(False, description="Run synchronously for legacy callers")):
     if sync:
         try:
@@ -443,3 +450,20 @@ async def refresh_endpoint(sync: bool = Query(False, description="Run synchronou
             "progress": job.get("progress"),
         },
     )
+
+
+# Registered last so every /api route above takes precedence.
+if STATIC_DIR:
+    static_root = Path(STATIC_DIR).resolve()
+    index_file = static_root / "index.html"
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_frontend(full_path: str):
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail={"error": "Not found"})
+
+        candidate = (static_root / full_path).resolve()
+        if candidate.is_file() and candidate.is_relative_to(static_root):
+            return FileResponse(candidate)
+        # Anything else is a client-side route (e.g. /user/<id>); the React router handles it.
+        return FileResponse(index_file)

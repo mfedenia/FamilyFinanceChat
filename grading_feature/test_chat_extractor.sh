@@ -155,7 +155,7 @@ echo "==> OUTPUT_PATH: $OUTPUT_PATH"
 ls -l "$OUTPUT_PATH"
 
 if [[ "$RUN_API_TEST" != "1" ]]; then
-  echo "Skipping /refresh API test (RUN_API_TEST=$RUN_API_TEST)."
+  echo "Skipping /api/refresh API test (RUN_API_TEST=$RUN_API_TEST)."
   echo "PASS"
   exit 0
 fi
@@ -163,7 +163,7 @@ fi
 TEST_PORT="$(find_free_port)"
 echo "==> Using free refresh test port: $TEST_PORT"
 
-echo "==> Starting API and testing /refresh"
+echo "==> Starting API and testing /api/refresh"
 TEST_TMPDIR="$(make_temp_dir)"
 API_LOG="$TEST_TMPDIR/grading_refresh_api.log"
 REFRESH_BODY="$TEST_TMPDIR/grading_refresh_response.json"
@@ -191,13 +191,13 @@ if ! kill -0 "$API_PID" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "==> Testing asynchronous /refresh and /refresh/status"
+echo "==> Testing asynchronous /api/refresh and /api/refresh/status"
 STATUS_BODY="$TEST_TMPDIR/grading_status_response.json"
 
-HTTP_CODE="$(curl -sS -o "$REFRESH_BODY" -w "%{http_code}" -X POST "http://127.0.0.1:${TEST_PORT}/refresh")"
+HTTP_CODE="$(curl -sS -o "$REFRESH_BODY" -w "%{http_code}" -X POST "http://127.0.0.1:${TEST_PORT}/api/refresh")"
 
 if [[ "$HTTP_CODE" != "202" ]]; then
-  echo "ERROR: POST /refresh returned HTTP $HTTP_CODE (expected 202)"
+  echo "ERROR: POST /api/refresh returned HTTP $HTTP_CODE (expected 202)"
   echo "Response:"
   cat "$REFRESH_BODY"
   echo

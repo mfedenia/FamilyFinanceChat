@@ -6,6 +6,53 @@ This document is what we wish we had when we started. Read it before touching an
 
 ---
 
+## Fall 2026 update: A13 preparation (2026-10-20)
+
+The [A13 production upgrade runbook](SETUP.md#a13-production-upgrade-runbook-preparation)
+is prepared for review. It targets the existing production Compose setting v0.11.4;
+the actual running version must be inventoried on the server. This is **A13
+preparation**, not a record of a completed production upgrade.
+
+- Added a gated inventory, consistent backup procedure, per-version checks, paired
+  image/data rollback, uploads protection gate and execution record to `SETUP.md`.
+- `scripts/smoke_test.py --existing-token-env ENV_NAME` uses an existing account's
+  Bearer token without signup. The original fresh-stack admin signup remains the
+  default. Both modes keep chat/upload/retrieval assertions and print created
+  resource IDs for cleanup without printing credentials or raw HTTP error bodies.
+- `tests/test_smoke_test.py` covers both authentication modes, missing/empty tokens,
+  401/403 without signup fallback, chat/upload/processing/retrieval failures and
+  credential-safe error output using simulated HTTP responses. The smoke workflow
+  runs these tests before its existing integration check.
+- The current CI Compose tag is v0.9.6. CI exercises a blank database and mock model
+  provider; it does not prove production data migrates to v0.11.4. Consult this PR's
+  exact commit checks for the recorded automated results.
+
+The runbook now checks the deployed checkout's ownership and Compose labels before
+acting, discovers whether grading is absent, `grading-api`, or A15's `grading`, and
+backs up a plain uploads directory instead of assuming it is a GCS mount. It checks
+disk capacity before saving images. It requires a verified A2 live backup and retains
+the distinct cold rollback archive. The acceptance steps now have a fresh Pushgateway
+metric check, a saved-chat extraction comparison, and exact-ID smoke-resource cleanup.
+`docker-compose.rehearsal.yml` permits isolated pinned-image API checks at v0.10.x or
+v0.11.x; it does not restore production data or replace A9-A11's restored-data gates.
+
+Local preparation validation: 25 Python tests passed; 12 runbook Bash blocks passed
+syntax checks; the rehearsal Compose overlay resolved; an isolated Open WebUI v0.11.4
+stack passed chat/upload/retrieval with an existing token, then cleanup removed the
+verified file and knowledge base. A live local Pushgateway accepted the fresh-metric
+check and rejected a stale sample. Compatibility guards and `git diff --check` passed.
+No runbook deployment command was executed on the production VM.
+
+**Still pending:** A2 restore evidence; A9–A11 restored-data rehearsals and fixed
+intermediate versions; A12's recorded database decision; actual host/images/digests,
+mounts and bucket protection; named P1/P2 operators; instructor-approved window;
+production backup/upgrade/rollback rehearsal and execution; P2 extraction acceptance;
+completed execution record. No production service, database or image was changed by
+this preparation work. These pending items must not be marked complete based on CI.
+
+The sections below preserve earlier handoff notes; their historical completion
+claims do not supersede these A13 gates.
+
 ## What Was Built This Semester
 
 ### OpenWebUI Upgrade and Decoupling (biggest accomplishment)
@@ -14,15 +61,14 @@ When we inherited the project it was locked to OpenWebUI v0.6.41 because our cus
 
 We decoupled the project completely. The Dockerfile is now a single line. All customization happens through OpenWebUI's official plugin system (Filter Functions) and public REST API. The project can now track upstream OpenWebUI releases without any forking.
 
-See `legacy/openwebui_upgrade_decoupling.plan.md.done` for the full migration record.
-
+See [legacy/README.md](legacy/README.md) for the removal rationale and the commit containing the full migration record.
 ### ABI Trust Scoring
 
 We implemented an Ability / Benevolence / Integrity scoring framework on top of the question quality rubric. It maps 7 rubric dimensions (scored 0–2 each) through 12 sub-dimensions to produce three trust scores and a composite ABI total. The research pipeline for this is in `archive/abi_trust_pipeline/`; the production implementation is in `grading_feature/backend/scoring_service.py`.
 
 ### Grading Dashboard
 
-A full FastAPI + React/Vite dashboard for professors to review student interactions. It pulls data from the OpenWebUI REST API (no direct database access), scores student questions via OpenAI, and presents per-student performance breakdowns with the ABI lens. Runs locally — see `SETUP.md` for how to run it.
+A full FastAPI + React/Vite dashboard for professors to review student interactions. It pulls data from the OpenWebUI REST API (no direct database access), scores student questions via OpenAI, and presents per-student performance breakdowns with the ABI lens. Hosted as the `grading` service in `docker-compose.yml` (frontend and API in one container, `grading_feature/Dockerfile`) and served at `https://<PUBLIC_HOSTNAME>/grading/` behind the reverse proxy's login (A16), or run locally for development — see `SETUP.md` §8–9.
 
 ### Monitoring Stack
 
@@ -48,8 +94,8 @@ The decoupling migration plan has one item still marked pending: a full smoke te
 ### Duplicate scoring logic — resolved 2026-08-19
 The 7-dimension rubric and ABI formulas used to be implemented twice: in `scoring_page/backend/server.js` (JavaScript) and `grading_feature/backend/scoring_service.py` (Python), kept in sync by hand. `scoring_page/` has been deleted; **the Python service is canonical.** Recover the old prototype from git history if you ever need it.
 
-### Grading dashboard is not hosted
-Professors currently need to SSH into the VM and run `./run_app.sh` locally. This is a real barrier for non-technical instructors. Containerizing the grading app and putting it behind Nginx with basic auth should be a high-priority task next semester.
+### Grading dashboard login is HTTP basic auth, not SSO
+Since A16 (Nov 2026) the dashboard is reached at `https://<PUBLIC_HOSTNAME>/grading/` through the Caddy reverse proxy, which holds one basic-auth account per instructor in `proxy/grading_users.caddy` on the VM (gitignored). University SSO was not arranged this term. Accounts are managed by hand on the VM, and there is no per-instructor audit beyond the proxy's access log. The OIDC path is written down in `SETUP.md` §9. **The A16 acceptance test, a non-developer professor logging in and grading with no help, has to be done on the VM after deployment; it cannot be done from a branch.**
 
 ---
 
@@ -64,7 +110,15 @@ OpenWebUI does not expose a `/metrics` endpoint. We considered a scraping sideca
 ### Grading uses REST API, not SQLite
 The previous implementation read OpenWebUI's SQLite database directly with raw SQL. This broke every time OpenWebUI changed its schema. We migrated to the public REST API (`/api/v1/users/all`, `/api/v1/chats/all/db`) which is versioned and stable. The `--legacy` flag and stub in `extract_chats.py` have been deleted — direct SQLite reads are forbidden (policy F5), and the REST API is the only supported extraction path.
 
+### Caddy as the reverse proxy, and basic auth as the fallback (A16)
+We chose Caddy over Nginx because it obtains and renews Let's Encrypt certificates by itself. With Nginx we would need certbot, a renewal timer, and a reload hook, which is three more things to forget on a VM nobody watches. Caddy also proxies WebSockets with no extra configuration (Open WebUI streams chat replies over one), and it has bcrypt basic auth built in. The proxy is the only container published beyond localhost, and CI fails if another service in `docker-compose.yml` is published on all interfaces (`scripts/ci/compat_guards.sh`, check 6).
+
+Open WebUI and Grafana keep their own logins and get no proxy auth: they have real user accounts, and a second basic-auth prompt in front of them would only add friction (and Grafana treats a basic-auth header as an API login). The grading dashboard has no accounts of its own, so the proxy supplies them. If the accounts file is missing, the dashboard fails closed with 401 and the rest of the site keeps working.
+
 ### GCS for file uploads
+**Fall 2026 correction:** the 2026-10-17 VM inspection did not find a mount at
+`/mnt/gcs/fin602`. Treat it as local VM data until the bucket and mount are
+verified. The following paragraph describes the intended earlier setup.
 File uploads are routed to a GCS bucket mounted at `/mnt/gcs/fin602` on the VM. This means uploads persist independently of the container lifecycle. The downside is that the GCS mount must be configured on the host before `docker compose up` — it is not handled by Docker.
 
 ### ChromaDB for the custom RAG pipeline, Qdrant for native RAG
@@ -76,7 +130,7 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **High priority:**
 
-1. **Host the grading dashboard.** Add it to `docker-compose.yml`, put it behind Nginx with HTTP basic auth (or the university's SSO), and give professors a URL. One to two days of engineering.
+1. ~~**Host the grading dashboard.**~~ Done in Fall 2026: A15 containerised it, and A16 put it behind a reverse proxy with TLS and a login. What remains is SSO in place of basic auth (`SETUP.md` §9).
 
 2. **Wire `/ready` into GCP uptime monitoring.** OpenWebUI v0.8.9 added a `/ready` endpoint that only returns 200 when the DB and Redis are fully up. Set a GCP Uptime Check against it and alert the primary maintainer. The app went down once and we found out passively from students.
 
@@ -100,9 +154,12 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 ## Gotchas That Took Us a Long Time to Figure Out
 
+The GCS warning below is historical and applies only after the mount has been
+verified; the current `/mnt/gcs/fin602` path may be a plain directory.
+
 **The vendor fork was the root of everything.** Every weird environment issue traced back to the fact that we were running a fork of OpenWebUI internals. Once we removed it, almost every mysterious startup and upgrade issue disappeared.
 
-**Filter Functions share in-memory state between requests.** The `_state` dict in `chat_metrics_filter.py` is keyed by `user_id` and held in the Filter object instance. If two users chat simultaneously or a request times out mid-flight, state can leak across requests. This is unlikely to cause visible problems at low traffic volumes but is worth knowing.
+**Filter Functions share in-memory state between requests.** The `_state` dict in `chat_metrics_filter.py` was originally keyed by `user_id` and held synchronously. As part of task A9, it was ported to `async def` and keyed strictly by `(chat_id, message_id)` with automated stale-state pruning (requests without both IDs are rejected from timing state). Note: While in-memory state is isolated per message, Pushgateway still overwrites concurrent gauges across identical model labels within a scrape interval — full multi-user metric isolation requires counters/histograms or native OpenTelemetry export (A18).
 
 **GCS mount must exist before Docker starts.** If the GCS bucket isn't mounted at `/mnt/gcs/fin602` when you run `docker compose up`, OpenWebUI will start but file uploads silently fail. There is no error in the logs — the upload just disappears.
 
@@ -140,7 +197,7 @@ FamilyFinanceChat/
 │   ├── backfill_history.py       # One-time Prometheus history import utility
 │   └── run_backfill.sh           # Wrapper for backfill (uses promtool)
 ├── docs/                         # PDF guides, setup notes, feature docs
-├── legacy/                       # Old vendor fork code (reference only, not active)
+├── legacy/                       # Vendor-fork tombstone and historical recovery reference
 ├── archive/                      # Stale files moved here during Spring 2026 cleanup
 ├── README.md                     # Project overview
 ├── SETUP.md                      # This is how you run it

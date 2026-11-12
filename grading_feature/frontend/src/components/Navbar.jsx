@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import axios from "axios";
+import api from "../api";
 import { NavLink } from "react-router-dom";
 
 export default function Navbar() {
@@ -19,7 +19,7 @@ export default function Navbar() {
 
     const pollStatus = async () => {
         try {
-            const res = await axios.get("/refresh/status");
+            const res = await api.get("api/refresh/status");
             const data = res.data || {};
             setProgress(data.progress ?? 0);
             setStage(data.stage || "idle");
@@ -59,7 +59,7 @@ export default function Navbar() {
 
     // Check status on mount in case a job is already running
     useEffect(() => {
-        axios.get("/refresh/status")
+        api.get("api/refresh/status")
             .then((res) => {
                 const data = res.data || {};
                 if (data.status === "in_progress") {
@@ -86,7 +86,7 @@ export default function Navbar() {
 
         try {
             // Trigger asynchronous refresh
-            await axios.post("/refresh");
+            await api.post("api/refresh");
             startPolling();
         } catch (err) {
             if (err?.response?.status === 409) {

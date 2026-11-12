@@ -1,0 +1,61 @@
+name: Open WebUI smoke test
+
+on:
+  push:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SMOKE_MODEL: gpt-4o-mini
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create isolated test configuration
+        run: |
+          cp .env.test.example .env.test
+          sed -i '/^WEBUI_SECRET_KEY=/d' .env.test
+          {
+            printf 'WEBUI_SECRET_KEY=%s\n' "$(openssl rand -hex 32)"
+          } >> .env.test
+          chmod 600 .env.test
+
+      - name: Start test stack
+        run: docker compose -f docker-compose.test.yml -f docker-compose.ci.yml up -d --build open-webui-test qdrant-test redis-test mock-openai-test
+
+      - name: Install smoke test dependency
+        run: python -m pip install requests==2.32.5
+
+      - name: Check smoke client and canonical scoring arithmetic
+        run: |
+          for pattern in test_smoke_test.py test_cleanup_smoke.py test_compare_extractions.py test_check_pushgateway_metric.py test_scoring_service.py; do
+            python -m unittest discover -s tests -p "$pattern" -v
+          done
+
+      - name: Check smoke payload against metrics Filter hooks
+        # The official image supplies the same aiohttp/pydantic runtime as the Filter.
+        # This does not install the Filter in the smoke server.
+        run: |
+          image=$(docker compose -f docker-compose.test.yml -f docker-compose.ci.yml images -q open-webui-test)
+          docker run --rm --network none --entrypoint python \
+            --mount "type=bind,src=$PWD,dst=/review,readonly" --workdir /review \
+            "$image" -m unittest discover -s tests -p test_smoke_metrics_filter.py -v
+
+      - name: Validate isolated rehearsal Compose override
+        env:
+          REHEARSAL_OPENWEBUI_IMAGE: ghcr.io/open-webui/open-webui:v0.11.4
+        run: docker compose -p ffc-a13-rehearsal -f docker-compose.test.yml -f docker-compose.ci.yml -f docker-compose.rehearsal.yml config --quiet
+
+      - name: Run API smoke test
+        run: python scripts/smoke_test.py --model "$SMOKE_MODEL"
+
+      - name: Show service state on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.test.yml -f docker-compose.ci.yml ps
+          docker compose -f docker-compose.test.yml -f docker-compose.ci.yml logs --tail=100 open-webui-test qdrant-test redis-test mock-openai-test
+
+      - name: Remove test stack
+        if: always()
+        run: docker compose -f docker-compose.test.yml -f docker-compose.ci.yml down -v --remove-orphans

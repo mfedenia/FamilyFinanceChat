@@ -2,21 +2,21 @@
 title: Chat Metrics Filter
 description: Captures chat-stage timing metrics (payload processing, LLM inference, token counts) and pushes them to a Prometheus Pushgateway. Install via Open WebUI Admin > Workspace > Functions.
 author: FamilyFinanceChat
-version: 1.0.0
+version: 1.1.0
 license: MIT
 """
 
+import asyncio
 import time
-import urllib.request
-import json
+from typing import Any, Dict, Optional, Tuple
 from pydantic import BaseModel, Field
-from typing import Optional
+import aiohttp
 
 
 class Filter:
     """
     OpenWebUI Filter Function that captures per-chat metrics and pushes them
-    to a Prometheus Pushgateway.
+    to a Prometheus Pushgateway asynchronously without blocking the event loop.
 
     Metrics pushed (as Prometheus exposition format):
       - openwebui_chat_completion_seconds   — total round-trip time (inlet→outlet)
@@ -47,24 +47,68 @@ class Filter:
 
     def __init__(self):
         self.valves = self.Valves()
-        self._state = {}  # Internal state to store timing across inlet/outlet
+        # Internal state to store timing across inlet/outlet.
+        # Keyed strictly by (chat_id, message_id) to isolate concurrent sessions.
+        self._state: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
-    def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
+    def _extract_identifiers(
+        self,
+        body: dict,
+        __metadata__: Optional[dict] = None,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Extracts chat_id and message_id explicitly.
+        In Open WebUI v0.9.x, main.py moves chat_id and message_id into metadata.
+        We check __metadata__, body['metadata'], and top-level body keys.
+        Returns (None, None) if either identifier is absent to avoid unsafe collisions.
+        """
+        meta = __metadata__ if isinstance(__metadata__, dict) else (body.get("metadata") or {})
+        chat_id = meta.get("chat_id") or body.get("chat_id")
+        message_id = meta.get("message_id") or body.get("id") or body.get("message_id")
+
+        if not chat_id or not message_id:
+            return None, None
+
+        return str(chat_id), str(message_id)
+
+    def _cleanup_stale_state(self, max_age_seconds: float = 300.0) -> None:
+        """Prunes orphaned entries if requests timed out or failed before reaching outlet."""
+        now = time.perf_counter()
+        stale_keys = [
+            k for k, v in self._state.items()
+            if now - v.get("start", now) > max_age_seconds
+        ]
+        for k in stale_keys:
+            self._state.pop(k, None)
+
+    async def inlet(
+        self,
+        body: dict,
+        __user__: Optional[dict] = None,
+        __metadata__: Optional[dict] = None,
+    ) -> dict:
         """
         Runs before the LLM call.
-        Records start time and context size in internal state.
+        Records start time and context size in internal state, keyed strictly by (chat_id, message_id).
         """
         if not self.valves.enabled:
             return body
 
-        user_id = __user__.get("id") if __user__ else "anonymous"
+        self._cleanup_stale_state()
+
+        chat_id, message_id = self._extract_identifiers(body, __metadata__=__metadata__)
+        if not chat_id or not message_id:
+            # Cannot reliably correlate inlet with outlet without both identifiers.
+            # Bypassing state recording avoids key collisions and state accumulation.
+            return body
+
         messages = body.get("messages", [])
         msg_count = len(messages)
-        total_chars = sum(len(str(m.get("content", ""))) for m in messages)
+        total_chars = sum(len(str(m.get("content", ""))) for m in messages if isinstance(m, dict))
         estimated_tokens = total_chars // 4
 
-        # Store timing and context metadata internally, indexed by user_id.
-        self._state[user_id] = {
+        state_key = (chat_id, message_id)
+        self._state[state_key] = {
             "start": time.perf_counter(),
             "msg_count": msg_count,
             "estimated_tokens": estimated_tokens,
@@ -73,18 +117,27 @@ class Filter:
 
         return body
 
-    def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
+    async def outlet(
+        self,
+        body: dict,
+        __user__: Optional[dict] = None,
+        __metadata__: Optional[dict] = None,
+    ) -> dict:
         """
         Runs after the LLM response is assembled.
         Calculates elapsed time, extracts token usage, and pushes all metrics
-        to the Pushgateway.
+        to the Pushgateway asynchronously without blocking the event loop.
         """
         if not self.valves.enabled:
             return body
 
-        user_id = __user__.get("id") if __user__ else "anonymous"
-        metrics_meta = self._state.pop(user_id, None)
-        
+        chat_id, message_id = self._extract_identifiers(body, __metadata__=__metadata__)
+        if not chat_id or not message_id:
+            return body
+
+        state_key = (chat_id, message_id)
+        # Strict lookup: exact (chat_id, message_id) match only.
+        metrics_meta = self._state.pop(state_key, None)
         if metrics_meta is None:
             return body
 
@@ -133,24 +186,31 @@ class Filter:
                 f'openwebui_llm_completion_tokens{{model="{model}"}} {completion_tokens}',
             ])
 
-        # Push to Pushgateway via HTTP POST (no prometheus_client dependency).
+        # Push to Pushgateway via non-blocking HTTP POST.
         payload = "\n".join(lines) + "\n"
         push_url = (
             f"{self.valves.pushgateway_url.rstrip('/')}"
             f"/metrics/job/{self.valves.job_name}"
         )
 
+        await self._push_metrics_async(push_url, payload)
+
+        return body
+
+    async def _push_metrics_async(self, push_url: str, payload: str) -> None:
+        """
+        Asynchronously sends metrics to the Pushgateway via non-blocking HTTP POST.
+        Ensures the asyncio event loop is never blocked.
+        """
+        data = payload.encode("utf-8")
+        headers = {"Content-Type": "text/plain; version=0.0.4"}
+
         try:
-            req = urllib.request.Request(
-                push_url,
-                data=payload.encode("utf-8"),
-                headers={"Content-Type": "text/plain; version=0.0.4"},
-                method="POST",
-            )
-            urllib.request.urlopen(req, timeout=5)
+            timeout = aiohttp.ClientTimeout(total=5.0)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(push_url, data=data, headers=headers) as resp:
+                    await resp.read()
         except Exception:
             # Silently ignore push failures — metrics are best-effort.
             # Logging here would spam the OW logs on every chat if pushgateway is down.
             pass
-
-        return body

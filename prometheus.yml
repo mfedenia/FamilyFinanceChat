@@ -1,3 +1,4 @@
+
 global:
   scrape_interval: 15s
 
@@ -6,17 +7,14 @@ scrape_configs:
     static_configs:
       - targets: ["prometheus:9090"]
 
-  - job_name: "openwebui-exporter"
-    static_configs:
-      - targets: ["metrics-exporter:8000"]
-    metrics_path: /metrics
-
   - job_name: "cadvisor"
     static_configs:
       - targets: ["cadvisor:8080"]
 
-  # Filter Functions push metrics here; honor_labels keeps pushed job/instance labels.
-  - job_name: "pushgateway"
-    honor_labels: true
+  - job_name: "openwebui-exporter"
     static_configs:
-      - targets: ["pushgateway:9091"]
+      - targets: ["metrics-exporter:8000"]
+
+  - job_name: "openwebui-otel"
+    static_configs:
+      - targets: ["otel-collector:8889"]
