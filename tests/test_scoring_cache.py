@@ -89,3 +89,48 @@ def test_bypass_cache():
 
     asyncio.run(_test())
 
+
+def test_mock_and_real_cache_keys_are_isolated(monkeypatch):
+    async def _test():
+        question = [{"id": "q1", "text": "How do you budget monthly expenses?", "studentId": "s1"}]
+
+        # 1. Run in mock mode (or missing API key)
+        monkeypatch.setattr(scoring_service, "MOCK_SCORER", True)
+        monkeypatch.setattr(scoring_service, "OPENAI_API_KEY", "")
+        mock_scored, _ = await scoring_service.score_questions(question, use_abi=False)
+        assert mock_scored[0]["notes"] == "mock score"
+
+        # 2. Restore real credentials and stub score_with_openai
+        monkeypatch.setattr(scoring_service, "MOCK_SCORER", False)
+        monkeypatch.setattr(scoring_service, "OPENAI_API_KEY", "sk-real-test-key")
+        real_calls = []
+
+        def fake_score_with_openai(q):
+            real_calls.append(q["text"])
+            return scoring_service.decorate_score(
+                q,
+                {
+                    "relevance": 2,
+                    "politeness": 2,
+                    "on_topic": 2,
+                    "neutrality": 2,
+                    "non_imperative": 2,
+                    "clarity_optional": 2,
+                    "privacy_minimization_optional": 2,
+                    "notes": "real score",
+                },
+            )
+
+        monkeypatch.setattr(scoring_service, "score_with_openai", fake_score_with_openai)
+
+        real_scored, _ = await scoring_service.score_questions(question, use_abi=False)
+        assert len(real_calls) == 1
+        assert real_scored[0]["notes"] == "real score"
+
+        # 3. Second real call should hit the real cache, not call OpenAI again
+        real_scored_cached, _ = await scoring_service.score_questions(question, use_abi=False)
+        assert len(real_calls) == 1
+        assert real_scored_cached[0]["notes"] == "real score"
+
+    asyncio.run(_test())
+

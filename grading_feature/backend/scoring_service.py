@@ -56,13 +56,15 @@ def init_score_cache() -> None:
         logger.warning("Failed to initialize SQLite score cache at %s: %s. Using in-memory fallback.", db_path, e)
 
 
-def get_cache_key(question_text: str, model: str = OPENAI_MODEL) -> str:
+def get_cache_key(question_text: str, model: str = OPENAI_MODEL, mode: str = "openai") -> str:
     normalized = (question_text or "").strip()
-    return hashlib.sha256(f"{model}::{normalized}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"{mode}::{model}::{normalized}".encode("utf-8")).hexdigest()
 
 
-def get_cached_raw_score(question_text: str, model: str = OPENAI_MODEL) -> dict[str, Any] | None:
-    cache_key = get_cache_key(question_text, model)
+def get_cached_raw_score(
+    question_text: str, model: str = OPENAI_MODEL, mode: str = "openai"
+) -> dict[str, Any] | None:
+    cache_key = get_cache_key(question_text, model, mode=mode)
     with _cache_lock:
         if cache_key in _in_memory_cache:
             _cache_stats["hits"] += 1
@@ -89,8 +91,10 @@ def get_cached_raw_score(question_text: str, model: str = OPENAI_MODEL) -> dict[
     return None
 
 
-def set_cached_raw_score(question_text: str, raw_score: dict[str, Any], model: str = OPENAI_MODEL) -> None:
-    cache_key = get_cache_key(question_text, model)
+def set_cached_raw_score(
+    question_text: str, raw_score: dict[str, Any], model: str = OPENAI_MODEL, mode: str = "openai"
+) -> None:
+    cache_key = get_cache_key(question_text, model, mode=mode)
     cleaned_raw = {
         "relevance": safe_number(raw_score.get("relevance")),
         "politeness": safe_number(raw_score.get("politeness")),
@@ -439,18 +443,21 @@ def build_aggregate(results: list[dict[str, Any]], abi_enabled: bool) -> dict[st
 
 async def _score_one(question: dict[str, Any], bypass_cache: bool = False) -> dict[str, Any]:
     text = (question.get("text") or "").strip()
+    is_mock = MOCK_SCORER or not OPENAI_API_KEY
+    mode = "mock" if is_mock else "openai"
+
     if not bypass_cache:
-        cached_raw = get_cached_raw_score(text, OPENAI_MODEL)
+        cached_raw = get_cached_raw_score(text, OPENAI_MODEL, mode=mode)
         if cached_raw is not None:
             return decorate_score(question, cached_raw)
 
-    if MOCK_SCORER or not OPENAI_API_KEY:
+    if is_mock:
         scored = mock_score(question)
-        set_cached_raw_score(text, scored, OPENAI_MODEL)
+        set_cached_raw_score(text, scored, OPENAI_MODEL, mode=mode)
         return scored
 
     scored = await asyncio.to_thread(score_with_openai, question)
-    set_cached_raw_score(text, scored, OPENAI_MODEL)
+    set_cached_raw_score(text, scored, OPENAI_MODEL, mode=mode)
     return scored
 
 

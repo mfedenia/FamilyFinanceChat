@@ -69,19 +69,19 @@ export default function StudentFeedback() {
     setCurrentPage(1);
   }, [payload]);
 
-  useEffect(() => {
-    async function fetchUsers() {
-      try {
-        setLoadingUsers(true);
-        const response = await axios.get("/users");
-        setUsers(response.data || []);
-      } catch (error) {
-        setStatus(`Unable to load users: ${error.message}`);
-      } finally {
-        setLoadingUsers(false);
-      }
+  async function fetchUsers() {
+    try {
+      setLoadingUsers(true);
+      const response = await axios.get("/users");
+      setUsers(response.data || []);
+    } catch (error) {
+      setStatus(`Unable to load users: ${error.message}`);
+    } finally {
+      setLoadingUsers(false);
     }
+  }
 
+  useEffect(() => {
     fetchUsers();
   }, []);
 

@@ -69,6 +69,19 @@ class RefreshJobManager:
     def is_in_flight(self) -> bool:
         return self.current_job.get("status") == "in_progress"
 
+    async def run_sync_extract(self) -> Any:
+        async with self._lock:
+            if self.is_in_flight():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "status": "in_progress",
+                        "message": "A refresh job is already in flight",
+                        "job": self.get_status(),
+                    },
+                )
+            return await asyncio.to_thread(extract_data)
+
     async def start_job(self) -> dict[str, Any]:
         async with self._lock:
             if self.is_in_flight():
@@ -387,13 +400,15 @@ async def trigger_refresh_job():
 async def refresh_endpoint(sync: bool = Query(False, description="Run synchronously for legacy callers")):
     if sync:
         try:
-            metadata = extract_data()
+            metadata = await refresh_manager.run_sync_extract()
             logger.info("Extract completed synchronously.")
             return {
                 "status": "success",
                 "message": "Refresh completed successfully",
                 "refresh_metadata": metadata,
             }
+        except HTTPException:
+            raise
         except Exception as e:
             logger.exception("Synchronous extract failed: %s", e)
             raise HTTPException(

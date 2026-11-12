@@ -137,3 +137,24 @@ def test_scoring_cache_stats_and_clear():
     clear_res = client.post("/api/cache/clear")
     assert clear_res.status_code == 200
     assert clear_res.json()["ok"] is True
+
+
+def test_sync_refresh_conflicts_when_async_in_flight():
+    async def _test():
+        import httpx
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://test") as client:
+            post_res = await client.post("/refresh")
+            assert post_res.status_code == 202
+
+            sync_res = await client.get("/refresh?sync=true")
+            assert sync_res.status_code == 409
+            assert sync_res.json()["detail"]["status"] == "in_progress"
+
+            # Wait for background job to finish cleanly
+            for _ in range(100):
+                status_res = await client.get("/refresh/status")
+                if status_res.json()["status"] == "completed":
+                    break
+                await asyncio.sleep(0.05)
+
+    asyncio.run(_test())
