@@ -53,6 +53,12 @@ cp .env.staging.example .env   # use this as a starting template; rename to .env
 | `RAG_RELEVANCE_THRESHOLD` | No | Minimum similarity score (0–1); defaults to `0.30` |
 | `REDIS_URL` | No | Defaults to `redis://redis:6379/0` |
 | `WEBSOCKET_REDIS_URL` | No | Defaults to `redis://redis:6379/1` |
+| `GRAFANA_ADMIN_PASSWORD` | **Yes** | Grafana `admin` password; `docker compose up` refuses to start without it |
+| `ALERT_EMAIL` | **Yes** | The person Grafana alerts go to (A20). A real, monitored address |
+| `SMTP_HOST` | **Yes** | SMTP server Grafana sends alerts through, as `host:port` (e.g. `smtp.gmail.com:587`) |
+| `SMTP_USER` | **Yes** | SMTP login. For Gmail, the account address |
+| `SMTP_PASSWORD` | **Yes** | SMTP password. For Gmail, an [app password](https://myaccount.google.com/apppasswords), not the account password |
+| `SMTP_FROM_ADDRESS` | No | Sender address; defaults to `SMTP_USER` |
 
 **Do not commit `.env` to git.** It is already in `.gitignore`.
 
@@ -135,16 +141,50 @@ Alternatively, upload files directly via the OpenWebUI UI: **Workspace > Knowled
 
 ---
 
-## 7. Grafana Setup
+## 7. Grafana and Alerting
 
 Grafana is at `https://<PUBLIC_HOSTNAME>/grafana/`. Log in as `admin` with
 `GRAFANA_ADMIN_PASSWORD`. That variable is applied only when Grafana's database is first created;
 to change the password of an existing install, see §9.
+The Prometheus data source, the dashboards, the alert rules and the alert email are all
+provisioned from `monitoring/grafana/provisioning/` at startup. There is nothing to click.
+Change alerts by editing those files, not the Grafana UI (provisioned rules are read-only there).
 
-Add Prometheus as a data source:
-1. Configuration > Data Sources > Add data source > Prometheus
-2. URL: `http://prometheus:9090`
-3. Save & Test
+**Grafana alert rules** (`monitoring/grafana/provisioning/alerting/rules.yml`), emailed to `ALERT_EMAIL`:
+
+| Rule | Fires when |
+|---|---|
+| Open WebUI memory above 80% of its limit | the `open-webui` container stays above 80% of its 10 GB limit for 10 minutes, or the memory metric disappears |
+| Chat completion error rate above 5% | more than 5% of `/api/chat/completions` requests return 400 or 5xx over 10 minutes (at least 5 requests), for 5 minutes |
+
+The error-rate rule cannot see model-provider failures in web-UI chats: Open WebUI processes
+those in a background task and reports the error over the websocket after the HTTP request has
+already returned 200. See `HANDOFF.md`.
+
+**External uptime check (one-time, per GCP project).** Grafana runs on the same VM it watches,
+so it cannot report the VM going down. A GCP uptime check against Open WebUI's `/ready` (200 only
+when the database and Redis are both up) covers that. Create it from a machine with `gcloud`
+authenticated to the project:
+
+```bash
+GCP_PROJECT=<project-id> UPTIME_HOST=<PUBLIC_HOSTNAME> ALERT_EMAIL=<person> \
+  bash scripts/gcp_uptime_alert.sh
+```
+
+It is safe to re-run. It checks `https://<PUBLIC_HOSTNAME>:443/ready` through the Caddy reverse
+proxy (port `3000` is bound to `127.0.0.1`, so opening port `3000` in the firewall will not make
+it reachable). Ensure ports `80`/`443` are open to `gcloud monitoring uptime list-ips`.
+
+**Acceptance test.** Run after any change to alerting, and once per semester:
+
+```bash
+docker compose stop redis      # /ready starts returning 503
+# within 5 minutes: GCP "FamilyFinanceChat /ready down" email to ALERT_EMAIL
+docker compose start redis     # the incident closes; GCP sends a recovery email
+```
+
+To check Grafana email delivery without waiting for a real incident: Alerting > Contact points >
+`on-call-email` > Test.
 
 ---
 
@@ -297,7 +337,9 @@ is the documented fallback. When a client registration exists:
 | `open-webui` exits immediately | Missing or invalid `OPENAI_API_KEY` or `WEBUI_SECRET_KEY` | Check `.env` values |
 | Qdrant connection refused | `/opt/qdrant/storage` doesn't exist or wrong permissions | Create the directory; check Qdrant logs |
 | Chat metrics missing in Grafana | Filter Function not installed or not enabled globally | Re-do step 5 |
-| Grafana shows "No data" | Prometheus data source not configured, or no chat messages sent yet | Configure data source; send a test chat |
+| Grafana shows "No data" | No chat messages sent yet, or Prometheus is not scraping `otel-collector` | Send a test chat; check Prometheus > Status > Targets |
+| `docker compose up` fails with `Set ALERT_EMAIL...` or `Set SMTP_...` | Alerting variables missing from `.env` | Add them (section 2) |
+| Grafana alert email never arrives | Wrong SMTP settings (Gmail needs an app password) | `docker logs grafana \| grep -i smtp`; use the contact point Test button |
 | Grading dashboard `/refresh` returns 401 | `OPENWEBUI_API_KEY` invalid or expired | Generate a new API key in OpenWebUI Settings > Account |
 | `docker compose up` fails with port conflict | Port 80 or 443 (proxy), or 3000, 3001, 8080, 9090 on localhost, in use | Stop conflicting services or change the host port mappings |
 | `required variable PUBLIC_HOSTNAME is missing` | Root `.env` has no `PUBLIC_HOSTNAME` | Add it (§9); use `localhost` on a workstation |

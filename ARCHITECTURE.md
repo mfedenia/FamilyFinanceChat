@@ -49,10 +49,10 @@ All services run on a shared bridge network `ai-net`.
 | `qdrant` | `qdrant/qdrant:latest` | none (internal) | — | Vector database for RAG |
 | `redis` | `valkey/valkey:8.0.1-alpine` | none (internal) | 512 MB | WebSocket session state |
 | `cadvisor` | `ghcr.io/google/cadvisor:0.55.1` | 8080 (`127.0.0.1`) | 0.5 CPU / 256 MB | Container CPU/memory/network metrics |
-| `prometheus` | `prom/prometheus:v2.51.2` | 9090 (`127.0.0.1`) | — | Metrics collection, 30-day retention |
-| `pushgateway` | `prom/pushgateway:v1.8.0` | 9091 | — | Receives chat metrics pushed by Filter Function |
+| `prometheus` | `prom/prometheus:v3.15.1` | 9090 (`127.0.0.1`) | — | Metrics collection, 30-day retention |
+| `pushgateway` | `prom/pushgateway:1.8.0` | 9091 | — | Receives chat metrics pushed by Filter Function |
 | `metrics-exporter` | custom FastAPI build | 8001 (`127.0.0.1`) | — | Probes OpenWebUI `/health` every 15s |
-| `grafana` | `grafana/grafana:9.0.0` | 3001 (`127.0.0.1`) | — | Dashboards at `/grafana/`; admin password from `GRAFANA_ADMIN_PASSWORD` |
+| `grafana` | `grafana/grafana:13.2.5` | 3001 (`127.0.0.1`) | — | Dashboards at `/grafana/` and alerting, provisioned from `monitoring/grafana/provisioning/` (login: `admin` / `GRAFANA_ADMIN_PASSWORD`) |
 | `grading` | built from `grading_feature/Dockerfile` | none (via proxy at `/grading/`) | — | Grading dashboard: React frontend + FastAPI API in one container |
 
 **Key volume mounts:**

@@ -1,0 +1,93 @@
+# Grafana-managed alert rules (A20). Loaded from file at startup, so a fresh
+# deployment alerts with no manual steps. Edit here, not in the Grafana UI.
+#
+# Whole-VM outages are NOT covered here: Grafana runs on the same VM. The GCP
+# uptime check on /ready covers that (scripts/gcp_uptime_alert.sh).
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: platform
+    folder: FamilyFinanceChat
+    interval: 1m
+    rules:
+      # Leading indicator: Open WebUI runs under a 10 GB limit and has come close
+      # to it. Fires before the OOM killer restarts the container mid-session.
+      - uid: owui-memory-high
+        title: Open WebUI memory above 80% of its limit
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                max(container_memory_working_set_bytes{job="cadvisor", name="open-webui"})
+                / max(container_spec_memory_limit_bytes{job="cadvisor", name="open-webui"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.8] }
+        for: 10m
+        # No data means cAdvisor or the open-webui container is gone: notify.
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Open WebUI is using more than 80% of its memory limit.
+          description: >-
+            Working-set memory of the open-webui container has been above 80% of
+            its limit for 10 minutes. At 100% Docker kills and restarts it,
+            dropping every live chat session. Check `docker stats open-webui`.
+
+      # Share of chat completion requests answered with 400 or 5xx, from Open
+      # WebUI's native OpenTelemetry metrics (A18). Needs at least 5 requests in
+      # the window so one failure at 3 a.m. does not page anyone.
+      #
+      # Known blind spot: web-UI chats are processed in a background task, and a
+      # model-provider failure there is reported over the websocket while the
+      # HTTP request already returned 200. Those errors are not counted.
+      - uid: owui-chat-error-rate
+        title: Chat completion error rate above 5%
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (
+                  sum(increase(http_server_requests_total{job="openwebui-otel", http_route=~"/api(/v1)?/chat/completions", http_status_code=~"5..|400"}[10m]))
+                  or vector(0)
+                )
+                / sum(increase(http_server_requests_total{job="openwebui-otel", http_route=~"/api(/v1)?/chat/completions"}[10m]))
+                and on() sum(increase(http_server_requests_total{job="openwebui-otel", http_route=~"/api(/v1)?/chat/completions"}[10m])) >= 5
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+        for: 5m
+        # No data means too little chat traffic to judge, which is normal.
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: More than 5% of chat completion requests are failing.
+          description: >-
+            Over the last 10 minutes more than 5% of requests to
+            /api/chat/completions returned 400 or 5xx. Check
+            `docker logs --tail 200 open-webui` for the cause.

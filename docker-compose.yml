@@ -141,7 +141,7 @@ services:
 
   
   prometheus:
-    image: prom/prometheus:v2.51.2
+    image: prom/prometheus:v3.15.1
     container_name: prometheus
     restart: unless-stopped
     networks: [ai-net]
@@ -181,7 +181,7 @@ services:
 
   
   grafana:
-    image: grafana/grafana:9.0.0
+    image: grafana/grafana:13.2.5
     container_name: grafana
     restart: unless-stopped
     networks: [ai-net]
@@ -193,6 +193,14 @@ services:
       # Served by the reverse proxy at https://$PUBLIC_HOSTNAME/grafana/ (A16).
       - GF_SERVER_ROOT_URL=https://${PUBLIC_HOSTNAME}/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      # Alert email (A20). Required: an alert that cannot be delivered is no alert.
+      - ALERT_EMAIL=${ALERT_EMAIL:?Set ALERT_EMAIL to the person who gets paged}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST:?Set SMTP_HOST, e.g. smtp.gmail.com:587}
+      - GF_SMTP_USER=${SMTP_USER:?Set SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD:?Set SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-${SMTP_USER}}
+      - GF_SMTP_FROM_NAME=FamilyFinanceChat alerts
     ports:
       # Localhost only; through a tunnel it is at http://localhost:3001/grafana/.
       - "127.0.0.1:3001:3000"
@@ -200,6 +208,7 @@ services:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 
