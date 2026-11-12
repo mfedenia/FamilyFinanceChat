@@ -945,7 +945,7 @@ rollback plan, or A25 (`HANDOFF.md`). Those are the ones that hurt someone else 
 | Grading backend | `grading_feature/backend/` — `extract_chats.py`, `scoring_service.py`, `main.py` |
 | Grading frontend | `grading_feature/frontend/` (React/Vite) |
 | Scoring logic (canonical) | `grading_feature/backend/scoring_service.py` — the JS duplicate was deleted 2026-08-19 |
-| Second retrieval stack | `rag_bio_project/` — fate to be decided (A22) |
+| Retrieval decision (A22) | Retire standalone ChromaDB; native Open WebUI + Qdrant is canonical. See [decision](../docs/decisions/a22-retrieval.md). |
 | Knowledge-base CLI | `tools/kb_sync/` — already API-based and upgrade-safe |
 | Old vendor fork | `legacy/custom-code-vendor-fork/` — **to be deleted** (A6) |
 

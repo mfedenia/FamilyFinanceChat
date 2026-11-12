@@ -86,7 +86,7 @@ We built staging and test Docker stacks. The staging environment was never fully
 The Chat Metrics filter (`monitoring/chat_metrics_filter.py`) is installed through the OpenWebUI admin UI and is not persisted in any config file. Every time you deploy a fresh instance you must re-install it. See `monitoring/README.md` for exact steps. Without it, Grafana shows no chat metrics.
 
 ### `rag_with_citations` prompt mode was broken — fixed 2026-08-19
-In `rag_bio_project/src/prompting.py`, `_format_context_with_indices()` had a Python f-string bug: `{{i}}` and `{{it.get(...)}}` emitted the literal text `{i} {it.get('document','')}` rather than interpolating. The effect was worse than wrong citation numbers — **citations mode dropped every retrieved document**, so the model answered with no context at all. Fixed in commit `c09f4b8`; only ever affected the custom RAG pipeline, not the native OpenWebUI RAG.
+In the now-retired `rag_bio_project/src/prompting.py`, `_format_context_with_indices()` had a Python f-string bug: `{{i}}` and `{{it.get(...)}}` emitted the literal text `{i} {it.get('document','')}` rather than interpolating. The effect was worse than wrong citation numbers — **citations mode dropped every retrieved document**, so the model answered with no context at all. Fixed in commit `c09f4b8`; only ever affected the custom RAG pipeline, not the native OpenWebUI RAG.
 
 ### End-to-end upgrade validation was not completed
 The decoupling migration plan has one item still marked pending: a full smoke test of KB upload + chat metrics via Filter Function + grading dashboard all working together post-upgrade. We tested components individually but never ran a formal end-to-end pass.
@@ -102,7 +102,7 @@ Since A16 (Nov 2026) the dashboard is reached at `https://<PUBLIC_HOSTNAME>/grad
 ## Architectural Decisions and Why
 
 ### No Ollama
-We evaluated running a local model via Ollama on the VM. The VM does not have a GPU; CPU inference was too slow for a live student experience. We kept the Ollama code paths in `rag_bio_project/src/llm.py` for future reference but the container is commented out.
+We evaluated running a local model via Ollama on the VM. The VM does not have a GPU; CPU inference was too slow for a live student experience. The historical Ollama code paths are recoverable from Git via the A22 decision; the unused standalone pipeline has been retired.
 
 ### Pushgateway for chat metrics instead of direct Prometheus scraping
 OpenWebUI does not expose a `/metrics` endpoint. We considered a scraping sidecar but settled on the Filter Function + Pushgateway approach because it uses OpenWebUI's official plugin mechanism and survives upgrades. The trade-off is that Pushgateway is a single-point accumulator — if it restarts, metrics between the last scrape and the restart are lost.
@@ -121,8 +121,18 @@ Open WebUI and Grafana keep their own logins and get no proxy auth: they have re
 verified. The following paragraph describes the intended earlier setup.
 File uploads are routed to a GCS bucket mounted at `/mnt/gcs/fin602` on the VM. This means uploads persist independently of the container lifecycle. The downside is that the GCS mount must be configured on the host before `docker compose up` — it is not handled by Docker.
 
-### ChromaDB for the custom RAG pipeline, Qdrant for native RAG
-The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be built and runs locally without a server. The native OpenWebUI RAG uses Qdrant because it is what OpenWebUI v0.8+ integrates with. They are completely separate systems.
+### A22: one canonical retrieval path — native Open WebUI + Qdrant
+
+Retired the disconnected ChromaDB pipeline rather than promoting it behind a
+Pipelines server: no active consumer needs it, and promotion adds deployment and
+maintenance work without a demonstrated benefit. Removed its executable modules,
+training script and generated index. Preserved five research notebooks unchanged
+in `archive/rag_bio_research/` and retained the source PDFs in place.
+
+Use native Knowledge Base uploads or `tools/kb_sync/`. No production data or
+configuration migration is needed. See [decision, evidence, validation and
+historical recovery](docs/decisions/a22-retrieval.md). The archived notebooks are
+research records, not a supported runtime.
 
 ---
 
@@ -170,7 +180,7 @@ its only LLM dependency was the `openai` package. The Qwen naming was leftover f
 prototype, and a real API key had been pasted into its README. That key belongs to a third party,
 so nobody here can revoke it — see `docs/memory/leaked-key-not-ours-to-revoke.md` before treating
 it as an open task. The whole folder was deleted on 2026-08-19. If you find Qwen references
-outside `rag_bio_project/` (which does genuinely support DashScope as an option) they are stale.
+outside archived research or historical discussion they are stale; the former DashScope-capable standalone pipeline was retired in A22.
 
 ---
 
@@ -190,9 +200,8 @@ FamilyFinanceChat/
 │   ├── backend/                  # FastAPI: chat extraction, scoring, ABI
 │   └── frontend/                 # React/Vite dashboard
 ├── rag_bio_project/
-│   ├── src/                      # Custom RAG pipeline (standalone, not connected to OW)
-│   ├── data_pdfs/                # FIN602 client biography PDFs
-│   └── index/                   # Pre-built ChromaDB vector index
+│   ├── README.md                # A22 retirement notice
+│   └── data_pdfs/                # Preserved FIN602 source PDFs
 ├── scripts/
 │   ├── backfill_history.py       # One-time Prometheus history import utility
 │   └── run_backfill.sh           # Wrapper for backfill (uses promtool)

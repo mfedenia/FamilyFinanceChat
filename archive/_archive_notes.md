@@ -8,3 +8,8 @@ Files moved here during the Spring 2026 repo cleanup and handoff. Nothing here i
 | `analyze_openwebui_chats.py` | `grading_feature/backend/` | Multi-format interactive chat analyzer for old export format. Superseded by the grading dashboard. |
 | `abi_trust_pipeline/` | `rag_bio_project/abi_trust_pipeline/` | Research prototype of the ABI trust scoring pipeline. The production implementation lives in `grading_feature/backend/scoring_service.py`. Kept here as lineage reference. |
 | `demo8_upgrade_analysis.md` | `research_docs/demo8/README.md` | The R&D analysis document that drove the OpenWebUI decoupling plan (vendor fork → Filter Function + public API). Problem is solved; see [the legacy tombstone](../legacy/README.md) for the historical migration record. |
+
+## A22 retrieval retirement (2026-11-12)
+
+`rag_bio_research/` preserves five notebooks from the retired standalone pipeline.
+See its README for original paths and recovery; native Open WebUI + Qdrant is canonical.
