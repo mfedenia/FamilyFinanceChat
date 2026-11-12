@@ -18,6 +18,9 @@ build/
 !*.env.example
 !*.env.template
 
+# Reverse-proxy accounts (bcrypt hashes) live only on the VM; see proxy/grading_users.caddy.example
+proxy/grading_users.caddy
+
 # IDE
 .vscode/
 .idea/

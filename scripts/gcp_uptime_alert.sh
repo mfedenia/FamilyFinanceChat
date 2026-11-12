@@ -12,19 +12,20 @@
 # Safe to re-run: existing objects are reported and left unchanged.
 #
 # Usage:
-#   GCP_PROJECT=my-project UPTIME_HOST=34.1.2.3 ALERT_EMAIL=person@example.edu \
+#   GCP_PROJECT=my-project UPTIME_HOST=chat.example.edu ALERT_EMAIL=person@example.edu \
 #     bash scripts/gcp_uptime_alert.sh
-# Optional: UPTIME_PORT (default 3000), UPTIME_PROTOCOL (http|https, default http).
-# After A16 puts TLS in front: UPTIME_HOST=<hostname> UPTIME_PORT=443 UPTIME_PROTOCOL=https
+# Optional: UPTIME_PORT (default 443), UPTIME_PROTOCOL (http|https, default https).
+# Note: open-webui port 3000 is bound to 127.0.0.1; the external check must hit the
+# public hostname's HTTPS port 443 through the reverse proxy.
 #
 # Needs: gcloud (authenticated, with roles/monitoring.editor), curl, python3.
 set -euo pipefail
 
 : "${GCP_PROJECT:?Set GCP_PROJECT}"
-: "${UPTIME_HOST:?Set UPTIME_HOST to the VM IP or hostname}"
+: "${UPTIME_HOST:?Set UPTIME_HOST to the public hostname (PUBLIC_HOSTNAME)}"
 : "${ALERT_EMAIL:?Set ALERT_EMAIL to the person who gets paged}"
-UPTIME_PORT="${UPTIME_PORT:-3000}"
-UPTIME_PROTOCOL="${UPTIME_PROTOCOL:-http}"
+UPTIME_PORT="${UPTIME_PORT:-443}"
+UPTIME_PROTOCOL="${UPTIME_PROTOCOL:-https}"
 
 NAME="FamilyFinanceChat /ready"
 API="https://monitoring.googleapis.com/v3/projects/${GCP_PROJECT}"

@@ -2,7 +2,7 @@
 # deployment alerts with no manual steps. Edit here, not in the Grafana UI.
 #
 # Whole-VM outages are NOT covered here: Grafana runs on the same VM. The GCP
-# uptime check on /ready covers that (scripts/ops/gcp_uptime_alert.sh).
+# uptime check on /ready covers that (scripts/gcp_uptime_alert.sh).
 apiVersion: 1
 
 groups:

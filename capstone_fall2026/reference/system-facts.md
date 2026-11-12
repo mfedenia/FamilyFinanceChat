@@ -14,19 +14,20 @@ them will have moved.
 |---|---|---|
 | Open WebUI version | `v0.8.12` | `Dockerfile`, `docker-compose.yml` |
 | Dockerfile size | one `FROM` line | `Dockerfile` |
-| Container count (production) | 8 | `docker-compose.yml` |
+| Container count (production) | 9 (8 + `grading` since A15, Oct 2026) | `docker-compose.yml` |
 | LLM | `gpt-4o-mini` via OpenAI API | `.env`, `ARCHITECTURE.md` |
 | Embeddings | `text-embedding-3-small` | `ARCHITECTURE.md` |
 | Vector store (production) | Qdrant, `k=5`, relevance threshold `0.30` | `ARCHITECTURE.md` |
 | Reranker | configured but **no model set** | `RAG_TOP_K_RERANKER=3`, model empty |
 | Open WebUI resource limit | 2 CPU / 10 GB RAM | `docker-compose.yml` |
 | Prometheus retention | 30 days | `docker-compose.yml` |
-| Grafana version | `13.2.5`; admin password from `GRAFANA_ADMIN_PASSWORD` | `docker-compose.yml` |
+| Grafana version | `13.2.5`; admin password from `GRAFANA_ADMIN_PASSWORD`, served at `/grafana/` (A16). Production's existing database still had `admin/admin` until reset (`SETUP.md` §9) | `docker-compose.yml` |
 | Prometheus version | `v3.15.1` | `docker-compose.yml` |
 | Alerting | GCP uptime check on `/ready`; Grafana rules on memory and chat error rate (A20) | `scripts/gcp_uptime_alert.sh`, `monitoring/grafana/provisioning/alerting/` |
 | Unpinned images | `qdrant:latest`, `cadvisor:latest` | `docker-compose.yml` |
 | Uploads | GCS bucket mounted at `/mnt/gcs/fin602` | `docker-compose.yml` |
-| Grading dashboard | FastAPI + React/Vite, **runs locally, not containerised** | `grading_feature/`, `SETUP.md` §8 |
+| Grading dashboard | FastAPI + React/Vite, one `grading` container (A15, Oct 2026), served at `/grading/` behind the reverse proxy's basic auth (A16, Nov 2026) | `grading_feature/Dockerfile`, `docker-compose.yml`, `SETUP.md` §8–9 |
+| Public entry point | Caddy `proxy` container, ports 80/443, automatic Let's Encrypt TLS; every other port bound to `127.0.0.1` (A16) | `proxy/Caddyfile`, `docker-compose.yml`, `SETUP.md` §9 |
 
 **Compliance check performed for this deck:** no compose file in the repository mounts a host
 path into `/app/backend/open_webui/**`. `docker-compose.test.yml` uses named volumes only. The

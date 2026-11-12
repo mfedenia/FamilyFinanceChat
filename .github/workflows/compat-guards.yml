@@ -9,6 +9,17 @@ jobs:
       - name: Compatibility guards
         run: bash scripts/ci/compat_guards.sh
 
+  proxy-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reverse-proxy configuration is valid
+        # Same image as docker-compose.yml's proxy service. validate does not request certificates.
+        run: |
+          image=$(sed -n 's/^\s*image:\s*\(caddy:\S*\).*/\1/p' docker-compose.yml)
+          docker run --rm -e PUBLIC_HOSTNAME=example.org \
+            -v "$PWD/proxy:/etc/caddy:ro" "$image" caddy validate --config /etc/caddy/Caddyfile
+
   secrets:
     runs-on: ubuntu-latest
     steps:

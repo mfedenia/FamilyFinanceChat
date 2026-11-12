@@ -68,7 +68,7 @@ We implemented an Ability / Benevolence / Integrity scoring framework on top of 
 
 ### Grading Dashboard
 
-A full FastAPI + React/Vite dashboard for professors to review student interactions. It pulls data from the OpenWebUI REST API (no direct database access), scores student questions via OpenAI, and presents per-student performance breakdowns with the ABI lens. Runs locally — see `SETUP.md` for how to run it.
+A full FastAPI + React/Vite dashboard for professors to review student interactions. It pulls data from the OpenWebUI REST API (no direct database access), scores student questions via OpenAI, and presents per-student performance breakdowns with the ABI lens. Hosted as the `grading` service in `docker-compose.yml` (frontend and API in one container, `grading_feature/Dockerfile`) and served at `https://<PUBLIC_HOSTNAME>/grading/` behind the reverse proxy's login (A16), or run locally for development — see `SETUP.md` §8–9.
 
 ### Monitoring Stack
 
@@ -94,8 +94,8 @@ The decoupling migration plan has one item still marked pending: a full smoke te
 ### Duplicate scoring logic — resolved 2026-08-19
 The 7-dimension rubric and ABI formulas used to be implemented twice: in `scoring_page/backend/server.js` (JavaScript) and `grading_feature/backend/scoring_service.py` (Python), kept in sync by hand. `scoring_page/` has been deleted; **the Python service is canonical.** Recover the old prototype from git history if you ever need it.
 
-### Grading dashboard is not hosted
-Professors currently need to SSH into the VM and run `./run_app.sh` locally. This is a real barrier for non-technical instructors. Containerizing the grading app and putting it behind Nginx with basic auth should be a high-priority task next semester.
+### Grading dashboard login is HTTP basic auth, not SSO
+Since A16 (Nov 2026) the dashboard is reached at `https://<PUBLIC_HOSTNAME>/grading/` through the Caddy reverse proxy, which holds one basic-auth account per instructor in `proxy/grading_users.caddy` on the VM (gitignored). University SSO was not arranged this term. Accounts are managed by hand on the VM, and there is no per-instructor audit beyond the proxy's access log. The OIDC path is written down in `SETUP.md` §9. **The A16 acceptance test, a non-developer professor logging in and grading with no help, has to be done on the VM after deployment; it cannot be done from a branch.**
 
 ---
 
@@ -109,6 +109,11 @@ OpenWebUI does not expose a `/metrics` endpoint. We considered a scraping sideca
 
 ### Grading uses REST API, not SQLite
 The previous implementation read OpenWebUI's SQLite database directly with raw SQL. This broke every time OpenWebUI changed its schema. We migrated to the public REST API (`/api/v1/users/all`, `/api/v1/chats/all/db`) which is versioned and stable. The `--legacy` flag and stub in `extract_chats.py` have been deleted — direct SQLite reads are forbidden (policy F5), and the REST API is the only supported extraction path.
+
+### Caddy as the reverse proxy, and basic auth as the fallback (A16)
+We chose Caddy over Nginx because it obtains and renews Let's Encrypt certificates by itself. With Nginx we would need certbot, a renewal timer, and a reload hook, which is three more things to forget on a VM nobody watches. Caddy also proxies WebSockets with no extra configuration (Open WebUI streams chat replies over one), and it has bcrypt basic auth built in. The proxy is the only container published beyond localhost, and CI fails if another service in `docker-compose.yml` is published on all interfaces (`scripts/ci/compat_guards.sh`, check 6).
+
+Open WebUI and Grafana keep their own logins and get no proxy auth: they have real user accounts, and a second basic-auth prompt in front of them would only add friction (and Grafana treats a basic-auth header as an API login). The grading dashboard has no accounts of its own, so the proxy supplies them. If the accounts file is missing, the dashboard fails closed with 401 and the rest of the site keeps working.
 
 ### GCS for file uploads
 **Fall 2026 correction:** the 2026-10-17 VM inspection did not find a mount at
@@ -125,7 +130,7 @@ The `rag_bio_project/` pipeline uses ChromaDB because it was the first to be bui
 
 **High priority:**
 
-1. **Host the grading dashboard.** Add it to `docker-compose.yml`, put it behind Nginx with HTTP basic auth (or the university's SSO), and give professors a URL. One to two days of engineering.
+1. ~~**Host the grading dashboard.**~~ Done in Fall 2026: A15 containerised it, and A16 put it behind a reverse proxy with TLS and a login. What remains is SSO in place of basic auth (`SETUP.md` §9).
 
 2. **Done in A20:** a GCP uptime check on `/ready` emails a named person (`scripts/gcp_uptime_alert.sh`), and Grafana alerts on Open WebUI memory and chat error rate. **Still open:** the chat error-rate alert is built on Open WebUI's HTTP metrics, and web-UI chats report model-provider failures (quota, bad key, outage) over the websocket after the HTTP request has already returned 200. So the most likely real failure, the OpenAI key running out, does not trip any alert. Closing that needs a different signal, e.g. a sidecar that sends a tiny chat completion every few minutes through the public API and exposes success/failure to Prometheus.
 
