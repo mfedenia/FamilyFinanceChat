@@ -193,11 +193,14 @@ OpenWebUI (production VM)
 Grading Backend (FastAPI, grading_feature/backend/)
   Every API route is under /api/; any other path serves the built frontend (client-side routes)
   └─ GET /api/health — liveness probe (used by the compose healthcheck)
-  └─ GET /api/refresh — triggers extraction, overwrites JSON file atomically
+  └─ POST /api/refresh — triggers asynchronous extraction and question pre-scoring in background
+  └─ GET /api/refresh/status — returns progress percentage, stage, and metadata
+  └─ GET /api/refresh?sync=true — legacy synchronous extraction fallback
   └─ GET /api/users — all students with chat counts
   └─ GET /api/user/{id} — full chat history
-  └─ POST /api/score — score a list of questions via OpenAI
-  └─ GET /api/student-feedback — per-student or aggregate feedback
+  └─ POST /api/score — score a list of questions via OpenAI (cached)
+  └─ GET /api/student-feedback — per-student or aggregate feedback (cached)
+  └─ GET /api/cache/stats — SQLite score cache metrics
 
 Scoring (scoring_service.py):
   7 dimensions scored 0–2 each (total 0–14):
