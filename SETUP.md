@@ -796,12 +796,13 @@ The short version of a safe upgrade:
    metrics still arrive, and the grading dashboard can still extract chats.
 
 Upgrade one minor version at a time. Some migrations are **one-way** (v0.10 changes the config
-table), so going back means restoring the backup, not just switching the image. For production,
-follow the full [A13 production upgrade runbook](#a13-production-upgrade-runbook-preparation)
-below.
+table), so going back means restoring the backup, not just switching the image.
 
-<!-- TODO-A24 (P1): this runbook is long for a setup guide. Consider moving it to
-docs/runbooks/upgrade.md. If moved, update the anchor link in HANDOFF.md. -->
+**For production, follow the step-by-step runbook
+[`docs/runbooks/openwebui-upgrade.md`](docs/runbooks/openwebui-upgrade.md)** (preparation,
+rehearsal on a copy of production, the window, checks and rollback). The stricter
+[A13 production upgrade runbook](#a13-production-upgrade-runbook-preparation) below was
+prepared for the first upgrade but never run.
 
 ---
 
