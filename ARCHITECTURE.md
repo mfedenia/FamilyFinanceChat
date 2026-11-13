@@ -70,13 +70,13 @@ All services run on a shared bridge network `ai-net`.
 - **Provider:** OpenAI API (`https://api.openai.com/v1`)
 - **Model:** `gpt-4o-mini` (default; configurable via `OPENAI_MODEL` env var)
 - **Configured via:** `OPENAI_API_KEY`, `OPENAI_API_BASE_URL`, `OPENAI_MODEL` in `.env`
-- Ollama support exists in the RAG pipeline code (`rag_bio_project/src/llm.py`) but is not running — it was commented out in `docker-compose.yml`
+- Historical Ollama support in the retired RAG experiment is recoverable through the A22 decision; it is not an active retrieval path.
 
 ---
 
 ## RAG Pipeline
 
-Two separate RAG systems exist in this project.
+One retrieval path is supported: native Open WebUI Knowledge Bases backed by Qdrant (A22).
 
 ### 1. Native OpenWebUI RAG (active in production)
 
@@ -103,35 +103,12 @@ PDF/TXT/DOCX files
 | `RAG_FILE_MAX_SIZE` | `50` MB |
 | `RAG_ALLOWED_FILE_EXTENSIONS` | `pdf,md,txt,docx` |
 
-### 2. Custom Python RAG (`rag_bio_project/src/`)
+### Retired standalone research pipeline (A22)
 
-A standalone research/utility pipeline for FIN602 client biography documents. Not connected to OpenWebUI — runs as Python scripts or notebooks.
-
-```
-PDF/TXT files (rag_bio_project/data_pdfs/)
-  └─ loader.py — multi-source loader (PDF, TXT, URLs)
-       └─ splitter.py — type-aware splitting
-            PDF:  chunk_size=1000, overlap=150
-            TXT:  chunk_size=800,  overlap=100
-       └─ embeddings.py — builds embedding model
-            Default: BAAI/bge-m3 (HuggingFace, runs locally)
-            Optional: text-embedding-3-small (OpenAI), DashScope
-       └─ vectorstore.py — persists to ChromaDB
-            Collections named: {username}_{character}
-       └─ retriever.py — MMR retrieval
-            k=5, fetch_k=15, lambda=0.5
-            Strictness: strict=0.70 / medium=0.60 / loose=0.50
-       └─ prompting.py — 5 prompt templates, auto-selected by query keywords
-            rag_concise          — default
-            rag_with_citations   — "cite / citation / source"
-            rag_compare          — "compare / vs / difference"
-            rag_timeline         — "timeline / when / history"
-            rag_extraction       — "extract / structured / json"
-       └─ llm.py — LLM wrapper (OpenAI / DashScope / Ollama)
-       └─ pipeline.py — run_pipeline(question, cfg) end-to-end entry point
-```
-
-A pre-built Chroma index is committed at `rag_bio_project/index/`.
+The disconnected ChromaDB pipeline and generated index have been removed.
+Research notebooks remain in `archive/rag_bio_research/`; source PDFs remain in
+`rag_bio_project/data_pdfs/`. Neither is a deployed retrieval service.
+See [the decision and recovery reference](docs/decisions/a22-retrieval.md).
 
 ---
 
