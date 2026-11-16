@@ -1,4 +1,5 @@
 # Python
+.venv/
 backend/venv/
 upload_pdf_app/backend/venv/
 __pycache__/
