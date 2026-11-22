@@ -1,22 +1,48 @@
 /**
- * Env-driven configuration. One `.env` at the repo root feeds everything —
- * the browser never sees any of it.
+ * Env-driven configuration. The browser never sees any of it.
  *
- * GPT-Live is generally available; the model defaults to `gpt-live-1`.
+ * Inside FamilyFinanceChat, liveavatar shares FFC's main `.env` (the repo
+ * root, one level up): its variables are appended there, and FFC's own
+ * `OPENAI_API_KEY` is reused. Load order — the first value found wins:
+ *   1. the real environment,
+ *   2. FamilyFinanceChat/.env (when liveavatar sits inside FFC),
+ *   3. liveavatar/.env (standalone use, or to fill gaps).
+ *
+ * FFC's main .env is ALSO the open-webui container's env_file, and Open WebUI
+ * itself reads `GEMINI_API_KEY` (config.py) and `PORT` (its start script). So
+ * liveavatar reads collision-safe names first — `LIVEAVATAR_GEMINI_API_KEY`,
+ * `LIVEAVATAR_PORT` — and the plain names only as a fallback. Put the prefixed
+ * names in the main .env, or Open WebUI picks the values up too.
  */
 
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// Loaded before anything reads process.env. Missing file is fine — deployed
-// environments use real env vars.
-try {
-  process.loadEnvFile(fileURLToPath(new URL("../../.env", import.meta.url)));
-} catch {
-  /* no .env — ambient env only */
+const ROOT = fileURLToPath(new URL("../../", import.meta.url)); // liveavatar/
+const FFC_ENV = fileURLToPath(new URL("../../../.env", import.meta.url));
+const FFC_MARKER = fileURLToPath(new URL("../../../docker-compose.yml", import.meta.url));
+
+/** Which env files were loaded, for the boot log. */
+export const loadedEnvFiles: string[] = [];
+// loadEnvFile never overrides a variable that is already set, so loading the
+// main .env first makes it win over liveavatar/.env.
+for (const file of [existsSync(FFC_MARKER) ? FFC_ENV : null, `${ROOT}.env`]) {
+  if (!file || !existsSync(file)) continue;
+  try {
+    process.loadEnvFile(file);
+    loadedEnvFiles.push(file);
+  } catch {
+    /* unreadable — ambient env only */
+  }
+  // An unfilled placeholder must not block a real value from the next file.
+  for (const [k, v] of Object.entries(process.env)) if (v?.trim() === "REPLACE_ME") delete process.env[k];
 }
 
-const env = (name: string, fallback = ""): string =>
-  process.env[name] ?? fallback;
+// A value still reading REPLACE_ME (the .env.example placeholder) counts as unset.
+const env = (name: string, fallback = ""): string => {
+  const v = process.env[name];
+  return v === undefined || v.trim() === "REPLACE_ME" ? fallback : v;
+};
 
 /** Which speech-to-speech model drives the avatar. */
 export type LiveProvider = "gptlive" | "gemini";
@@ -27,7 +53,8 @@ const provider: LiveProvider =
     : "gptlive";
 
 export const config = {
-  port: Number(env("PORT", "8787")),
+  /** LIVEAVATAR_PORT first: Open WebUI's container also reads PORT from FFC's .env. */
+  port: Number(env("LIVEAVATAR_PORT") || env("PORT", "8787")),
 
   /** LIVE_PROVIDER=gemini swaps GPT-Live for the Gemini Live API (geminiLive.ts). */
   provider,
@@ -56,7 +83,8 @@ export const config = {
   },
 
   gemini: {
-    apiKey: env("GEMINI_API_KEY"),
+    /** LIVEAVATAR_GEMINI_API_KEY first: Open WebUI also reads GEMINI_API_KEY from FFC's .env. */
+    apiKey: env("LIVEAVATAR_GEMINI_API_KEY") || env("GEMINI_API_KEY"),
     model: env("GEMINI_LIVE_MODEL", "gemini-3.8-live"),
     /** A prebuilt voice name (Kore, Puck, Charon, Aoede, ...). */
     voice: env("GEMINI_LIVE_VOICE", "Kore"),
@@ -65,13 +93,21 @@ export const config = {
   },
 
   /**
-   * The two-avatar demo (/duo.html). Always Gemini: a transcription-only
-   * listener hears the mic, gemini-decision-1 picks who answers, and each
-   * persona is its own Gemini Live session (model + debug from `gemini`).
+   * The two-avatar demo (/duo.html). A transcription-only Gemini listener
+   * hears the mic, gemini-decision-1 picks who answers, and each persona is a
+   * live voice model: Gemini Live (default) or OpenAI GPT-Live. Personas,
+   * prompts and documents come from Open WebUI model presets, as in
+   * FamilyFinanceChat (scenario.ts, openwebui.ts).
    */
   duo: {
-    /** Folder under server/scenarios/ — who is on the call and what they know. */
+    /** Folder under server/scenarios/ — who is on the call. */
     scenario: env("DUO_SCENARIO", "beckham"),
+    /** The personas' live voice model: "gemini" (Gemini Live) or "gptlive" (OpenAI GPT-Live). */
+    personaEngine: (env("DUO_PERSONA_ENGINE", "gemini").trim().toLowerCase() === "gptlive"
+      ? "gptlive"
+      : "gemini") as "gemini" | "gptlive",
+    /** GPT-Live model for the personas when DUO_PERSONA_ENGINE=gptlive. */
+    gptLiveModel: env("DUO_GPT_LIVE_MODEL", "gpt-live-1.1"),
     listenerModel: env("DUO_LISTENER_MODEL", "gemini-3.5-transcribe-live"),
     decisionModel: env("DUO_DECISION_MODEL", "gemini-decision-1"),
     /**
@@ -85,14 +121,34 @@ export const config = {
       .map((s) => s.trim())
       .filter(Boolean),
   },
+
+  /**
+   * FamilyFinanceChat's Open WebUI — same variable names as tools/kb_sync and
+   * grading_feature. The key must be the client presets' owner's or an
+   * admin's: Open WebUI 0.11.x hides a preset's system prompt from read-only
+   * users. Create it under Settings → Account → API keys (FFC SETUP.md §7).
+   */
+  openwebui: {
+    baseUrl: env("OPENWEBUI_BASE_URL").replace(/\/+$/, ""),
+    apiKey: env("OPENWEBUI_API_KEY"),
+  },
 };
 
-/** Required vars for the duo demo, which is Gemini-only whatever LIVE_PROVIDER says. */
-export function missingDuoConfig(): string[] {
+/**
+ * Required vars for the duo, given what the chosen scenario and engine use.
+ * `usesOpenWebUI` comes from the scenario (any persona backed by a preset).
+ */
+export function missingDuoConfig(usesOpenWebUI: boolean): string[] {
   const required: [string, string][] = [
     ["LIVEAVATAR_API_KEY", config.liveavatar.apiKey],
-    ["GEMINI_API_KEY", config.gemini.apiKey],
+    // The listener and the router are Gemini whatever the persona engine is.
+    ["LIVEAVATAR_GEMINI_API_KEY", config.gemini.apiKey],
   ];
+  if (config.duo.personaEngine === "gptlive") required.push(["OPENAI_API_KEY", config.gptlive.apiKey]);
+  if (usesOpenWebUI) {
+    required.push(["OPENWEBUI_BASE_URL", config.openwebui.baseUrl]);
+    required.push(["OPENWEBUI_API_KEY", config.openwebui.apiKey]);
+  }
   return required.filter(([, value]) => !value).map(([name]) => name);
 }
 
@@ -105,7 +161,7 @@ export function missingConfig(): string[] {
   const required: [string, string][] = [
     ["LIVEAVATAR_API_KEY", config.liveavatar.apiKey],
     config.provider === "gemini"
-      ? ["GEMINI_API_KEY", config.gemini.apiKey]
+      ? ["LIVEAVATAR_GEMINI_API_KEY", config.gemini.apiKey]
       : ["OPENAI_API_KEY", config.gptlive.apiKey],
   ];
   return required.filter(([, value]) => !value).map(([name]) => name);

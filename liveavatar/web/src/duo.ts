@@ -105,8 +105,14 @@ const lastLineOf = new Map<string, HTMLDivElement>();
 // the time it started. Kept after End so it can be exported.
 const record = new Map<string, SpokenTurn>();
 const lastTurnOf = new Map<string, SpokenTurn>();
-let recordMeta: { title: string; scenario: string; personas: string[]; startedAt: number; endedAt: number } | null =
-  null;
+let recordMeta: {
+  title: string;
+  scenario: string;
+  personas: string[];
+  presetIds: Record<string, string>;
+  startedAt: number;
+  endedAt: number;
+} | null = null;
 
 function recordTurn(turn: Turn): void {
   let r = record.get(turn.id);
@@ -223,6 +229,7 @@ async function start(): Promise<void> {
     title: `${started.scenario.title} — spoken session ${new Date().toLocaleString()}`,
     scenario: started.scenario.id,
     personas: started.personas.map((p) => p.name),
+    presetIds: Object.fromEntries(started.personas.filter((p) => p.preset_id).map((p) => [p.name, p.preset_id!])),
     startedAt: Date.now(),
     endedAt: Date.now(),
   };

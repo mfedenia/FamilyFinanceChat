@@ -156,19 +156,45 @@ fallbacks in `src/prompts.ts` only cover a deleted file). An empty
 
 ## Duo (/duo.html)
 
-`POST /api/duo/start` starts two LiveAvatar sessions and a `DuoStage`
-(`server/src/duo/stage.ts`, the director). Required env: `LIVEAVATAR_API_KEY`,
-`GEMINI_API_KEY` (`missingDuoConfig()`), whatever `LIVE_PROVIDER` says.
-Scenarios: `server/scenarios/<name>/` — `scenario.json` (personas, avatar ids,
-voices, routing text, opening line), `<persona>.md` prompts, and knowledge
-files both personas get in full. `beckham/case.md` is FIN 602 course material
-(© Mark Fedenia) — not for publication outside the course.
+`POST /api/duo/start` reads the scenario's Open WebUI presets, then starts two
+LiveAvatar sessions and a `DuoStage` (`server/src/duo/stage.ts`, the director).
+Required env depends on scenario and engine (`missingDuoConfig(usesOpenWebUI)`).
+
+Fitted to FamilyFinanceChat's pipeline except for what makes it a duo:
+- **Personas = Open WebUI client model presets** (`scenario.json` →
+  `DUO_OPENWEBUI_MODEL_<ID>`), read through the public API
+  (`server/src/duo/openwebui.ts`). `beckham-local` keeps the file-based
+  version (prompts + `case.md` preloaded) for offline use and the B12
+  comparison. `beckham-local/case.md` is FIN 602 course material
+  (© Mark Fedenia) — not for publication outside the course.
+- **Documents = Open WebUI knowledge search every turn**, like production
+  (0.8.12).
+- **Env = FFC's main `.env`** (loaded before `liveavatar/.env`), reusing
+  `OPENAI_API_KEY`.
+- **Voices = live models**: `DUO_PERSONA_ENGINE=gemini` (default) or `gptlive`
+  (`gptLivePersona.ts`, untested). Both implement `PersonaVoice`
+  (`personaBridge.ts`); the director never knows which.
 
 The single-avatar invariants above (the model owns turn-taking, two-step
 barge-in) do NOT apply here, on purpose: routing has to happen before anyone
 answers, so the director owns the floor.
 
 ### Duo invariants — do not "fix" these
+
+- **The knowledge search runs in parallel with the routing decision**
+  (`stage.ts` `searchAll`), one search per distinct collection set, with a
+  1.5s cap; a slow search means no documents, never a stalled reply. Only the
+  chosen persona gets the documents; the other gets the spoken line.
+- **Presets are read before any avatar starts** (`index.ts`): a bad preset id
+  or a key that cannot read system prompts must not cost two billable sessions.
+  A preset with an empty `params.system` is an error (Open WebUI 0.11.x strips
+  it for read-only callers), never a silent persona with no prompt.
+- **Retrieved text never uses Open WebUI's RAG template** — it asks for `[1]`
+  citations, which a spoken client must not say (`excerptsBlock`).
+- **Never read plain `GEMINI_API_KEY` / `PORT` from FFC's main `.env` for
+  liveavatar.** That file is the open-webui container's `env_file`, and Open
+  WebUI reads both (a `PORT` moves it off 8080). Use `LIVEAVATAR_GEMINI_API_KEY`
+  / `LIVEAVATAR_PORT`; plain names are only fallbacks.
 
 - **Only the listener hears the mic.** Personas get text turns from the
   director. That is what lets the decision model pick a speaker BEFORE anyone

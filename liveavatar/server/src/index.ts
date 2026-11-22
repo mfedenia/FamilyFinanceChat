@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import type { ClientMessage, DuoStartResponse } from "../../shared/messages";
 import { config, missingConfig, missingDuoConfig } from "./config";
-import { castScenario, loadScenarioSpec, pinnedAvatarIds } from "./duo/scenario";
+import { castScenario, loadScenarioSpec, pinnedAvatarIds, usesOpenWebUI } from "./duo/scenario";
 import { DuoStage } from "./duo/stage";
 import {
   describeAvatars,
@@ -106,20 +106,28 @@ async function handleStart(res: ServerResponse): Promise<void> {
 }
 
 async function handleDuoStart(res: ServerResponse): Promise<void> {
-  const missing = missingDuoConfig();
+  let spec: ReturnType<typeof loadScenarioSpec>;
+  try {
+    spec = loadScenarioSpec(config.duo.scenario);
+  } catch (err) {
+    json(res, 500, { error: err instanceof Error ? err.message : "bad scenario" });
+    return;
+  }
+  const missing = missingDuoConfig(usesOpenWebUI(spec));
   if (missing.length > 0) {
     json(res, 500, { error: `missing env vars: ${missing.join(", ")} — copy .env.example to .env` });
     return;
   }
   const upstreams: StartedSession[] = [];
   try {
-    const spec = loadScenarioSpec(config.duo.scenario);
     // Env pin > the scenario's own avatars > random, per seat.
     const pinned = config.duo.avatarIds.length >= 2 ? config.duo.avatarIds.slice(0, 2) : pinnedAvatarIds(spec);
     const random = pinned.some((id) => !id) ? await pickRandomAvatars(2) : [];
     const named = await describeAvatars(pinned.filter((id): id is string => Boolean(id)));
     const avatars = pinned.map((id, i) => (id ? named.find((a) => a.id === id)! : random[i]!));
-    const scenario = castScenario(config.duo.scenario, spec, avatars);
+    // Presets are read BEFORE any avatar starts: a bad preset id or key must
+    // not cost two billable sessions.
+    const scenario = await castScenario(config.duo.scenario, spec, avatars);
     const personas = scenario.personas;
     // Both or neither: a half-started duo is released before the error goes out.
     const results = await Promise.allSettled(personas.map((p) => startUpstream(p.avatarId)));
@@ -131,7 +139,9 @@ async function handleDuoStart(res: ServerResponse): Promise<void> {
     addSession(stage);
     stage.start();
     console.log(
-      `[http] duo started: ${stage.sessionId} — "${scenario.title}": ${personas.map((p) => `${p.name} (${p.id}, "${p.avatarName}", ${p.voice})`).join(" + ")}`,
+      `[http] duo started: ${stage.sessionId} — "${scenario.title}" on ${config.duo.personaEngine}: ${personas
+        .map((p) => `${p.name} (${p.presetId ? `preset ${p.presetId}, ${p.collections.length} knowledge collection(s)` : "local prompt"}, "${p.avatarName}", ${p.voice})`)
+        .join(" + ")}`,
     );
     const body: DuoStartResponse = {
       session_id: stage.sessionId,
@@ -145,6 +155,7 @@ async function handleDuoStart(res: ServerResponse): Promise<void> {
       personas: personas.map((p, i) => ({
         id: p.id,
         name: p.name,
+        preset_id: p.presetId,
         tagline: p.tagline,
         livekit_url: upstreams[i]!.livekitUrl,
         livekit_client_token: upstreams[i]!.livekitClientToken,

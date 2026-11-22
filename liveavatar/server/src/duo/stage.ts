@@ -26,7 +26,10 @@ import { MediaServerLeg } from "../mediaServer";
 import type { HostedSession } from "../registry";
 import { handoffProbability, pickSpeaker } from "./decision";
 import { Listener } from "./listener";
-import { PersonaBridge } from "./personaBridge";
+import { GptLivePersona } from "./gptLivePersona";
+import { excerptsBlock, searchKnowledge, type Excerpt } from "./openwebui";
+import { PersonaBridge, type PersonaEvents, type PersonaVoice } from "./personaBridge";
+import { config } from "../config";
 import type { Persona, Scenario } from "./scenario";
 
 const MEDIA_READY_TIMEOUT_MS = 15_000;
@@ -56,7 +59,7 @@ interface Cast {
   /** The LiveAvatar session this persona's avatar runs in. */
   upstreamId: string;
   media: MediaServerLeg;
-  bridge: PersonaBridge;
+  bridge: PersonaVoice;
   /** When the audio already handed to the avatar finishes playing (estimate). */
   playEndsAt: number;
   /** The reply being transcribed right now. */
@@ -104,13 +107,13 @@ export class DuoStage implements HostedSession {
         persona,
         upstreamId: upstreams[i]!.sessionId,
         media: new MediaServerLeg(upstreams[i]!.wsUrl, (msg) => this.log(`${persona.name} media: ${msg}`)),
-        bridge: null as unknown as PersonaBridge,
+        bridge: null as unknown as PersonaVoice,
         playEndsAt: 0,
         turn: null,
         ready: false,
         cut: false,
       };
-      c.bridge = new PersonaBridge(persona, persona.instructions, {
+      const events: PersonaEvents = {
         onReady: () => {
           c.ready = true;
           this.maybeGreet();
@@ -119,7 +122,12 @@ export class DuoStage implements HostedSession {
         onText: (delta) => this.onPersonaText(c, delta),
         onTurnEnd: (cut) => this.onPersonaTurnEnd(c, cut),
         onError: (message) => this.fail(message),
-      }, log);
+      };
+      // The live voice model, per DUO_PERSONA_ENGINE. Same interface either way.
+      c.bridge =
+        config.duo.personaEngine === "gptlive"
+          ? new GptLivePersona(persona, persona.instructions, events, log)
+          : new PersonaBridge(persona, persona.instructions, events, log);
       return c;
     });
     this.listener = new Listener(
@@ -235,6 +243,9 @@ export class DuoStage implements HostedSession {
         let chosen: Cast;
         let scores: Record<string, number> = {};
         let ms = 0;
+        // FamilyFinanceChat retrieval, in parallel with the decision: search
+        // every persona's knowledge now, keep the chosen one's afterwards.
+        const searches = this.searchAll(text);
         try {
           const d = await pickSpeaker(this.scenario, recent, this.lastSpeaker?.persona ?? null);
           chosen = this.cast.find((c) => c.persona.id === d.personaId)!;
@@ -253,7 +264,13 @@ export class DuoStage implements HostedSession {
         this.history.push(line);
         const pct = Object.entries(scores).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(" ");
         this.log(`floor → ${chosen.persona.name} (${ms}ms${pct ? `, ${pct}` : ""}) for "${text.slice(0, 80)}"`);
-        this.giveFloor(chosen, line, "user", scores, ms, line);
+        const t0 = Date.now();
+        const excerpts = (await searches.get(chosen.persona.id)) ?? [];
+        if (chosen.persona.collections.length > 0) {
+          this.log(`documents for ${chosen.persona.name}: ${excerpts.length} excerpt(s) (+${Date.now() - t0}ms after the decision)`);
+        }
+        if (this.stopping) return;
+        this.giveFloor(chosen, line, "user", scores, ms, line, excerptsBlock(excerpts));
       }
     } finally {
       this.routing = false;
@@ -273,10 +290,12 @@ export class DuoStage implements HostedSession {
     scores: Record<string, number>,
     ms: number,
     shared?: string,
+    documents?: string,
   ): void {
+    // Only the spoken line is shared; retrieved documents are the speaker's own.
     if (shared) for (const c of this.cast) if (c !== to) c.bridge.addContext(shared);
     to.cut = false;
-    to.bridge.say(turn);
+    to.bridge.say(turn, documents || undefined);
     this.lastSpeaker = to;
     this.emit({ type: "floor", persona: to.persona.id, reason, scores, ms });
   }
@@ -359,6 +378,23 @@ export class DuoStage implements HostedSession {
       { [to.persona.id]: p },
       Date.now() - t0,
     );
+  }
+
+  /**
+   * Start a knowledge search for every persona that has knowledge, one search
+   * per distinct set of collections (both spouses usually share one base).
+   */
+  private searchAll(query: string): Map<string, Promise<Excerpt[]>> {
+    const byKey = new Map<string, Promise<Excerpt[]>>();
+    const out = new Map<string, Promise<Excerpt[]>>();
+    for (const c of this.cast) {
+      const cols = c.persona.collections;
+      if (cols.length === 0) continue;
+      const key = [...cols].sort().join("|");
+      if (!byKey.has(key)) byKey.set(key, searchKnowledge(cols, query, (m) => this.log(m)));
+      out.set(c.persona.id, byKey.get(key)!);
+    }
+    return out;
   }
 
   // ── plumbing ───────────────────────────────────────────────────────────────

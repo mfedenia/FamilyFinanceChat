@@ -90,6 +90,8 @@ export type ClientMessage =
 export interface DuoPersonaInfo {
   id: string;
   name: string;
+  /** The Open WebUI model preset this persona comes from, if any. */
+  preset_id: string | null;
   tagline: string;
   livekit_url: string;
   livekit_client_token: string;

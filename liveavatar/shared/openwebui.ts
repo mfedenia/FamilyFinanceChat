@@ -42,6 +42,12 @@ export interface SpokenSession {
   /** Scenario id + persona names — kept on the chat for provenance. */
   scenario: string;
   personas: string[];
+  /**
+   * Persona name → Open WebUI model preset id, when the personas come from
+   * presets. Used as the chat's `models` and each reply's `model`, so the
+   * imported chat is linked to the real client models.
+   */
+  presetIds?: Record<string, string>;
   startedAt: number;
   endedAt: number;
   turns: SpokenTurn[];
@@ -69,7 +75,8 @@ export function toOpenWebUIExport(session: SpokenSession): Record<string, unknow
 /** One chat row as Open WebUI stores it. */
 export function toOpenWebUIRow(session: SpokenSession): Record<string, unknown> {
   const messages = toMessages(session);
-  const models = session.personas.length ? session.personas : ["avatar"];
+  const ids = session.presetIds ?? {};
+  const models = session.personas.length ? session.personas.map((n) => ids[n] ?? n) : ["avatar"];
   const chat = {
     id: "",
     title: session.title,
@@ -107,6 +114,8 @@ export function toOpenWebUIRow(session: SpokenSession): Record<string, unknown> 
 }
 
 function toMessages(session: SpokenSession): OwuiMessage[] {
+  const ids = session.presetIds ?? {};
+  const models = session.personas.map((n) => ids[n] ?? n);
   const turns = session.turns
     .filter((t) => t.text.trim())
     .slice()
@@ -134,11 +143,12 @@ function toMessages(session: SpokenSession): OwuiMessage[] {
         role: "user",
         content: g.turns.map((t) => t.text.trim()).join(" "),
         timestamp,
-        models: session.personas,
+        models,
       };
     } else {
       const speakers = [...new Set(g.turns.map((t) => t.speaker ?? "Assistant"))];
       const name = speakers.join(" & ");
+      const presetId = speakers.length === 1 ? session.presetIds?.[speakers[0]!] : undefined;
       msg = {
         id,
         parentId: parent?.id ?? null,
@@ -148,7 +158,7 @@ function toMessages(session: SpokenSession): OwuiMessage[] {
           .map((t) => `${t.speaker ?? "Assistant"}: ${t.text.trim()}${t.interrupted ? " — (cut off)" : ""}`)
           .join("\n\n"),
         timestamp,
-        model: name,
+        model: presetId ?? name,
         modelName: name,
         done: true,
       };

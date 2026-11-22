@@ -14,14 +14,20 @@
       "tagline": "the optimist — ideas, possibilities, encouragement",
       "role": "The enthusiastic optimist. Best for brainstorming, creative ideas, imagining what could be, encouragement, fun, and anything emotional or personal.",
       "prompt": "spark.md",
-      "voice": "Puck"
+      "voice": {
+        "gemini": "Puck",
+        "gptlive": "coral"
+      }
     },
     {
       "id": "anchor",
       "tagline": "the skeptic — facts, risks, the practical answer",
       "role": "The dry, practical skeptic. Best for facts, numbers, how-to questions, risks and downsides, reality checks, and anything that needs a straight, precise answer.",
       "prompt": "anchor.md",
-      "voice": "Charon"
+      "voice": {
+        "gemini": "Charon",
+        "gptlive": "cedar"
+      }
     }
   ]
 }

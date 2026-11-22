@@ -33,6 +33,28 @@ const CLOSE_TIMEOUT_MS = 1_000;
 
 type Json = Record<string, any>;
 
+/**
+ * One persona's live voice, whatever the engine — what the director (stage.ts)
+ * drives. Implemented by PersonaBridge (Gemini Live) and GptLivePersona
+ * (OpenAI GPT-Live).
+ */
+export interface PersonaVoice {
+  readonly persona: Persona;
+  run(): Promise<void>;
+  close(): Promise<void>;
+  /**
+   * Give this persona the floor: `text` is the line to answer; `documents`,
+   * if any, are retrieved excerpts that go with it (each engine delivers them
+   * its own way).
+   */
+  say(text: string, documents?: string): void;
+  /** A line the persona should know but not answer. Held while it is replying. */
+  addContext(text: string): void;
+  /** Drop the rest of the current reply (its avatar was just cut off). */
+  silence(): void;
+  readonly busy: boolean;
+}
+
 export interface PersonaEvents {
   onReady(): void;
   onAudio(audioB64: string): void;
@@ -43,7 +65,7 @@ export interface PersonaEvents {
   onError(message: string): void;
 }
 
-export class PersonaBridge {
+export class PersonaBridge implements PersonaVoice {
   private ws: WebSocket | null = null;
   private closing = false;
   private setupDone = false;
@@ -86,7 +108,9 @@ export class PersonaBridge {
   }
 
   /** Give this persona the floor with `text` as the user turn. */
-  say(text: string): void {
+  say(text: string, documents?: string): void {
+    // Gemini takes the excerpts inline: one client turn, line first.
+    if (documents) text = `${text}\n\n${documents}`;
     // Anything held back goes first, so the turn lands on a complete context.
     // (Sending while a reply is in flight replaces that reply — which is what
     // a new turn does anyway.)
