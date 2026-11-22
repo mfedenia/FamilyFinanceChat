@@ -466,10 +466,10 @@ work: every test session costs money.
 
 | ID | Task | Depends on | Estimate | Status |
 |---|---|---|---|---|
-| AV0 | Import the HeyGen demo, pinned | — | ½ day | **Done** (live run pending API keys) |
-| AV1 | Remove the tutor logic | AV0 | ½–1 day | **Done** (live run pending API keys) |
-| AV5a | Guardrails that need no identity | AV1 | ~6 h | Not started |
-| AV2 | Persona loader | AV1 | 1 day | Not started |
+| AV0 | Import the HeyGen demo, pinned | — | ½ day | **Done** |
+| AV1 | Remove the tutor logic | AV0 | ½–1 day | **Done** (a human-spoken conversation is still to be run) |
+| AV5a | Guardrails that need no identity | AV1 | ~6 h | **Done** (Prometheus scrape job comes with AV6) |
+| AV2 | Persona loader | AV1 | 1 day | **Done** (Open WebUI source tested against a stand-in, not the real stack) |
 | AV3 | Login check + WebSocket ticket | AV1 | 1 day | Not started |
 | AV5b | Per-student daily minutes | AV3 | ~2 h | Not started |
 | AV4 | Transcript write-back to Open WebUI | AV3 | 1–1½ days | Not started |
@@ -490,9 +490,8 @@ timestamps. B2 (consent) must still be signed off **before any real student sess
 **Steps.** Copy the demo verbatim into `avatar_app/` at commit
 `daa8cc92ab34c75c0bbed201c94fb98360da2179`, keep its MIT `LICENSE`, install with the
 pinned pnpm (`corepack pnpm install --frozen-lockfile`), typecheck.
-**Acceptance.** Installs and typechecks unmodified ✅ (commit `4ad6924`). A live
-conversation with the stock avatar needs `LIVEAVATAR_API_KEY` and `OPENAI_API_KEY` in
-`avatar_app/.env` — **pending**.
+**Acceptance.** Installs and typechecks unmodified ✅ (commit `4ad6924`). Live sessions
+against both services ran on 2026-11-22 (see AV5a) ✅.
 
 #### AV1 · Remove the tutor logic — ½–1 day · **Done**
 **Why.** Editing the persona file alone gives "a financial client who starts teaching
@@ -511,45 +510,103 @@ Japanese". The tutor behaviour lives in code (upstream `docs/REPURPOSING.md`).
 **Acceptance.**
 - Typecheck, web build, and a key-less boot smoke test all pass ✅: `/healthz` answers, and
   `/api/session/start` refuses with a message naming the missing keys.
-- A live 2-minute conversation shows no tutor behaviour — **pending keys**.
-- The persona fits easily within the limits. *(GPT-Live startup instructions: ≤ 16,384
-  tokens.)*
+- GPT-Live accepts the tool-less `session.start` ✅. In live 30-second sessions
+  (2026-11-22) the client greeted in character, e.g. *"Hi, I'm Dana. My accountant
+  suggested I come in and talk with you."*, with no tutor behaviour ✅.
+- **Still to do:** a full conversation with a person speaking. The automated runs streamed
+  silence, so no questions were asked.
+- The placeholder persona is about 692 tokens against the 16,384-token limit ✅.
 
-#### AV5a · Guardrails that need no identity — ~6 h
+#### AV5a · Guardrails that need no identity — ~6 h · **Done**
 **Why.** Every session bills from `/api/session/start`. The demo has a 60-second idle
 reaper and **no session length cap**: it relies on the LiveAvatar plan's limit.
-**Steps.**
-- **Kill switch:** `AVATAR_ENABLED=false` refuses new sessions with a friendly message.
-- **Hard cap:** `AVATAR_MAX_SESSION_MIN` (default 15). The server ends the session, and
-  first gives a short spoken wrap-up via an instructions append one minute before.
-- **Concurrency:** `AVATAR_MAX_CONCURRENT` limits sessions across the whole class.
-- **Errors:** students never see raw upstream errors. Log the detail and show "the practice
-  client is unavailable right now".
-- **Metrics:** `/metrics` (Prometheus text, internal only, never routed by Caddy) reports
-  active sessions, session minutes, starts and failures by reason, and time-to-ready.
-  Scrape it from the existing Prometheus.
-**Acceptance.** Each limit is triggered deliberately in a test and behaves as specified.
-The metrics appear in Prometheus.
+**Decision (2026-11-22): no limit on simultaneous sessions.** Total spend is bounded by
+the per-session cap, the AV5b daily quota and the kill switch. A whole class starting at
+once is real practice, not waste. If LiveAvatar's own plan limits simultaneous sessions,
+the extra starts fail with the generic message.
+**What was built.**
+- **Kill switch:** `AVATAR_ENABLED=false` refuses new sessions (HTTP 503, *"Practice
+  sessions are turned off right now."*). It is checked before anything that costs money.
+- **Hard cap:** `AVATAR_MAX_SESSION_MIN` (default 15, fractions allowed for tests).
+  - About one minute before the cap (half the cap when it is very short), an instructions
+    append asks the client to wrap up in character.
+  - At the cap the server sends the page an `ended` message with a plain-words reason,
+    then stops the session and closes the socket.
+- **Errors:** students only ever see plain messages; the detail goes to the server log.
+  Errors arriving during teardown are logged but not shown, so they cannot overwrite
+  "time limit reached".
+- **Metrics:** `metrics.ts`, served on a **separate port** (`AVATAR_METRICS_PORT`, default
+  9464). Caddy routes `/practice/*` to the main port, so metrics cannot be exposed by
+  accident.
+  - Metrics reported: `avatar_sessions_active`, `avatar_sessions_started_total`,
+    `avatar_session_start_failures_total{reason}`, `avatar_sessions_ended_total{reason}`,
+    `avatar_session_seconds_total`, and the `avatar_session_ready_seconds` histogram.
+  - The format is written by hand, with no new dependency.
+**Acceptance.**
+- Kill switch, bad requests and metric counts were checked against a running server ✅.
+- Live 30-second session on 2026-11-22 ✅:
+  - ready 1.3–2.5 s after start;
+  - the client said *"Hey, sorry to jump in, I actually need to head out soon. Do you have
+    one last question for me before I go?"*;
+  - the session ended at exactly 30 s, with `time_limit` counted and 30 billed seconds
+    recorded.
+- **Moved to AV6:** the Prometheus scrape job (the container does not exist yet).
+**Measured lessons, now in `avatar_app/AGENTS.md`.**
+1. A wrap-up worded *"at the next natural pause"* was accepted but **never spoken** while
+   the advisor was quiet. GPT-Live speaks unprompted only when told to speak now, as the
+   upstream team found with the greeting.
+2. Appends take effect only while mic audio streams. With no input audio, GPT-Live rejects
+   them with `context_injection_incomplete`. The browser streams silence for this reason.
 
-#### AV2 · Persona loader — 1 day
+#### AV2 · Persona loader — 1 day · **Done**
 **Why.** The persona must be the same family the text bot plays. GPT-Live's startup
 instructions are **fixed once the session starts**, so the whole persona goes in at
 `session.start`. Mid-session appends are capped at 500 tokens and are for nudges only. This
 is the §5 "RAG trap" answer: no per-turn retrieval in the speech loop.
-**Steps.**
-- Add `persona.ts` with a `PersonaSource` interface and two implementations:
-  - **file:** `avatar_app/personas/*.md`, used for development and as a fallback;
-  - **Open WebUI:** reads the family's model and system prompt (plus its scenario
-    documents, if they are small) through the public API.
-- `/api/session/start` takes a `persona_id`.
-- Check the assembled instructions against the 16k-token limit, and fail loudly rather than
-  truncate.
-- Pick a GPT-Live voice per persona.
-**Acceptance.** Choosing a family gives a client that stays in character and knows its own
-facts. Every real persona is measured against the token limit, and the numbers are written
-down.
-**Verify first.** Which Open WebUI endpoint exposes a model's system prompt is documented
-in v0.11.4. Undocumented means F7, so use the file source instead.
+**What was verified first** (Open WebUI v0.11.4 source, 2026-11-22):
+- Every non-admin model endpoint **strips the system prompt** (`params`) from callers
+  without write access, students included. Only an admin can read it.
+- `GET /api/v1/models/all` (admin only) returns every model with `params.system`,
+  `meta.tags` and `meta.knowledge`.
+- That endpoint is in the auto-generated API reference, not the hand-written docs. That is
+  the same A7 standing as the grader's `chats/all/db`. It is called only from
+  `openwebui.ts`.
+**What was built** (`personas.ts`, `openwebui.ts`):
+- A `PersonaSource` interface with two implementations, chosen by `AVATAR_PERSONA_SOURCE`:
+  - **file** (default): `avatar_app/personas/<id>.md`, with front matter (`name`, `voice`,
+    `greeting`) and the persona as the body. Lookups go by directory listing, never by
+    path, so a crafted id cannot read other files. `_TEMPLATE.md` explains the format.
+  - **openwebui:** every active model tagged **`avatar`** (`AVATAR_PERSONA_TAG`) with a
+    non-empty system prompt. The professor opts a model in from Workspace → Models; no
+    redeploy is needed.
+    - An optional `voice:<name>` tag picks the voice.
+    - It is read with an **admin** `OPENWEBUI_API_KEY` (the grader's variable names), and
+      the list is cached for 30 s.
+    - `{{CURRENT_DATE}}`-style variables are filled in. `{{USER_NAME}}` becomes "the
+      advisor" until AV3. Unknown variables are removed with a warning.
+- **Routes:** `GET /api/personas` lists `{id, name}`, and `/api/session/start` requires a
+  `persona_id`.
+- **Token budget:** the assembled instructions (persona + role-play directive) are checked
+  against 16,384 tokens, and the greeting against 500. Personas over the limit are
+  **refused, never truncated**. The estimate is deliberately pessimistic (characters ÷ 3).
+- **Voice:** each persona has its own voice. An unknown name falls back to `GPT_LIVE_VOICE`
+  with a warning.
+- **Test page:** the harness has a persona picker.
+**Known limit: attached documents are not loaded.** Only the system prompt is. The log
+warns for each persona model that has knowledge attached. If a family's facts live mainly
+in its documents, either fold a summary into the system prompt or add a follow-up task
+(load small documents into the instructions, or delegate to `/api/chat/completions` for
+retrieval).
+**Acceptance.**
+- 8 unit checks pass ✅: parsing, budget refusal, voice fallback, variable filling, and
+  path-trick rejection.
+- Against a stand-in Open WebUI server ✅: only tagged, active, prompted models are listed;
+  the admin key is sent; the knowledge warning fires.
+- File-source personas ran live ✅.
+- **Still to do:**
+  - point at the real Open WebUI test stack with a tagged model;
+  - measure every real course persona against the token limit and write the numbers down;
+  - check in a spoken session that the client knows its own facts.
 
 #### AV3 · Login check + WebSocket ticket — 1 day
 **Why.** Without it, anyone who can reach `/practice/` can spend our credits. Saving the
@@ -610,7 +667,10 @@ redeploy. Refuse a start over quota with a clear message.
   so it is off unless asked for. The image tag is pinned (the CI pin guard rejects
   `:latest`).
 - **Caddy:** add `handle_path /practice/*`, and serve the harness and API under that base
-  path.
+  path. Do **not** route the metrics port.
+- **Prometheus:** add a scrape job for `avatar-app:9464`. The service is off unless the
+  profile is on, so make sure the existing target-down alerting (A20) doesn't fire when the
+  avatar isn't deployed.
 - **SETUP.md:** document the new environment variables (all in the stack's `.env`, never in
   the repo).
 **Acceptance.**
@@ -636,16 +696,21 @@ new tag re-runs the contract test.
 |---|---|---|
 | `LIVEAVATAR_API_KEY`, `LIVEAVATAR_AVATAR_ID` | AV0 | Avatar service |
 | `OPENAI_API_KEY`, `GPT_LIVE_MODEL`, `GPT_LIVE_VOICE` | AV0 | Voice model (`GPT_LIVE_MODEL` defaults to `gpt-live-1`) |
-| `AVATAR_ENABLED`, `AVATAR_MAX_SESSION_MIN`, `AVATAR_MAX_CONCURRENT` | AV5a | Kill switch and caps |
-| `OPENWEBUI_URL` (`http://open-webui:8080`), `AVATAR_TICKET_SECRET` | AV3 | Login check, ticket signing |
+| `AVATAR_ENABLED`, `AVATAR_MAX_SESSION_MIN` | AV5a | Kill switch and per-session time limit |
+| `AVATAR_METRICS_PORT` (9464) | AV5a | Internal Prometheus port, never routed by Caddy |
+| `AVATAR_PERSONA_SOURCE`, `AVATAR_PERSONA_DIR`, `AVATAR_PERSONA_TAG` | AV2 | Where personas come from |
+| `OPENWEBUI_BASE_URL` (`http://open-webui:8080`), `OPENWEBUI_API_KEY` (admin) | AV2 | Reading persona models. Same names as the grading service |
+| `AVATAR_TICKET_SECRET` | AV3 | WebSocket ticket signing |
 | `AVATAR_DAILY_MIN_PER_STUDENT`, `REDIS_URL` | AV5b | Per-student quota in Valkey |
 
 ### 16.5 Open items that could change the plan
 
 1. **Are the Open WebUI endpoints we use documented?** We use `auths/`, `chats/new`,
-   `chats/{id}` and the model lookup. The chat endpoints are in the auto-generated API
-   reference, not the hand-written docs. That is the same standing as the grader's
-   `chats/all/db`, which the policy accepts under A7. Confine them to `openwebui.ts`.
+   `chats/{id}` and `models/all`. They are in the auto-generated API reference, not the
+   hand-written docs. That is the same standing as the grader's `chats/all/db`, which the
+   policy accepts under A7. All of them are confined to `openwebui.ts`.
+   - `models/all` needs an **admin** key held by the bridge. Ask the instructor whether
+     that is acceptable, or whether personas should stay in files.
 2. **Does the Open WebUI login reach `/practice/`, and is it stable for 15 minutes?** (AV3)
 3. **Does the grader recognise spoken questions?** (AV4)
 4. **Latency through the extra hop on the VM.** The audio path is browser → VM → OpenAI and
