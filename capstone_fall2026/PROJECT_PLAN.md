@@ -418,6 +418,13 @@ you can do for the next team is not to write it in the last week.
 Full background, provider landscape, latency analysis, and evaluation design are in
 [`AVATAR_TRACK.md`](AVATAR_TRACK.md). This section is the task breakdown.
 
+> **Update, November 2026.** The provider is chosen (HeyGen LiveAvatar driven by OpenAI
+> GPT-Live), and the build now runs as tasks **AV0–AV7** in
+> [`AVATAR_TRACK.md` §16](AVATAR_TRACK.md#16-implementation-the-gpt-live-avatar-bridge-av0av7).
+> They cover B10, B12 and B13 for the prototype and replace the framework route of B6–B8.
+> The B tasks below remain the research and evaluation plan. B2 (consent) still gates any
+> real student session.
+
 **The architecture is decided by the compatibility rule and is not open for redesign:** the
 avatar is a **companion application in its own container**, using Open WebUI's public REST API
 for the model, the knowledge base, and the transcript. Embedding a video pane in Open WebUI's

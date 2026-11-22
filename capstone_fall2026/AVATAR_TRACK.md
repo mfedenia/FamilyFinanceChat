@@ -7,6 +7,8 @@
 **Term:** Fall 2026 · meetings **M2–M11** (22 September – 1 December). Task numbers below
 (B1…B18) match [`PROJECT_PLAN.md`](PROJECT_PLAN.md) §7; meeting numbers match §8.
 **Governed by:** [`COMPATIBILITY_POLICY.md`](COMPATIBILITY_POLICY.md) — no exceptions
+**Implementation (November 2026):** provider chosen (LiveAvatar + GPT-Live). The bridge is
+being built as tasks **AV0–AV7**; see [§16](#16-implementation-the-gpt-live-avatar-bridge-av0av7).
 
 ---
 
@@ -407,3 +409,246 @@ before any recording — not in late November, when the data already exists.
 
 *Pricing, latency claims, and provider lists in this document were checked in August 2026 and
 move quickly. Re-verify before making a commitment, and record the date you checked.*
+
+---
+
+## 16. Implementation: the GPT-Live avatar bridge (AV0–AV7)
+
+**Status:** in progress on branch `feat/avatar-bridge` · code in [`avatar_app/`](../avatar_app/)
+· started 2026-11-22.
+**Numbering:** **AV** tasks are separate from the B1–B18 research tasks in
+[`PROJECT_PLAN.md`](PROJECT_PLAN.md) §7 and from the M1–M11 meetings in §8.
+
+### 16.1 What was decided, and what it replaces
+
+- **Provider and voice model are chosen:** HeyGen **LiveAvatar** in **LITE** mode (we
+  supply the voice; it renders the face) driven by OpenAI **GPT-Live** (`gpt-live-1`,
+  full-duplex speech-to-speech). This settles the bake-off question of B5–B9 for the
+  prototype.
+- **Why we need our own bridge.** LiveAvatar's built-in OpenAI connector speaks the older
+  Realtime protocol. GPT-Live is reachable only at `v1/live/sessions`, so something has to
+  carry audio between the two. HeyGen publishes exactly that program as an MIT-licensed
+  reference: [`heygen-com/liveavatar-gpt-live-demos`](https://github.com/heygen-com/liveavatar-gpt-live-demos).
+  We **fork it rather than write one**. Its interruption handling, turn stitching, greeting
+  gate and teardown are measured and working. This replaces the "stand up LiveKit Agents or
+  Pipecat" route of §4 and B6–B8: the reference bridge already gives us what those
+  frameworks were for.
+- **Stack: TypeScript/Node**, kept from upstream even though the rest of the repo is
+  Python. A rewrite would cost about a week and gain nothing.
+- **Scope of this track is the bridge (the backend).** The student-facing page, the consent
+  screen (B2/B11), the entry button inside Open WebUI (§14 Q5) and grading changes are
+  separate work. `avatar_app/web/` is a developer test harness only.
+
+```
+Student browser ──mic audio──▶ BRIDGE ──▶ GPT-Live (listens, thinks, talks back)
+       ▲                          │
+       │                          └──voice audio──▶ LiveAvatar (moves the face)
+       └────────── video of the face (LiveKit) ◀──────────────┘
+BRIDGE ◀──▶ Open WebUI REST API (who is this student? which family? save the transcript)
+```
+
+**Compatibility statement (for every AV pull request):**
+- Surfaces used: **A8** sidecar container, **A9** Caddy route at `/practice/`, **A7** public
+  REST API. Open WebUI is not modified.
+- On the next upstream release, only the Open WebUI API calls can break. They live in one
+  module (`openwebui.ts`, AV3) and are exercised by AV7's tests, so the upgrade runbook
+  catches a break.
+
+**Cost:** about **$0.14 per student-minute** (LiveAvatar LITE ≈ $0.09 + GPT-Live $0.05). The
+§8 working figure of 40 h a semester comes to about **$340**. Development fits on the
+LiveAvatar free plan (2-minute sessions, watermark). A classroom test needs the Essential
+plan ($99/month).
+
+### 16.2 Task list
+
+Ordered as they should be built. AV5 is split so the cost guards land **before** persona
+work: every test session costs money.
+
+| ID | Task | Depends on | Estimate | Status |
+|---|---|---|---|---|
+| AV0 | Import the HeyGen demo, pinned | — | ½ day | **Done** (live run pending API keys) |
+| AV1 | Remove the tutor logic | AV0 | ½–1 day | **Done** (live run pending API keys) |
+| AV5a | Guardrails that need no identity | AV1 | ~6 h | Not started |
+| AV2 | Persona loader | AV1 | 1 day | Not started |
+| AV3 | Login check + WebSocket ticket | AV1 | 1 day | Not started |
+| AV5b | Per-student daily minutes | AV3 | ~2 h | Not started |
+| AV4 | Transcript write-back to Open WebUI | AV3 | 1–1½ days | Not started |
+| AV6 | Container, compose service, Caddy route | AV3, AV5a | 1 day | Not started |
+| AV7 | Tests and CI | all | 1 day | Not started |
+
+Total: about 7–8 working days. After AV1, AV2, AV3 and AV5a are independent and can be
+split between two people.
+
+**Relation to the B tasks:** AV3 + AV5 + AV6 are B10. AV2 is B12, which AV2 decides by
+pre-loading the persona. AV4 is B13. B14's spoken-session metrics build on AV4's
+timestamps. B2 (consent) must still be signed off **before any real student session**.
+
+### 16.3 Task specifications
+
+#### AV0 · Import the demo, pinned — ½ day · **Done**
+**Why.** Every later change should be a reviewable diff against upstream, not a mystery.
+**Steps.** Copy the demo verbatim into `avatar_app/` at commit
+`daa8cc92ab34c75c0bbed201c94fb98360da2179`, keep its MIT `LICENSE`, install with the
+pinned pnpm (`corepack pnpm install --frozen-lockfile`), typecheck.
+**Acceptance.** Installs and typechecks unmodified ✅ (commit `4ad6924`). A live
+conversation with the stock avatar needs `LIVEAVATAR_API_KEY` and `OPENAI_API_KEY` in
+`avatar_app/.env` — **pending**.
+
+#### AV1 · Remove the tutor logic — ½–1 day · **Done**
+**Why.** Editing the persona file alone gives "a financial client who starts teaching
+Japanese". The tutor behaviour lives in code (upstream `docs/REPURPOSING.md`).
+**Steps.**
+- Remove the lesson script, the review-break and recap machinery, and the three on-screen
+  tools.
+- Remove the overlay player, its compositions and the vendored GSAP file, plus the
+  `@hyperframes/player` dependency.
+- Rewrite the mechanics prompts for role-play: stay in character, never coach, answer
+  honestly if sincerely asked "are you an AI?", and check in after silence the way a client
+  would.
+- Replace the persona with a clearly-placeholder family client.
+- Keep the domain-independent parts unchanged: audio path, turn projection, barge-in,
+  greeting gate, silence watchdog, teardown.
+**Acceptance.**
+- Typecheck, web build, and a key-less boot smoke test all pass ✅: `/healthz` answers, and
+  `/api/session/start` refuses with a message naming the missing keys.
+- A live 2-minute conversation shows no tutor behaviour — **pending keys**.
+- The persona fits easily within the limits. *(GPT-Live startup instructions: ≤ 16,384
+  tokens.)*
+
+#### AV5a · Guardrails that need no identity — ~6 h
+**Why.** Every session bills from `/api/session/start`. The demo has a 60-second idle
+reaper and **no session length cap**: it relies on the LiveAvatar plan's limit.
+**Steps.**
+- **Kill switch:** `AVATAR_ENABLED=false` refuses new sessions with a friendly message.
+- **Hard cap:** `AVATAR_MAX_SESSION_MIN` (default 15). The server ends the session, and
+  first gives a short spoken wrap-up via an instructions append one minute before.
+- **Concurrency:** `AVATAR_MAX_CONCURRENT` limits sessions across the whole class.
+- **Errors:** students never see raw upstream errors. Log the detail and show "the practice
+  client is unavailable right now".
+- **Metrics:** `/metrics` (Prometheus text, internal only, never routed by Caddy) reports
+  active sessions, session minutes, starts and failures by reason, and time-to-ready.
+  Scrape it from the existing Prometheus.
+**Acceptance.** Each limit is triggered deliberately in a test and behaves as specified.
+The metrics appear in Prometheus.
+
+#### AV2 · Persona loader — 1 day
+**Why.** The persona must be the same family the text bot plays. GPT-Live's startup
+instructions are **fixed once the session starts**, so the whole persona goes in at
+`session.start`. Mid-session appends are capped at 500 tokens and are for nudges only. This
+is the §5 "RAG trap" answer: no per-turn retrieval in the speech loop.
+**Steps.**
+- Add `persona.ts` with a `PersonaSource` interface and two implementations:
+  - **file:** `avatar_app/personas/*.md`, used for development and as a fallback;
+  - **Open WebUI:** reads the family's model and system prompt (plus its scenario
+    documents, if they are small) through the public API.
+- `/api/session/start` takes a `persona_id`.
+- Check the assembled instructions against the 16k-token limit, and fail loudly rather than
+  truncate.
+- Pick a GPT-Live voice per persona.
+**Acceptance.** Choosing a family gives a client that stays in character and knows its own
+facts. Every real persona is measured against the token limit, and the numbers are written
+down.
+**Verify first.** Which Open WebUI endpoint exposes a model's system prompt is documented
+in v0.11.4. Undocumented means F7, so use the file source instead.
+
+#### AV3 · Login check + WebSocket ticket — 1 day
+**Why.** Without it, anyone who can reach `/practice/` can spend our credits. Saving the
+transcript also needs to know who the student is.
+**Steps.**
+- `/api/session/start` requires the student's Open WebUI token and validates it with
+  `GET /api/v1/auths/` (the token belongs to Open WebUI; we do not mint our own logins).
+- Issue a short-lived HMAC-signed ticket (`AVATAR_TICKET_SECRET`) that binds the student ID
+  to the session ID. The WebSocket upgrade rejects a missing, expired or mismatched ticket.
+- Keep the student's token in memory only, for the session's lifetime, for AV4.
+- All Open WebUI calls go in `openwebui.ts`.
+**Acceptance.** Logged-out requests, forged tickets and another student's ticket are all
+rejected. The session carries the student ID.
+**Verify first.**
+- Does the Open WebUI login reach `/practice/` on the same hostname as a cookie, or only in
+  localStorage? If localStorage only, the page must pass it explicitly.
+- Can the token expire inside a 15-minute session?
+
+#### AV5b · Per-student daily minutes — ~2 h
+**Steps.** Count each student's minutes per day (`AVATAR_DAILY_MIN_PER_STUDENT`) in
+**Valkey**, which already runs on `ai-net`. An in-memory counter would reset on every
+redeploy. Refuse a start over quota with a clear message.
+**Acceptance.** Over-quota starts are refused. The count survives a bridge restart.
+
+#### AV4 · Transcript write-back to Open WebUI — 1–1½ days
+**Why.** A session that never reaches the grading dashboard is a demo, not a feature (B13).
+**What is already verified** (Open WebUI v0.11.4 source, read 2026-11-22):
+- `POST /api/v1/chats/new` takes `{chat: {...}}` and stores the chat under the **calling
+  user**. It must therefore be called with the **student's** token: an admin key would file
+  every transcript under the admin.
+- `POST /api/v1/chats/{id}` updates a chat, merging messages by ID. That makes repeated
+  incremental saves safe.
+- The grader (`extract_chats.py`) reads the flat `chat.messages` list. It pairs strictly
+  *user → assistant*: an assistant message with no open question is **skipped**, and a
+  second consecutive assistant message is **dropped**. Open WebUI's own UI renders the
+  `chat.history` tree.
+**Steps.**
+- Build the chat document from AV1's projected turns, with **both** `messages` (flat list
+  with `timestamp`) and `history` (`messages` map with `parentId` and `currentId`). Title it
+  `[Avatar] <family>`.
+- **Merge back-to-back same-speaker turns** before saving, and mark cut-off assistant turns
+  `[interrupted]`.
+- Create the chat after the first full exchange, then save again on each finished turn and
+  at stop, so a crash loses at most one turn. Retry on failure, and log loudly if the student
+  is not allowed to create chats.
+- Keep per-turn timestamps for B14 (hesitation, interruptions, talk-time ratio).
+**Acceptance.**
+- After a session, the chat appears in the student's Open WebUI sidebar.
+- The chat appears in a grading-dashboard extraction with the right number of
+  question/answer pairs.
+- A few real transcripts are run through the grader to check that spoken questions are
+  detected (the detector relies on "?" and keywords).
+
+#### AV6 · Container, compose service, Caddy route — 1 day
+**Steps.**
+- **Dockerfile:** multi-stage, Node 20, `pnpm build` for the web harness, non-root user.
+- **Compose:** an `avatar-app` service on `ai-net` behind a compose **profile** (`avatar`),
+  so it is off unless asked for. The image tag is pinned (the CI pin guard rejects
+  `:latest`).
+- **Caddy:** add `handle_path /practice/*`, and serve the harness and API under that base
+  path.
+- **SETUP.md:** document the new environment variables (all in the stack's `.env`, never in
+  the repo).
+**Acceptance.**
+- `docker compose --profile avatar up` serves `https://<host>/practice/`.
+- The existing CI compatibility guards still pass.
+- A stack without the profile behaves exactly as before.
+
+#### AV7 · Tests and CI — 1 day
+**Steps.**
+- **Unit tests:** turn stitching, same-speaker merging, Q/A pairing, ticket signing and
+  expiry, each limit.
+- **Fake upstream servers:** a fake GPT-Live and a fake LiveAvatar, so the whole flow runs in
+  CI without paying.
+- **Contract test:** a test against the real Open WebUI test stack for the AV4 chat
+  document.
+- **CI job:** a typecheck-and-test job for `avatar_app/`.
+**Acceptance.** CI is green with no real API keys. Bumping the Open WebUI test stack to a
+new tag re-runs the contract test.
+
+### 16.4 Settings introduced (environment only, never committed)
+
+| Variable | Task | Purpose |
+|---|---|---|
+| `LIVEAVATAR_API_KEY`, `LIVEAVATAR_AVATAR_ID` | AV0 | Avatar service |
+| `OPENAI_API_KEY`, `GPT_LIVE_MODEL`, `GPT_LIVE_VOICE` | AV0 | Voice model (`GPT_LIVE_MODEL` defaults to `gpt-live-1`) |
+| `AVATAR_ENABLED`, `AVATAR_MAX_SESSION_MIN`, `AVATAR_MAX_CONCURRENT` | AV5a | Kill switch and caps |
+| `OPENWEBUI_URL` (`http://open-webui:8080`), `AVATAR_TICKET_SECRET` | AV3 | Login check, ticket signing |
+| `AVATAR_DAILY_MIN_PER_STUDENT`, `REDIS_URL` | AV5b | Per-student quota in Valkey |
+
+### 16.5 Open items that could change the plan
+
+1. **Are the Open WebUI endpoints we use documented?** We use `auths/`, `chats/new`,
+   `chats/{id}` and the model lookup. The chat endpoints are in the auto-generated API
+   reference, not the hand-written docs. That is the same standing as the grader's
+   `chats/all/db`, which the policy accepts under A7. Confine them to `openwebui.ts`.
+2. **Does the Open WebUI login reach `/practice/`, and is it stable for 15 minutes?** (AV3)
+3. **Does the grader recognise spoken questions?** (AV4)
+4. **Latency through the extra hop on the VM.** The audio path is browser → VM → OpenAI and
+   VM → LiveAvatar. Measure it against the §5 budget once AV6 is deployed.
+5. **LiveAvatar data terms.** Retention, training use and region for student audio (§14 Q6)
+   must be read before B2 sign-off.
