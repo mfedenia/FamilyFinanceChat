@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0d12" />
+    <title>LiveAvatar Duo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d12;
+        --ink: #e8ecf4;
+        --muted: #8b98ad;
+        --line: rgba(255, 255, 255, 0.08);
+        /* One hue per seat; the transcript and decision bar reuse them. */
+        --a: #ffb86b;
+        --b: #6ea8ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: -apple-system, system-ui, "Segoe UI", sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 24px 16px;
+      }
+      header,
+      #layout {
+        width: min(1320px, 100%);
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: #aab6c8;
+      }
+      header .sub {
+        font-size: 12px;
+        color: #5f6b80;
+      }
+      #layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 16px;
+      }
+      #main {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      /* ── The two seats ───────────────────────────────────────────────── */
+      #seats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .seat {
+        --hue: var(--a);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        transition: opacity 0.3s ease;
+      }
+      .seat[data-seat="1"] {
+        --hue: var(--b);
+      }
+      #layout[data-live] .seat:not([data-floor]) {
+        opacity: 0.72;
+      }
+      .frame {
+        position: relative;
+        aspect-ratio: 3 / 4;
+        /* Never taller than the window minus header, nameplate, decision and
+           controls — the Start button must stay on screen. */
+        max-height: calc(100vh - 250px);
+        min-height: 220px;
+        border-radius: 14px;
+        overflow: hidden;
+        background: radial-gradient(120% 90% at 50% 0%, #141a2a 0%, #0a0c11 70%);
+        outline: 1.5px solid transparent;
+        transition:
+          outline-color 0.25s ease,
+          box-shadow 0.35s ease;
+      }
+      .seat[data-floor] .frame {
+        outline-color: color-mix(in srgb, var(--hue) 45%, transparent);
+      }
+      .seat[data-speaking] .frame {
+        outline-color: var(--hue);
+        box-shadow: 0 0 48px color-mix(in srgb, var(--hue) 28%, transparent);
+      }
+      .frame video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+      .frame video.playing {
+        opacity: 1;
+      }
+      .frame .placeholder {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #4c566a;
+        font-size: 13px;
+      }
+      .nameplate {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 0 4px;
+        min-height: 20px;
+      }
+      .nameplate .name {
+        font-weight: 700;
+        color: var(--hue);
+      }
+      .nameplate .tagline {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* ── Decision readout ───────────────────────────────────────────── */
+      #decision {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 14px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 44px;
+      }
+      #decision .label {
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 10px;
+        font-weight: 600;
+      }
+      #decision .bar {
+        display: flex;
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      #decision .bar span {
+        transition: flex-grow 0.4s ease;
+        flex: 1 1 0;
+      }
+      #decision .bar .a {
+        background: var(--a);
+      }
+      #decision .bar .b {
+        background: var(--b);
+      }
+      #decision .why {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      /* ── Controls ────────────────────────────────────────────────────── */
+      #controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      #status {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+        min-width: 0;
+      }
+      #status::before {
+        content: "";
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #5a6577;
+      }
+      #status[data-kind="busy"]::before {
+        background: #f5b453;
+      }
+      #status[data-kind="live"]::before {
+        background: #59d499;
+      }
+      #status[data-kind="error"]::before {
+        background: #ff7a7a;
+      }
+      #status[data-kind="error"] {
+        color: #ffa3a3;
+      }
+      button {
+        font: inherit;
+        border-radius: 999px;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ink);
+        padding: 9px 18px;
+        font-size: 13px;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      #start {
+        border: 0;
+        background: linear-gradient(135deg, var(--a), var(--b));
+        color: #0b0d12;
+        font-weight: 700;
+        padding: 10px 26px;
+      }
+      #mic[aria-pressed="true"] {
+        color: #ff9d9d;
+        border-color: rgba(255, 122, 122, 0.35);
+        background: rgba(255, 90, 90, 0.1);
+      }
+      /* ── Transcript ──────────────────────────────────────────────────── */
+      #transcript-panel {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        min-height: 320px;
+        max-height: calc(100vh - 90px);
+      }
+      #transcript-panel h2 {
+        margin: 0;
+        padding: 12px 14px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+      }
+      #transcript {
+        position: absolute;
+        inset: 41px 0 0 0;
+        overflow-y: auto;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .turn .who {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        margin-bottom: 2px;
+        color: var(--muted);
+      }
+      .turn[data-seat="0"] .who {
+        color: var(--a);
+      }
+      .turn[data-seat="1"] .who {
+        color: var(--b);
+      }
+      .turn.user .text {
+        color: #c9d2e0;
+      }
+      .turn.pending .text {
+        opacity: 0.6;
+      }
+      .turn.interrupted .text::after {
+        content: " —";
+        color: var(--muted);
+      }
+      .turn .tag {
+        font-weight: 500;
+        color: #5f6b80;
+        margin-left: 6px;
+      }
+      @media (max-width: 860px) {
+        #layout {
+          grid-template-columns: 1fr;
+        }
+        #transcript-panel {
+          height: 360px;
+        }
+      }
+      @media (max-width: 520px) {
+        #seats {
+          gap: 8px;
+        }
+        .nameplate .tagline {
+          display: none;
+        }
+        #decision {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>LiveAvatar Duo</h1>
+      <span class="sub">two avatars · gemini-decision-1 picks who answers · Gemini Live speaks</span>
+    </header>
+    <div id="layout">
+      <div id="main">
+        <div id="seats">
+          <div class="seat" data-seat="0">
+            <div class="frame">
+              <div class="placeholder">host one</div>
+              <video autoplay playsinline></video>
+              <audio autoplay></audio>
+            </div>
+            <div class="nameplate"><span class="name"></span><span class="tagline"></span></div>
+          </div>
+          <div class="seat" data-seat="1">
+            <div class="frame">
+              <div class="placeholder">host two</div>
+              <video autoplay playsinline></video>
+              <audio autoplay></audio>
+            </div>
+            <div class="nameplate"><span class="name"></span><span class="tagline"></span></div>
+          </div>
+        </div>
+        <div id="decision">
+          <span class="label">Decision</span>
+          <div class="bar"><span class="a"></span><span class="b"></span></div>
+          <span class="why">waiting for the first turn</span>
+        </div>
+        <div id="controls">
+          <div id="status" data-kind="idle">idle</div>
+          <button id="mic" disabled aria-pressed="false">Mute</button>
+          <button id="stop" disabled>End</button>
+          <button id="export" disabled title="Download this call as an Open WebUI chat — import it under Settings → Data Controls → Import Chats">Export</button>
+          <button id="start">Start</button>
+        </div>
+      </div>
+      <div id="transcript-panel">
+        <h2>Conversation</h2>
+        <div id="transcript"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/duo.ts"></script>
+  </body>
+</html>
