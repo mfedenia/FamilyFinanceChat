@@ -23,10 +23,7 @@ import type { Turn } from "../../shared/messages";
 import { config } from "./config";
 import {
   CLIENT_DELEGATION_STUB,
-  DEFAULT_GREETING,
-  DEFAULT_INSTRUCTIONS,
   GREETING_PREAMBLE,
-  LIVE_DIRECTIVE,
   RESPONSES_INSTRUCTIONS,
 } from "./prompts";
 import { TurnProjector } from "./turns";
@@ -121,6 +118,18 @@ export interface GptLiveEvents {
   onError(message: string): void;
 }
 
+/**
+ * What one session is started with. Built and budget-checked by the persona
+ * loader (personas.ts `assemble`); `instructions` already carries the
+ * role-play directive.
+ */
+export interface GptLivePersona {
+  instructions: string;
+  /** Empty means "say nothing, let the student speak first". */
+  greeting: string;
+  voice: string;
+}
+
 export class GptLiveBridge {
   private ws: WebSocket | null = null;
   private sessionId: string | null = null;
@@ -142,6 +151,7 @@ export class GptLiveBridge {
 
   constructor(
     private readonly events: GptLiveEvents,
+    private readonly persona: GptLivePersona,
     private readonly log: (msg: string) => void = () => {},
   ) {
     this.turns = new TurnProjector({
@@ -241,11 +251,10 @@ export class GptLiveBridge {
   }
 
   private startSession(): void {
-    // The persona comes from server/prompts/instructions.md (see prompts.ts);
-    // the role-play directive is mechanics and always appended. Both at
-    // startup: instructions are the one channel the live model reliably
-    // follows, and they are immutable once the session starts.
-    const instructions = DEFAULT_INSTRUCTIONS + LIVE_DIRECTIVE;
+    // Persona + role-play directive, assembled and budget-checked by the
+    // persona loader. All at startup: instructions are the one channel the
+    // live model reliably follows, and they are immutable once started.
+    const { instructions, voice } = this.persona;
     // v3: the FIRST message. Everything here is immutable afterwards except
     // delegation.responses settings (session.update) — and the delegation
     // TYPE is fixed for the session's life.
@@ -259,7 +268,7 @@ export class GptLiveBridge {
           // hard-coded to it (mediaServer.ts) — so name it rather than
           // inherit it. Shared input/output format.
           format: { type: "audio/pcm", rate: 24000 },
-          output: { voice: voiceField(config.gptlive.voice) },
+          output: { voice: voiceField(voice) },
         },
         delegation: {
           type: "responses",
@@ -428,14 +437,14 @@ export class GptLiveBridge {
   }
 
   private sendGreeting(): void {
-    // From server/prompts/greeting.md. An empty file means "say nothing, let
-    // the user speak first".
+    // From the persona (personas.ts). Empty means "say nothing, let the
+    // student speak first".
     // v3 speak-first path per OpenAI's tested example: one fresh
     // `session.instructions.append` (delegation_id null) carrying the
     // speak-now directive AND the opening. Not commentary — that is for
     // information to paraphrase, and the guide measured instructions as the
     // reliable trigger (500/500 sessions spoke first).
-    const greeting = DEFAULT_GREETING;
+    const greeting = this.persona.greeting;
     if (!greeting) return;
     this.append("instructions", GREETING_PREAMBLE + greeting);
   }

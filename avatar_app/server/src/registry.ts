@@ -7,6 +7,7 @@
  */
 
 import { stopSession as stopUpstream } from "./liveavatar";
+import { metrics } from "./metrics";
 import { Session } from "./session";
 
 const WATCHDOG_TICK_MS = 5_000;
@@ -29,6 +30,11 @@ export function getSession(sessionId: string): Session | undefined {
   return sessions.get(sessionId);
 }
 
+/** Sessions currently live — every one of them is billing. */
+export function liveCount(): number {
+  return sessions.size;
+}
+
 /**
  * Tear a session down. Idempotent: the Map delete is the claim, so a browser
  * stop racing the watchdog runs exactly once.
@@ -37,7 +43,11 @@ export async function stopSession(sessionId: string, reason: string): Promise<bo
   const session = sessions.get(sessionId);
   if (!session) return false;
   sessions.delete(sessionId);
-  console.log(`[registry] stopping ${sessionId.slice(0, 8)} (${reason}, ${sessions.size} live)`);
+  const durationSec = (Date.now() - session.startedAt) / 1000;
+  metrics.sessionEnded(reason, durationSec);
+  console.log(
+    `[registry] stopping ${sessionId.slice(0, 8)} (${reason}, ${Math.round(durationSec)}s, ${sessions.size} live)`,
+  );
   // Legs first, so GPT-Live gets its session.close and the avatar finishes its
   // word rather than being cut off underneath.
   await session.stop().catch(() => {});

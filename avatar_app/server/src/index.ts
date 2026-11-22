@@ -1,20 +1,22 @@
 /**
  * HTTP + WebSocket entrypoint.
  *
- *   POST /api/session/start  → mint + start a LITE session, spin up the legs
+ *   GET  /api/personas       → [{id, name}] the clients a student can pick (AV2)
+ *   POST /api/session/start  → {persona_id}: mint + start a LITE session, spin up the legs
  *   POST /api/session/stop   → tear one down
  *   GET  /healthz
  *   WS   /ws/:sessionId      → the browser leg: mic audio up; transcripts,
  *                              status, and errors down
+ *
+ * Metrics are NOT on this port: see metrics.ts (AVATAR_METRICS_PORT).
  *
  * In dev the web app runs on Vite (:5173) and proxies /api and /ws here, so
  * the browser sees one origin. In production this server also serves the built
  * frontend from web/dist.
  *
  * ⚠ No auth yet — local development only. AV3 gates /api/session/start on an
- * Open WebUI login and the websocket upgrade on a short-lived signed ticket;
- * AV5 adds caps and the kill switch. Do not expose this before both land.
- * Task list: capstone_fall2026/AVATAR_TRACK.md §16.
+ * Open WebUI login and the websocket upgrade on a short-lived signed ticket.
+ * Do not expose this before it lands. Task list: capstone_fall2026/AVATAR_TRACK.md §16.
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -24,8 +26,10 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import type { ClientMessage } from "../../shared/messages";
 import { config, missingConfig } from "./config";
-import { LiveAvatarApiError, startSession as startUpstream } from "./liveavatar";
-import { addSession, getSession, stopAll, stopSession } from "./registry";
+import { startSession as startUpstream } from "./liveavatar";
+import { metrics, startMetricsServer, type StartFailureReason } from "./metrics";
+import { assemble, personaSource, PersonaError, type AssembledPersona } from "./personas";
+import { addSession, getSession, liveCount, stopAll, stopSession } from "./registry";
 import { Session } from "./session";
 
 const WEB_DIST = fileURLToPath(new URL("../../web/dist", import.meta.url));
@@ -39,10 +43,24 @@ const MIME: Record<string, string> = {
   ".json": "application/json",
 };
 
+// Request bodies here are tiny ({persona_id} / {session_id}); anything bigger
+// is not a legitimate client.
+const MAX_BODY_BYTES = 16 * 1024;
+
+// What a student sees when a start is refused. Plain words only: the real
+// reason goes to the server log (AV5a — raw upstream errors can name
+// providers, models, credit balances).
+const STUDENT_MESSAGES = {
+  disabled: "Practice sessions are turned off right now.",
+  unavailable: "The practice client is unavailable right now. Please try again later.",
+  choosePersona: "Please choose a practice client first.",
+  personaNotFound: "That practice client was not found. Please choose another.",
+} as const;
+
 const server = createServer((req, res) => {
   void route(req, res).catch((err: unknown) => {
     console.error("[http] unhandled:", err);
-    if (!res.headersSent) json(res, 500, { error: "internal error" });
+    if (!res.headersSent) json(res, 500, { error: STUDENT_MESSAGES.unavailable });
   });
 });
 
@@ -53,25 +71,101 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     res.writeHead(200).end("ok");
     return;
   }
-  if (req.method === "POST" && path === "/api/session/start") return handleStart(res);
+  if (req.method === "GET" && path === "/api/personas") return handlePersonas(res);
+  if (req.method === "POST" && path === "/api/session/start") return handleStart(req, res);
   if (req.method === "POST" && path === "/api/session/stop") return handleStop(req, res);
   return serveStatic(res, path);
 }
 
-async function handleStart(res: ServerResponse): Promise<void> {
+async function handlePersonas(res: ServerResponse): Promise<void> {
+  try {
+    json(res, 200, { personas: await personaSource().list() });
+  } catch (err) {
+    console.error(`[http] persona list failed: ${errorText(err)}`);
+    json(res, 503, { error: STUDENT_MESSAGES.unavailable });
+  }
+}
+
+/** Refuse a start: count it, log the real reason, tell the student plain words. */
+function refuse(
+  res: ServerResponse,
+  status: number,
+  reason: StartFailureReason,
+  studentMessage: string,
+  detail?: string,
+): void {
+  metrics.startFailed(reason);
+  console.warn(`[http] session start refused (${reason})${detail ? `: ${detail}` : ""}`);
+  json(res, status, { error: studentMessage });
+}
+
+async function handleStart(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const requestStartedAt = Date.now();
+
+  // AV5a kill switch — checked first, before anything that costs money.
+  if (!config.limits.enabled) {
+    return refuse(res, 503, "disabled", STUDENT_MESSAGES.disabled, "AVATAR_ENABLED=false");
+  }
   const missing = missingConfig();
   if (missing.length > 0) {
-    json(res, 500, { error: `missing env vars: ${missing.join(", ")} — copy .env.example to .env` });
-    return;
+    return refuse(
+      res,
+      503,
+      "not_configured",
+      STUDENT_MESSAGES.unavailable,
+      `missing env vars: ${missing.join(", ")}`,
+    );
   }
+
+  // AV2 — which client to play.
+  const body = (await readJson(req)) as { persona_id?: unknown };
+  const personaId = typeof body.persona_id === "string" ? body.persona_id.trim() : "";
+  if (!personaId || personaId.length > 200) {
+    return refuse(res, 400, "bad_request", STUDENT_MESSAGES.choosePersona, "no persona_id");
+  }
+  let persona: AssembledPersona;
+  try {
+    const found = await personaSource().get(personaId);
+    if (!found) {
+      return refuse(
+        res,
+        404,
+        "persona_not_found",
+        STUDENT_MESSAGES.personaNotFound,
+        `unknown persona "${personaId}"`,
+      );
+    }
+    persona = assemble(found);
+  } catch (err) {
+    const kind = err instanceof PersonaError ? err.kind : "unavailable";
+    return refuse(
+      res,
+      kind === "invalid" ? 500 : 503,
+      kind === "invalid" ? "persona_invalid" : "persona_unavailable",
+      STUDENT_MESSAGES.unavailable,
+      errorText(err),
+    );
+  }
+
   try {
     const upstream = await startUpstream();
-    const session = new Session(upstream.sessionId, upstream.wsUrl, (id) => {
-      void stopSession(id, "leg_died");
-    });
+    const session = new Session(
+      upstream.sessionId,
+      upstream.wsUrl,
+      {
+        persona,
+        maxSessionMs: config.limits.maxSessionMin * 60_000,
+        requestStartedAt,
+      },
+      (id, reason) => void stopSession(id, reason),
+    );
     addSession(session);
     session.start();
-    console.log(`[http] session started: ${upstream.sessionId}`);
+    metrics.sessionStarted();
+    console.log(
+      `[http] session started: ${upstream.sessionId} (persona ${persona.id}, ` +
+        `~${persona.instructionTokens} instruction tokens, voice ${persona.voice})`,
+    );
     json(res, 201, {
       session_id: upstream.sessionId,
       livekit_url: upstream.livekitUrl,
@@ -79,19 +173,11 @@ async function handleStart(res: ServerResponse): Promise<void> {
       // Relative on purpose: the browser dials the same origin it loaded from
       // (the Vite proxy in dev, this server in prod).
       ws_path: `/ws/${upstream.sessionId}`,
+      persona: { id: persona.id, name: persona.name },
+      max_session_seconds: Math.round(config.limits.maxSessionMin * 60),
     });
   } catch (err) {
-    // Verbatim upstream errors are the right DX for a local starter: "out of
-    // credits" or "invalid avatar_id" should reach the person who can fix it.
-    // (Production fronts this with its own API and hides the detail.)
-    const message =
-      err instanceof LiveAvatarApiError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : "session start failed";
-    console.error(`[http] session start failed: ${message}`);
-    json(res, 502, { error: message });
+    return refuse(res, 502, "upstream", STUDENT_MESSAGES.unavailable, errorText(err));
   }
 }
 
@@ -103,7 +189,13 @@ async function handleStop(req: IncomingMessage, res: ServerResponse): Promise<vo
 }
 
 async function serveStatic(res: ServerResponse, pathname: string): Promise<void> {
-  let rel = decodeURIComponent(pathname);
+  let rel: string;
+  try {
+    rel = decodeURIComponent(pathname);
+  } catch {
+    res.writeHead(400).end();
+    return;
+  }
   if (rel === "/" || rel === "") rel = "/index.html";
   const filePath = normalize(join(WEB_DIST, rel));
   if (!filePath.startsWith(normalize(WEB_DIST))) {
@@ -126,7 +218,7 @@ async function serveStatic(res: ServerResponse, pathname: string): Promise<void>
 
 // ── browser websocket ─────────────────────────────────────────────────────────
 
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
 
 server.on("upgrade", (req, socket, head) => {
   const match = /^\/ws\/([A-Za-z0-9_-]+)$/.exec(new URL(req.url ?? "", "http://x").pathname);
@@ -173,12 +265,20 @@ server.on("upgrade", (req, socket, head) => {
 
 server.listen(config.port, () => {
   console.log(`[server] listening on http://localhost:${config.port}`);
+  console.log(
+    `[server] sessions ${config.limits.enabled ? "ENABLED" : "DISABLED (AVATAR_ENABLED=false)"}, ` +
+      `limit ${config.limits.maxSessionMin} min, personas from ${config.personas.source}` +
+      (config.personas.source === "file"
+        ? ` (${config.personas.dir})`
+        : ` (models tagged "${config.personas.tag}")`),
+  );
   const missing = missingConfig();
   if (missing.length > 0) {
     console.warn(`[server] ⚠ missing env vars: ${missing.join(", ")} — sessions will not start`);
-    console.warn("[server]   copy .env.example to .env at the repo root and fill it in");
+    console.warn("[server]   copy .env.example to .env and fill it in");
   }
 });
+startMetricsServer(config.metricsPort, liveCount);
 
 // Sessions live in this process; a shutdown is the end of them. Stop them
 // upstream on the way out rather than leaving them to the billing clock.
@@ -186,6 +286,10 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     void stopAll().finally(() => process.exit(0));
   });
+}
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -196,8 +300,17 @@ function json(res: ServerResponse, status: number, body: unknown): void {
 function readJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve) => {
     let data = "";
-    req.on("data", (chunk: Buffer) => (data += chunk.toString()));
+    let tooBig = false;
+    req.on("data", (chunk: Buffer) => {
+      if (tooBig) return;
+      data += chunk.toString();
+      if (data.length > MAX_BODY_BYTES) {
+        tooBig = true;
+        data = "";
+      }
+    });
     req.on("end", () => {
+      if (tooBig) return resolve({});
       try {
         resolve(data ? JSON.parse(data) : {});
       } catch {

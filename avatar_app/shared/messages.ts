@@ -33,6 +33,11 @@ export type ServerMessage =
   | ({ type: "turn" } & Turn)
   /** The avatar was cut off mid-sentence; what it was saying is never coming. */
   | { type: "interrupted" }
+  /**
+   * The server ended the session on purpose (AV5a time limit). `message` is
+   * plain words for the student; the socket closes right after.
+   */
+  | { type: "ended"; reason: "time_limit"; message: string }
   | { type: "error"; message: string };
 
 /** Browser → server. */

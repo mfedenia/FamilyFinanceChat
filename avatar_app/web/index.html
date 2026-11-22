@@ -159,6 +159,22 @@
         line-height: 1.55;
         color: var(--muted);
       }
+      .persona-pick {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .persona-pick select {
+        background: #141a2a;
+        color: var(--ink);
+        border: 1px solid #2a3348;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 14px;
+        max-width: 60vw;
+      }
       #hero .hint {
         font-size: 12px;
         color: #5f6b80;
@@ -466,8 +482,14 @@
             Developer test page for the avatar bridge. You are the advisor; the
             avatar plays a client. Not the student-facing interface.
           </p>
-          <button id="start">Start talking</button>
-          <span class="hint">Uses your microphone</span>
+          <label class="persona-pick">
+            Client
+            <select id="persona" disabled>
+              <option>loading…</option>
+            </select>
+          </label>
+          <button id="start" disabled>Start talking</button>
+          <span class="hint" id="hint">Uses your microphone</span>
         </div>
         <div id="loader" aria-hidden="true">
           <span class="orb"></span>

@@ -206,7 +206,7 @@ async function main() {
   info(
     `LIVEAVATAR_AVATAR_ID   ${env.LIVEAVATAR_AVATAR_ID || DEFAULT_AVATAR_ID} — swap in .env`,
   );
-  info("server/prompts/*.md    the persona — who the avatar is and how it opens");
+  info("personas/*.md          the clients the avatar can play (see personas/_TEMPLATE.md)");
   info("more knobs (voice, port, debug) are documented in .env.example");
   console.log("");
 }

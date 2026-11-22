@@ -10,6 +10,8 @@ export interface SessionSocketHandlers {
   onTurn: (turn: Turn) => void;
   /** The avatar was cut off: what it was mid-way through saying is gone. */
   onInterrupted: () => void;
+  /** The server ended the session on purpose (time limit); plain-words reason. */
+  onEnded: (message: string) => void;
   onError: (message: string) => void;
   onClose: () => void;
 }
@@ -43,6 +45,9 @@ export function openSessionSocket(
         break;
       case "interrupted":
         handlers.onInterrupted();
+        break;
+      case "ended":
+        handlers.onEnded(msg.message);
         break;
       case "error":
         handlers.onError(msg.message);

@@ -29,6 +29,43 @@ const statusEl = document.getElementById("status") as HTMLDivElement;
 const transcriptEl = document.getElementById("transcript") as HTMLDivElement;
 const loaderLabel = document.getElementById("loader-label") as HTMLSpanElement;
 const micBtn = document.getElementById("mic") as HTMLButtonElement;
+const personaSelect = document.getElementById("persona") as HTMLSelectElement;
+const hintEl = document.getElementById("hint") as HTMLSpanElement;
+
+// ── persona picker (AV2) ──────────────────────────────────────────────────────
+
+async function loadPersonas(): Promise<void> {
+  try {
+    const response = await fetch("/api/personas");
+    const body = (await response.json()) as {
+      personas?: { id: string; name: string }[];
+      error?: string;
+    };
+    if (!response.ok) throw new Error(body.error ?? "could not load practice clients");
+    const personas = body.personas ?? [];
+    personaSelect.replaceChildren(
+      ...personas.map((p) => {
+        const option = document.createElement("option");
+        option.value = p.id;
+        option.textContent = p.name;
+        return option;
+      }),
+    );
+    if (personas.length === 0) {
+      const option = document.createElement("option");
+      option.textContent = "no practice clients configured";
+      personaSelect.append(option);
+      return;
+    }
+    personaSelect.disabled = false;
+    startBtn.disabled = false;
+  } catch (err) {
+    const option = document.createElement("option");
+    option.textContent = "unavailable";
+    personaSelect.replaceChildren(option);
+    setStatus(err instanceof Error ? err.message : "could not load practice clients", "error");
+  }
+}
 
 type StatusKind = "idle" | "busy" | "live" | "error";
 const setStatus = (msg: string, kind: StatusKind = "idle") => {
@@ -231,10 +268,15 @@ async function start(): Promise<void> {
     livekit_url: string;
     livekit_client_token: string;
     ws_path: string;
+    max_session_seconds?: number;
     error?: string;
   };
   try {
-    const response = await fetch("/api/session/start", { method: "POST" });
+    const response = await fetch("/api/session/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ persona_id: personaSelect.value }),
+    });
     started = (await response.json()) as typeof started;
     if (!response.ok) throw new Error(started.error ?? "could not start a session");
   } catch (err) {
@@ -251,6 +293,10 @@ async function start(): Promise<void> {
     return;
   }
   sessionId = started.session_id;
+  personaSelect.disabled = true;
+  if (started.max_session_seconds) {
+    hintEl.textContent = `Sessions end after ${Math.round(started.max_session_seconds / 60)} min`;
+  }
 
   setStatus("connecting to the avatar…", "busy");
   try {
@@ -296,6 +342,7 @@ async function start(): Promise<void> {
       // leave a transcript that claims words nobody heard.
       lastAssistantLine?.classList.add("interrupted");
     },
+    onEnded: (message) => void stop(message),
     onError: (message) => setStatus(message, "error"),
     onClose: () => {
       if (!stopping) void stop("the session ended");
@@ -329,6 +376,7 @@ async function stop(reason?: string, kind: StatusKind = "idle"): Promise<void> {
   setStage("idle");
   setStatus(reason ?? "idle", kind);
   startBtn.disabled = false;
+  personaSelect.disabled = false;
   stopping = false;
 }
 
@@ -359,3 +407,4 @@ startBtn.addEventListener("click", () => void start());
 stopBtn.addEventListener("click", () => void stop());
 
 drawMicWave(); // idle stubs before any session
+void loadPersonas();

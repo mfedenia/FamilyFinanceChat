@@ -13,13 +13,17 @@
  * push, learned-words store, auto-recap and review-break fallback — is
  * removed. Barge-in, the greeting gate, the silence watchdog and teardown are
  * domain-independent and kept unchanged.
+ *
+ * AV5a adds the hard time limit (with a spoken wrap-up first) and keeps raw
+ * upstream errors out of the browser. AV2 makes the persona per-session.
  */
 
 import type WebSocket from "ws";
 import type { ServerMessage, Turn } from "../../shared/messages";
-import { GptLiveBridge, type GptLiveEvents } from "./gptlive";
+import { GptLiveBridge, type GptLiveEvents, type GptLivePersona } from "./gptlive";
 import { MediaServerLeg } from "./mediaServer";
-import { SILENCE_CHECKIN } from "./prompts";
+import { metrics } from "./metrics";
+import { SILENCE_CHECKIN, WRAP_UP_PROMPT } from "./prompts";
 
 // How long GPT-Live waits for the media socket before the session is written
 // off. The gate is load-bearing: the bridge triggers the opening greeting as
@@ -58,6 +62,24 @@ const SILENCE_POLL_MS = 3_000;
 // it every poll tick past the threshold re-prods, which is nagging, not care.
 const CHECKIN_COOLDOWN_MS = 20_000;
 
+// ── Time limit (AV5a) ────────────────────────────────────────────────────────
+// The wrap-up nudge goes out this long before the hard stop, so the client
+// can say goodbye in character. Capped at half the limit for very short
+// limits (tests).
+const WRAP_UP_LEAD_MS = 60_000;
+
+/** What the browser is told, in plain words, when a session fails. */
+const STUDENT_ERROR = "Something went wrong with the practice client. Please start a new session.";
+const STUDENT_DROPPED = "The connection to the practice client dropped. Please start a new session.";
+
+export interface SessionOptions {
+  persona: GptLivePersona & { id: string; name: string };
+  /** Hard cap on session length (AV5a). */
+  maxSessionMs: number;
+  /** When the student pressed start — the zero point for the ready metric. */
+  requestStartedAt: number;
+}
+
 export class Session implements GptLiveEvents {
   readonly bridge: GptLiveBridge;
   readonly media: MediaServerLeg;
@@ -78,28 +100,39 @@ export class Session implements GptLiveEvents {
   private readyAt: number | null = null;
   private silencePoll: NodeJS.Timeout | null = null;
 
+  // ── Time limit state ──
+  private wrapUpTimer: NodeJS.Timeout | null = null;
+  private limitTimer: NodeJS.Timeout | null = null;
+
   constructor(
     readonly sessionId: string,
     mediaWsUrl: string,
-    /** Called when a leg dies and the session can no longer work. */
-    private readonly onDead: (sessionId: string) => void,
+    private readonly options: SessionOptions,
+    /**
+     * Ask the registry to end this session (it calls stop()). Reasons used
+     * here: "leg_died", "time_limit".
+     */
+    private readonly onEnd: (sessionId: string, reason: string) => void,
   ) {
     this.media = new MediaServerLeg(mediaWsUrl, (msg) => this.log(msg));
-    this.bridge = new GptLiveBridge(this, (msg) => this.log(msg));
+    this.bridge = new GptLiveBridge(this, options.persona, (msg) => this.log(msg));
+  }
+
+  get personaId(): string {
+    return this.options.persona.id;
   }
 
   /** Spawn both legs; whichever exits first ends the session. */
   start(): void {
+    this.armTimeLimit();
     void this.runLeg("media server", () => this.media.run());
     void this.runLeg("GPT-Live", async () => {
       if (!(await this.media.waitUntilReady(MEDIA_READY_TIMEOUT_MS))) {
         // Said out loud: without this the avatar simply never speaks while the
         // transcript keeps printing, and the only person who can't tell why is
         // the user.
-        this.emit({
-          type: "error",
-          message: "the avatar could not be reached — start a new session",
-        });
+        this.log("media server never became ready");
+        this.emit({ type: "error", message: STUDENT_DROPPED });
         return;
       }
       await this.bridge.run();
@@ -110,11 +143,20 @@ export class Session implements GptLiveEvents {
     this.stopping = true;
     if (this.interruptWatch) clearTimeout(this.interruptWatch);
     if (this.silencePoll) clearInterval(this.silencePoll);
+    if (this.wrapUpTimer) clearTimeout(this.wrapUpTimer);
+    if (this.limitTimer) clearTimeout(this.limitTimer);
     // Bridge first: GPT-Live gets its session.close and the drain still
     // delivers the last audio into the media leg before it closes.
     await this.bridge.close();
     this.media.close();
+    // Close the browser socket too, so a server-side end (time limit, idle,
+    // dead leg) reaches the page instead of leaving it on a frozen face. The
+    // socket's close handler calls stopSession again, which is a no-op.
+    const ws = this.frontend;
     this.frontend = null;
+    if (ws && (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING)) {
+      ws.close(1000, "session ended");
+    }
   }
 
   /**
@@ -146,7 +188,9 @@ export class Session implements GptLiveEvents {
   onReady(): void {
     this.ready = true;
     this.readyAt = Date.now();
-    this.log("GPT-Live ready");
+    const readySec = (this.readyAt - this.options.requestStartedAt) / 1000;
+    metrics.sessionReady(readySec);
+    this.log(`GPT-Live ready (persona ${this.options.persona.id}, ${readySec.toFixed(1)}s after start)`);
     this.emit({ type: "ready" });
     this.silencePoll = setInterval(() => this.checkSilence(), SILENCE_POLL_MS);
   }
@@ -185,11 +229,45 @@ export class Session implements GptLiveEvents {
   }
 
   onError(message: string): void {
+    // The detail is for us (log); the student gets plain words. Raw upstream
+    // errors can name providers, models or account state.
     this.log(`error: ${message}`);
-    this.emit({ type: "error", message });
+    // Errors during teardown are expected (e.g. GPT-Live rejecting appends it
+    // had not injected yet when the session closed) and must not overwrite
+    // the reason the session ended ("time limit reached") on the student's
+    // screen.
+    if (this.stopping) return;
+    this.emit({ type: "error", message: STUDENT_ERROR });
   }
 
   // ── internals ──────────────────────────────────────────────────────────────
+
+  /**
+   * AV5a hard cap: a nudge to wrap up in character, then the stop. Timed from
+   * here — right after the LiveAvatar session started, when billing began.
+   */
+  private armTimeLimit(): void {
+    const max = this.options.maxSessionMs;
+    const lead = Math.min(WRAP_UP_LEAD_MS, max / 2);
+    this.wrapUpTimer = setTimeout(() => {
+      this.wrapUpTimer = null;
+      if (this.stopping || !this.ready) return;
+      this.log("time limit approaching — asking the client to wrap up");
+      this.bridge.append("instructions", WRAP_UP_PROMPT);
+    }, max - lead);
+    this.limitTimer = setTimeout(() => {
+      this.limitTimer = null;
+      if (this.stopping) return;
+      const minutes = Math.round((max / 60_000) * 10) / 10;
+      this.log(`time limit reached (${minutes} min) — ending session`);
+      this.emit({
+        type: "ended",
+        reason: "time_limit",
+        message: `This practice session reached its ${minutes}-minute limit.`,
+      });
+      this.onEnd(this.sessionId, "time_limit");
+    }, max);
+  }
 
   /**
    * The dead-air killer. If neither side has produced anything for a while —
@@ -264,8 +342,8 @@ export class Session implements GptLiveEvents {
     // useless — GPT-Live would stream into a closed socket, or the avatar
     // would sit mute — so the survivor is not left running.
     this.log(`${name} leg exited — ending session`);
-    this.emit({ type: "error", message: `the ${name} connection dropped` });
-    this.onDead(this.sessionId);
+    this.emit({ type: "error", message: STUDENT_DROPPED });
+    this.onEnd(this.sessionId, "leg_died");
   }
 
   private emit(message: ServerMessage): void {

@@ -1,48 +1,24 @@
 /**
- * Every piece of model-facing text, in one place.
+ * Model-facing mechanics text, in one place.
  *
- * Two kinds live here, and the split is the point:
- *
- * - **Persona** — who the avatar is and how it opens. Loaded from the markdown
- *   files in `server/prompts/`. Until AV2 (persona loader) these are a
- *   hand-written placeholder client; AV2 replaces the file lookup with a
- *   per-session persona chosen by the student.
- * - **Mechanics** — the directives that make speak-first, delegation and
- *   silence handling work at all. These are wiring, not flavor. They stay in
- *   code.
+ * WHO the avatar is — the persona — is not here: it comes from the persona
+ * loader (personas.ts, AV2), per session. What lives here are the directives
+ * that make speak-first, role-play, silence handling and the time limit work
+ * at all. These are wiring, not flavor.
  *
  * FamilyFinanceChat fork (AV1): the upstream Japanese-tutor logic — lesson
  * script, review breaks, on-screen card rules — is removed. What remains is
  * domain-independent.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
-function promptFile(name: string, fallback: string): string {
-  try {
-    return readFileSync(
-      fileURLToPath(new URL(`../prompts/${name}`, import.meta.url)),
-      "utf8",
-    ).trim();
-  } catch {
-    return fallback;
-  }
-}
-
-// ── persona (edit server/prompts/*.md, not these fallbacks) ──────────────────
-
-export const DEFAULT_INSTRUCTIONS = promptFile(
-  "instructions.md",
-  "You are a client meeting a financial advisor in a live voice conversation. Stay in character. " +
-    "Keep every reply short and natural. Never use lists, markdown, or formatting: everything you " +
-    "produce is spoken aloud.",
-);
-
-export const DEFAULT_GREETING = promptFile(
-  "greeting.md",
-  "Say hello to the advisor, introduce yourself in one sentence, and wait for their first question.",
-);
+/**
+ * The opening when a persona defines none (Open WebUI personas never do).
+ * Persona-neutral on purpose: it must suit any client.
+ */
+export const DEFAULT_GREETING =
+  "Greet the advisor warmly but briefly and say your first name. Then stop and wait for the " +
+  "advisor to lead — do not ask what they want to talk about and do not start describing your " +
+  "situation.";
 
 // ── mechanics ─────────────────────────────────────────────────────────────────
 
@@ -102,3 +78,18 @@ export const SILENCE_CHECKIN =
   "the way this client would in a real meeting: ask whether the advisor is still there, or " +
   "whether they had another question. Do not change the subject and do not lecture. Never leave " +
   "the room silent.";
+
+/**
+ * Instruction append shortly before the AV5a session time limit, so the
+ * meeting ends like a meeting instead of the face freezing mid-sentence.
+ *
+ * Measured (2026-11-22): a softer "at the next natural pause" wording was
+ * accepted but never spoken when the advisor was quiet — GPT-Live, like with
+ * the greeting, only speaks unprompted when told to speak now. So: speak now,
+ * unless the advisor is mid-sentence.
+ */
+export const WRAP_UP_PROMPT =
+  "The meeting has to end in about a minute. If the advisor is in the middle of speaking, let " +
+  "them finish their sentence first; otherwise speak RIGHT NOW, without waiting for them. In " +
+  "character, say that you need to leave soon and ask whether they have one last question. If " +
+  "they ask one, answer it briefly, then thank them and say goodbye.";

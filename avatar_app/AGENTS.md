@@ -17,8 +17,9 @@ upstream tutor domain.
 shared/     The contract. messages.ts (wire protocol).
             NOT a package — both sides import it by relative path.
 server/     The bridge. Node + ws only. `pnpm dev` = tsx watch.
-            prompts/*.md is a PLACEHOLDER client persona until AV2.
-            src/prompts.ts holds the non-negotiable mechanics prompts.
+            src/prompts.ts holds the non-negotiable mechanics prompts;
+            src/personas.ts loads WHO the client is, per session.
+personas/   File-source personas (*.md, front matter + body). `_*.md` ignored.
 web/        Developer test harness. Vite + livekit-client. Not the student UI.
 ```
 
@@ -65,19 +66,31 @@ change one, change both.
   `instructions` = directive to follow; `commentary` = information to SAY;
   `thinking` = silent context.
 - **Startup instructions are immutable.** Everything the persona needs must be
-  in `session.start` (≤ 16k tokens). Mid-session appends are ≤ 500 tokens and
-  the model acts on them immediately — they are for nudges, not content.
+  in `session.start` (≤ 16k tokens; `personas.ts` refuses, never truncates).
+  Mid-session appends are ≤ 500 tokens — for nudges, not content.
+- **An append that should make the model talk must say "speak now".**
+  Measured twice: the greeting (upstream) and the AV5a wrap-up (2026-11-22). A
+  softer "at the next natural pause" was accepted but never spoken while the
+  advisor was quiet.
+- **Appends only take effect while mic audio is streaming.** GPT-Live's
+  context injection rides the input-audio timeline; with no audio frames the
+  greeting is rejected (`context_injection_incomplete`). The browser streams
+  silence for exactly this reason. Test clients must too.
 - **Model output is untrusted.** Render transcript text with `textContent`
   only; never interpolate it into HTML.
 
 ## FamilyFinanceChat rules that bite here
 
 - **No secrets in the repo.** `.env` is gitignored at both levels; keep it so.
-- **Open WebUI only over its public REST API**, and all of those calls in one
-  module (`openwebui.ts`, from AV3) so an upstream change breaks in one place.
-- **Every billed session must reach `stopSession`.** The 60 s idle reaper in
-  `registry.ts` is the backstop, not the plan. The hard session cap arrives in
-  AV5.
+- **Open WebUI only over its public REST API**, and all of those calls in
+  `openwebui.ts`, so an upstream change breaks in one place.
+- **Students see plain words, the log gets the detail.** Never forward a raw
+  upstream error to the browser (`session.ts` `onError`, `index.ts` `refuse`).
+- **Metrics stay off the public port** (`metrics.ts`): Caddy routes
+  `/practice/*` to `PORT`; metrics listen on `AVATAR_METRICS_PORT`.
+- **Every billed session must reach `stopSession`.** The time limit
+  (`AVATAR_MAX_SESSION_MIN`) and the 60 s idle reaper in `registry.ts` are the
+  backstops, not the plan.
 
 ## Gotchas
 

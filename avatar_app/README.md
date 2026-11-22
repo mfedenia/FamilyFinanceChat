@@ -42,15 +42,18 @@ behaviour, not style.
 
 ```
 server/src/
-  index.ts        HTTP + WebSocket routes (/api/session/start|stop, /ws/:id, /healthz)
-  session.ts      one live conversation: wiring, barge-in, silence check-in
+  index.ts        HTTP + WebSocket routes (/api/personas, /api/session/start|stop, /ws/:id, /healthz)
+  session.ts      one live conversation: wiring, barge-in, silence check-in, time limit
   gptlive.ts      the GPT-Live websocket (session.start, transcripts, delegation)
   liveavatar.ts   starts/stops LiveAvatar LITE sessions
   mediaServer.ts  sends GPT-Live's audio into the avatar
   turns.ts        stitches ~200 ms transcript fragments into turns
-  prompts.ts      mechanics prompts (speak-first, role-play rules, silence)
+  prompts.ts      mechanics prompts (speak-first, role-play rules, silence, wrap-up)
+  personas.ts     AV2 persona loader: file or Open WebUI source, token-budget check
+  openwebui.ts    EVERY call to Open WebUI lives here (public REST API only)
+  metrics.ts      AV5a Prometheus metrics, served on their own internal port
   registry.ts     live sessions + the 60 s idle reaper
-server/prompts/   PLACEHOLDER client persona — replaced by the AV2 persona loader
+personas/         file-source personas (*.md); placeholder-dana.md is NOT a course persona
 shared/messages.ts  the browser ↔ bridge wire protocol
 web/              developer test harness — NOT the student-facing page
 docs/ARCHITECTURE.md  upstream design rationale (read the fork note at the top)
@@ -68,8 +71,8 @@ corepack pnpm -r typecheck
 corepack pnpm --parallel -r dev   # server :8787 + test page :5173
 ```
 
-Open <http://localhost:5173>, press **Start talking**, and allow the microphone.
-You play the advisor; the avatar plays the placeholder client.
+Open <http://localhost:5173>, pick a client, press **Start talking**, and allow the
+microphone. You play the advisor; the avatar plays the client.
 
 Keys:
 
@@ -79,11 +82,49 @@ Keys:
 | `OPENAI_API_KEY` | platform.openai.com | Needs GPT-Live access |
 
 `corepack pnpm run setup` will prompt for and verify both keys instead of
-editing `.env` by hand.
+editing `.env` by hand. Every other setting is optional and documented in
+[`.env.example`](.env.example).
 
-> ⚠ **No authentication yet.** Until AV3 (login check) and AV5 (caps, kill switch)
-> land, anyone who can reach the server can start a billed session. Run it on
-> `localhost` only.
+> ⚠ **No authentication yet.** Until AV3 (login check) lands, anyone who can reach
+> the server can start a billed session. Run it on `localhost` only.
+
+## Personas (AV2)
+
+Which client the avatar plays is chosen per session. The whole persona is sent to
+GPT-Live once, at the start: GPT-Live cannot change its instructions mid-session,
+so there is no per-turn document search in the speech loop.
+
+- **File source** (default, `AVATAR_PERSONA_SOURCE=file`): one Markdown file per
+  persona in [`personas/`](personas/). See [`personas/_TEMPLATE.md`](personas/_TEMPLATE.md).
+- **Open WebUI source** (`AVATAR_PERSONA_SOURCE=openwebui`): the professor's own
+  role-play models. Tag a model **`avatar`** in Workspace → Models and it appears
+  in the picker. Its system prompt becomes the persona. An optional tag such as
+  `voice:cedar` picks the voice. This needs `OPENWEBUI_BASE_URL` and an **admin**
+  `OPENWEBUI_API_KEY`, because Open WebUI hides system prompts from everyone else.
+  - Only the system prompt is loaded. **Documents attached to the model are not**,
+    and the log warns when a persona model has any.
+  - `{{CURRENT_DATE}}`-style variables are filled in. `{{USER_NAME}}` becomes
+    "the advisor" until AV3 knows the student.
+
+Personas over GPT-Live's 16,384-token limit are **refused, not cut off**. The
+estimate is deliberately pessimistic, about 40,000 characters of persona.
+
+## Guardrails (AV5a)
+
+| Setting | Default | What it does |
+|---|---|---|
+| `AVATAR_ENABLED` | `true` | Kill switch: `false` refuses every new session with a plain message |
+| `AVATAR_MAX_SESSION_MIN` | `15` | Hard cap. About a minute before it, the client says in character that they need to leave and asks for a last question |
+| `AVATAR_METRICS_PORT` | `9464` | Prometheus `/metrics` on its own port, so the public `/practice/` route can never expose it |
+
+Students never see raw upstream errors: they get a plain message, and the detail
+goes to the server log.
+
+Metrics: `avatar_sessions_active`, `avatar_sessions_started_total`,
+`avatar_session_start_failures_total{reason}`, `avatar_sessions_ended_total{reason}`,
+`avatar_session_seconds_total` (multiply by the per-second price to get cost), and
+`avatar_session_ready_seconds` (from start until the voice model is ready). The
+Prometheus scrape job is added with the container in AV6.
 
 ## Every session costs money
 

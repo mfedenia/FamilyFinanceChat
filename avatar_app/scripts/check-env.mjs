@@ -18,6 +18,9 @@ try {
 }
 
 const required = ["LIVEAVATAR_API_KEY", "OPENAI_API_KEY"];
+if (process.env.AVATAR_PERSONA_SOURCE === "openwebui") {
+  required.push("OPENWEBUI_BASE_URL", "OPENWEBUI_API_KEY");
+}
 const missing = required.filter((name) => !process.env[name]);
 
 if (missing.length) {
