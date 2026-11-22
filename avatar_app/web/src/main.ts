@@ -10,18 +10,19 @@
  * not re-attach resources that teardown already released.
  */
 
-// Registers the <hyperframes-player> custom element used for overlays.
-import "@hyperframes/player";
 import type { Turn } from "../../shared/messages";
 import { joinAvatarRoom, type AvatarRoom } from "./livekitRoom";
 import { startMicCapture, type MicCapture } from "./micCapture";
-import { createOverlays } from "./overlays/index";
 import { openSessionSocket, type SessionSocket } from "./socket";
+
+// FamilyFinanceChat fork: this page is a developer test harness for the
+// bridge, not the student-facing UI (that is separate work — see
+// capstone_fall2026/AVATAR_TRACK.md §16). The upstream demo's overlay
+// player and term-card widgets were removed in AV1.
 
 const video = document.getElementById("video") as HTMLVideoElement;
 const audio = document.getElementById("audio") as HTMLAudioElement;
 const stage = document.getElementById("stage") as HTMLDivElement;
-const player = document.getElementById("overlay-player") as HTMLElement;
 const startBtn = document.getElementById("start") as HTMLButtonElement;
 const stopBtn = document.getElementById("stop") as HTMLButtonElement;
 const statusEl = document.getElementById("status") as HTMLDivElement;
@@ -42,8 +43,6 @@ const setStage = (state: "idle" | "connecting" | "live") => {
   stage.dataset.state = state;
 };
 
-const overlays = createOverlays({ stage, player, onStatus: (msg) => setStatus(msg, "error") });
-
 // ── transcript ────────────────────────────────────────────────────────────────
 // One line per turn, keyed by turn id: streaming updates rewrite the line in
 // place, and a new id starts a new line.
@@ -58,7 +57,7 @@ function upsertTurn(turn: Turn): void {
     line.className = `turn ${turn.role}`;
     const who = document.createElement("span");
     who.className = "who";
-    who.textContent = turn.role === "user" ? "You" : "Avatar";
+    who.textContent = turn.role === "user" ? "You" : "Client";
     const text = document.createElement("span");
     text.className = "text";
     line.append(who, text);
@@ -292,7 +291,6 @@ async function start(): Promise<void> {
         });
     },
     onTurn: upsertTurn,
-    onUi: overlays.render,
     onInterrupted: () => {
       // The rest of that sentence is never coming — reflect it rather than
       // leave a transcript that claims words nobody heard.
@@ -317,7 +315,6 @@ async function stop(reason?: string, kind: StatusKind = "idle"): Promise<void> {
   socket = null;
   await room?.disconnect();
   room = null;
-  overlays.hideAll();
   stopLiveness();
   // The transcript lives exactly as long as the session: cleared here (its
   // #transcript:empty rule hides the container), not on start.
@@ -362,7 +359,3 @@ startBtn.addEventListener("click", () => void start());
 stopBtn.addEventListener("click", () => void stop());
 
 drawMicWave(); // idle stubs before any session
-
-// Dev hook: render a widget without burning session minutes —
-//   window.__ui({ widget: "term_card", props: { term: "こんにちは", reading: "kon-ni-chi-wa", meaning: "hello" } })
-(window as unknown as { __ui: typeof overlays.render }).__ui = overlays.render;

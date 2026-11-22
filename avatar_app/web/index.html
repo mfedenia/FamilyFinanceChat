@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b0d12" />
-    <title>LiveAvatar × GPT-Live</title>
+    <title>Avatar bridge test harness</title>
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%236ea8ff'/><stop offset='1' stop-color='%23b98cff'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='%230b0d12'/><circle cx='32' cy='32' r='15' fill='url(%23g)'/><circle cx='32' cy='32' r='23' fill='none' stroke='url(%23g)' stroke-opacity='.4' stroke-width='3'/></svg>"
@@ -12,7 +12,7 @@
     <style>
       :root {
         color-scheme: dark;
-        /* Palette matches the overlay compositions (term-card.html): a
+        /* Palette inherited from the upstream demo: a
            blue→violet accent over deep navy glass. */
         --bg: #0b0d12;
         --ink: #e8ecf4;
@@ -67,14 +67,9 @@
         gap: 16px;
       }
       /* ── The stage ──────────────────────────────────────────────────────────
-         The avatar's video with the overlay stacked transparently on top, plus
-         the pre-session hero and the connecting loader — all layered in one
-         box, switched by data-state (idle | connecting | live).
-
-         Staging is per-widget and decided by the client (overlays/index.ts) —
-         never by the model: a term card leaves the avatar full-frame; the
-         learned-words recap sets data-pip, which shrinks the avatar to the
-         bottom-right corner while the panel holds the stage. */
+         The avatar's video plus the pre-session hero and the connecting
+         loader — all layered in one box, switched by data-state
+         (idle | connecting | live). */
       #stage {
         grid-area: stage;
         position: relative;
@@ -95,7 +90,7 @@
         z-index: 1;
         /* Hidden until the first frame ("playing" → data-state=live) so the
            join reads as a fade-in, not a black box that suddenly has a person
-           in it. Inset/size animated so the PiP shrink reads as a move. */
+           in it. */
         opacity: 0;
         transition:
           opacity 0.5s ease,
@@ -107,38 +102,8 @@
       #stage[data-state="live"] video {
         opacity: 1;
       }
-      #stage[data-pip] video {
-        /* Lengths only — an `auto` inset can't interpolate, which snaps the
-           video to the top-left on the way back to full-frame. The stage is
-           16/9, so 28% of its height matches 28% of its width. */
-        top: calc(72% - 16px);
-        left: calc(72% - 16px);
-        width: 28%;
-        height: 28%;
-        border-radius: 10px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-        z-index: 3;
-      }
-      /* The overlay: a transparent iframe (hyperframes-player) stacked over the
-         avatar's WebRTC video. The stream itself is untouched — nothing is
-         composited into it. pointer-events off so it never swallows clicks. */
-      #overlay-player {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        background: transparent;
-        border: 0;
-        z-index: 2;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.25s ease;
-      }
-      #overlay-player.visible {
-        opacity: 1;
-      }
       /* Speaking glow: a ring the analyser in main.ts lights while the avatar's
-         audio is above the noise floor. Sits over video+overlay, under hero. */
+         audio is above the noise floor. Sits over the video, under hero. */
       #stage::after {
         content: "";
         position: absolute;
@@ -489,18 +454,17 @@
   <body>
     <header>
       <span class="mark" aria-hidden="true"></span>
-      <h1>LiveAvatar × GPT-Live</h1>
+      <h1>FamilyFinanceChat · avatar bridge (dev harness)</h1>
     </header>
     <div id="layout">
       <div id="stage" data-state="idle">
         <video id="video" autoplay playsinline></video>
         <audio id="audio" autoplay></audio>
-        <hyperframes-player id="overlay-player" autoplay muted></hyperframes-player>
         <div id="hero">
-          <h2>Learn Japanese with examples</h2>
+          <h2>Practice client meeting</h2>
           <p>
-            Using full-duplex speech from GPT-Live and LiveAvatar + HyperFrames
-            for visuals, learn various Japanese words and phrases.
+            Developer test page for the avatar bridge. You are the advisor; the
+            avatar plays a client. Not the student-facing interface.
           </p>
           <button id="start">Start talking</button>
           <span class="hint">Uses your microphone</span>

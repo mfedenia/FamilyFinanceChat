@@ -5,15 +5,16 @@
  *   POST /api/session/stop   → tear one down
  *   GET  /healthz
  *   WS   /ws/:sessionId      → the browser leg: mic audio up; transcripts,
- *                              tool visuals, and errors down
+ *                              status, and errors down
  *
  * In dev the web app runs on Vite (:5173) and proxies /api and /ws here, so
  * the browser sees one origin. In production this server also serves the built
  * frontend from web/dist.
  *
- * ⚠ No auth, on purpose — this is a local starter. Before exposing it
- * publicly, gate /api/session/start (any login) and the websocket upgrade
- * (a short-lived ticket minted by /start). See docs/ARCHITECTURE.md.
+ * ⚠ No auth yet — local development only. AV3 gates /api/session/start on an
+ * Open WebUI login and the websocket upgrade on a short-lived signed ticket;
+ * AV5 adds caps and the kill switch. Do not expose this before both land.
+ * Task list: capstone_fall2026/AVATAR_TRACK.md §16.
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -114,14 +115,6 @@ async function serveStatic(res: ServerResponse, pathname: string): Promise<void>
     res.writeHead(200, { "Content-Type": MIME[extname(filePath)] ?? "application/octet-stream" });
     res.end(await readFile(filePath));
   } catch {
-    // Overlay compositions must 404 rather than fall through to the app shell:
-    // the hyperframes player would load index.html with a 200, find no
-    // timeline, and report a generic timeout that looks like a broken
-    // composition instead of a missing file.
-    if (rel.startsWith("/overlays/")) {
-      res.writeHead(404).end("composition not found");
-      return;
-    }
     try {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(await readFile(join(WEB_DIST, "index.html")));

@@ -3,19 +3,23 @@
  *
  * A `Session` owns the two upstream legs (GPT-Live, media server) and the
  * single browser socket, and implements the sink the bridge emits into: audio
- * goes to the media server; transcripts and tool calls go to the browser.
+ * goes to the media server; transcripts go to the browser.
  *
  * Note what does NOT go to the browser: avatar audio. It reaches the browser
  * through LiveKit, because this server threads it into the media server
  * directly.
+ *
+ * FamilyFinanceChat fork (AV1): the upstream tutor machinery — lesson-card
+ * push, learned-words store, auto-recap and review-break fallback — is
+ * removed. Barge-in, the greeting gate, the silence watchdog and teardown are
+ * domain-independent and kept unchanged.
  */
 
 import type WebSocket from "ws";
-import type { ServerMessage, TermCardProps, Turn } from "../../shared/messages";
+import type { ServerMessage, Turn } from "../../shared/messages";
 import { GptLiveBridge, type GptLiveEvents } from "./gptlive";
 import { MediaServerLeg } from "./mediaServer";
-import { LESSON_WORDS, REVIEW_BREAK_PROMPT, SILENCE_CHECKIN } from "./prompts";
-import { dispatchToolCall } from "./tools";
+import { SILENCE_CHECKIN } from "./prompts";
 
 // How long GPT-Live waits for the media socket before the session is written
 // off. The gate is load-bearing: the bridge triggers the opening greeting as
@@ -42,22 +46,10 @@ const YIELD_STALE_MS = 6_000;
 // Floor between interrupts, so a re-projected turn cannot chop the avatar twice.
 const INTERRUPT_COOLDOWN_MS = 1_000;
 
-// Auto-recap cadence: every time this many NEW words have been taught, the
-// server pushes the recap panel (last RECAP_EVERY_WORDS words) on the next
-// finished assistant turn. Server-pushed like the lesson cards, and for the
-// same reason: the model has no incentive to recap unprompted, and asking it
-// to is the delegation-that-never-fires problem all over again.
-const RECAP_EVERY_WORDS = 4;
-// How long to wait for the model to deliver the requested review via
-// delegation before the server pushes the panel itself. Generous: a
-// delegation round trip is ~1s, but the prompt tells the model to finish the
-// current exchange first.
-const REVIEW_DELEGATION_TIMEOUT_MS = 10_000;
-
 // ── Silence watchdog ─────────────────────────────────────────────────────────
-// When NOBODY has produced anything — no avatar audio, no learner turn — for
+// When NOBODY has produced anything — no avatar audio, no student turn — for
 // this long, the avatar is prodded (an appended instruction) to check in on the
-// learner. Note `lastAudioAt` is generation time and generation runs seconds
+// student. Note `lastAudioAt` is generation time and generation runs seconds
 // ahead of the avatar's voice, so the threshold has to absorb that lead: by
 // the time this fires, the played-back silence is shorter than the number says.
 const SILENCE_CHECKIN_MS = 12_000;
@@ -79,22 +71,6 @@ export class Session implements GptLiveEvents {
   /** Bumped by mic frames — the idle watchdog's only liveness signal. */
   lastActivityAt = Date.now();
   readonly startedAt = Date.now();
-  // Every term card shown this session, in teaching order — the store the
-  // recap panel (show_learned_words) renders from. The model asks for the
-  // recap; it never supplies this list.
-
-  private readonly learnedWords: TermCardProps[] = [];
-  // Lesson words whose card has already been pushed. The lesson itself lives
-  // in the model's startup instructions (LESSON_DIRECTIVE) — the server only
-  // watches the transcript and puts each word's card up the first time the
-  // tutor says it. No pacing state: the model owns the conversation cycle.
-  private readonly taughtLessonTerms = new Set<string>();
-  // How many words learnedWords held at the last auto-recap, so the next one
-  // fires only after RECAP_EVERY_WORDS genuinely new words.
-  private wordsAtLastRecap = 0;
-  // Armed when a review break has been requested; cleared when the model's
-  // delegation delivers the panel, fired if it never does.
-  private reviewFallback: NodeJS.Timeout | null = null;
 
   // ── Silence watchdog state ──
   private lastUserActivityAt: number | null = null;
@@ -134,7 +110,6 @@ export class Session implements GptLiveEvents {
     this.stopping = true;
     if (this.interruptWatch) clearTimeout(this.interruptWatch);
     if (this.silencePoll) clearInterval(this.silencePoll);
-    if (this.reviewFallback) clearTimeout(this.reviewFallback);
     // Bridge first: GPT-Live gets its session.close and the drain still
     // delivers the last audio into the media leg before it closes.
     await this.bridge.close();
@@ -182,61 +157,10 @@ export class Session implements GptLiveEvents {
   }
 
   onTurn(turn: Turn): void {
+    // AV4 hooks transcript capture in here: finished turns are what gets
+    // written back to Open WebUI.
     this.emit({ type: "turn", ...turn });
-    if (turn.role === "user") {
-      this.lastUserActivityAt = Date.now();
-      return;
-    }
-    // Lesson cards: the SERVER pushes a word's card the first time the tutor
-    // is heard saying it — checked on every streaming update so the card lands
-    // mid-sentence, alongside the word, not after the turn. Passive on
-    // purpose: it never writes into the conversation, so it cannot disturb
-    // the model's own pacing. (The model is not asked to delegate for words
-    // we already hold — a full session of asking closed with
-    // backend_model_usage: [].)
-    for (const word of LESSON_WORDS) {
-      if (
-        this.taughtLessonTerms.has(word.term) ||
-        !turn.text.includes(word.term)
-      )
-        continue;
-      this.taughtLessonTerms.add(word.term);
-      this.log(`lesson: tutor said "${word.term}" — pushing card`);
-      this.showTermCard({
-        term: word.term,
-        reading: word.reading,
-        meaning: word.meaning,
-      });
-      return;
-    }
-
-    // Review break, on the turn boundary so it lands between beats rather
-    // than over a word mid-teach. The server only ASKS: the live model hands
-    // the turn to its backend, whose show_learned_words call renders the
-    // panel, and whose tool result hands back the exact words — so its spoken
-    // walkthrough and the rows on screen are synchronized by the conversation
-    // itself, not by a timer guessing at speech cadence.
-    if (!turn.done) return;
-    if (this.learnedWords.length - this.wordsAtLastRecap < RECAP_EVERY_WORDS) {
-      return;
-    }
-    this.wordsAtLastRecap = this.learnedWords.length;
-    this.log("review break: asking the model to delegate the recap");
-    this.bridge.append("instructions", REVIEW_BREAK_PROMPT);
-    // Insurance, not the plan: the live model has a documented history of not
-    // delegating when asked. If no recap renders in time, push the panel
-    // directly — the visual must not depend on obedience.
-    this.reviewFallback = setTimeout(() => {
-      this.reviewFallback = null;
-      const ui = dispatchToolCall(
-        "show_learned_words",
-        { title: "Words so far" },
-        this.learnedWords,
-      );
-      if (!ui) return;
-      this.log("review break: model did not delegate — pushing panel directly");
-      this.emit({ type: "ui", ...ui });
-    }, REVIEW_DELEGATION_TIMEOUT_MS);
+    if (turn.role === "user") this.lastUserActivityAt = Date.now();
   }
 
   onUserTurnStarted(): void {
@@ -252,39 +176,12 @@ export class Session implements GptLiveEvents {
     name: string | null,
     args: Record<string, unknown>,
   ): Record<string, unknown> {
-    const ui = dispatchToolCall(name, args, this.learnedWords);
-    if (!ui) {
-      this.log(
-        `tool call ignored: ${name ?? "(unnamed)"} ${JSON.stringify(args).slice(0, 120)}`,
-      );
-      // Still a result — an unanswered call stays pending and blocks every
-      // later delegation.
-      return {
-        shown: false,
-        error: "unknown tool or invalid arguments; nothing was displayed",
-      };
-    }
-    this.log(`tool → ${ui.widget} ${JSON.stringify(ui.props).slice(0, 120)}`);
-    if (ui.widget === "term_card") {
-      // showTermCard records the word for the recap — the model asks for the
-      // recap but never supplies the list.
-      this.showTermCard(ui.props);
-      return { shown: true };
-    }
-    this.emit({ type: "ui", ...ui });
-    if (ui.widget === "learned_words") {
-      // The model delivered the review — the fallback push is now redundant.
-      if (this.reviewFallback) {
-        clearTimeout(this.reviewFallback);
-        this.reviewFallback = null;
-      }
-      // Hand back the exact words on the panel: the backend continues its
-      // reply after this result, and these are what it should walk through.
-      // The invariant holds — the model still cannot SUPPLY the list; it can
-      // only read back what the server put on screen.
-      return { shown: true, words: ui.props.words };
-    }
-    return { shown: true };
+    // No tools are registered (AV1). Still a result — an unanswered call stays
+    // pending upstream and blocks every later delegation.
+    this.log(
+      `unexpected tool call ignored: ${name ?? "(unnamed)"} ${JSON.stringify(args).slice(0, 120)}`,
+    );
+    return { shown: false, error: "no tools are available in this session" };
   }
 
   onError(message: string): void {
@@ -295,22 +192,10 @@ export class Session implements GptLiveEvents {
   // ── internals ──────────────────────────────────────────────────────────────
 
   /**
-   * Put a term card up and remember it for the recap — the shared tail of the
-   * two ways a card can happen: the backend's tool call and the scripted
-   * lesson's server-side push.
-   */
-  private showTermCard(props: TermCardProps): void {
-    if (!this.learnedWords.some((w) => w.term === props.term)) {
-      this.learnedWords.push(props);
-    }
-    this.emit({ type: "ui", widget: "term_card", props });
-  }
-
-  /**
    * The dead-air killer. If neither side has produced anything for a while —
-   * no avatar audio generated, no learner turn heard — prod the avatar to
-   * check in ("are you still there?", "you've got this"). Its own check-in
-   * speech bumps lastAudioAt, which re-arms the watchdog naturally.
+   * no avatar audio generated, no student turn heard — prod the avatar to
+   * check in, in character. Its own check-in speech bumps lastAudioAt, which
+   * re-arms the watchdog naturally.
    */
   private checkSilence(): void {
     if (this.stopping) return;
@@ -330,7 +215,7 @@ export class Session implements GptLiveEvents {
     const quiet = (at: number | null) =>
       at === null ? "never" : `${Math.round((now - at) / 1000)}s`;
     this.log(
-      `silence — prompting a check-in (avatar quiet ${quiet(this.lastAudioAt)}, learner quiet ${quiet(this.lastUserActivityAt)})`,
+      `silence — prompting a check-in (avatar quiet ${quiet(this.lastAudioAt)}, student quiet ${quiet(this.lastUserActivityAt)})`,
     );
     this.bridge.append("instructions", SILENCE_CHECKIN);
   }
@@ -360,7 +245,8 @@ export class Session implements GptLiveEvents {
     this.log("user barge-in — clearing avatar audio buffer");
     this.media.interrupt();
     // The rest of that sentence is never coming; tell the browser so it can
-    // reflect it (e.g. mark the transcript line).
+    // reflect it (e.g. mark the transcript line). AV4 marks it in the saved
+    // transcript too.
     this.emit({ type: "interrupted" });
   }
 

@@ -20,14 +20,12 @@
 
 import WebSocket from "ws";
 import type { Turn } from "../../shared/messages";
-import { toolSchemas } from "../../shared/tools";
 import { config } from "./config";
 import {
   CLIENT_DELEGATION_STUB,
   DEFAULT_GREETING,
   DEFAULT_INSTRUCTIONS,
   GREETING_PREAMBLE,
-  LESSON_DIRECTIVE,
   LIVE_DIRECTIVE,
   RESPONSES_INSTRUCTIONS,
 } from "./prompts";
@@ -113,9 +111,8 @@ export interface GptLiveEvents {
    * One tool call. The returned object IS the function-call result sent back
    * to the API (JSON-stringified) — every actionable call must get exactly
    * one, or it stays pending server-side and blocks all later delegations.
-   * Shape by convention: {shown: boolean, error?, words?} —
-   * show_learned_words returns the exact words placed on the panel so the
-   * backend can narrate them.
+   * No tools are registered in this bridge (AV1 removed the demo's on-screen
+   * card tools), so this is a safety net: a stray call still gets answered.
    */
   onToolCall(
     name: string | null,
@@ -245,12 +242,10 @@ export class GptLiveBridge {
 
   private startSession(): void {
     // The persona comes from server/prompts/instructions.md (see prompts.ts);
-    // the directives are mechanics and always appended.
-    // Persona + visual/delegation mechanics + the whole lesson plan, all at
+    // the role-play directive is mechanics and always appended. Both at
     // startup: instructions are the one channel the live model reliably
-    // follows, and mid-session appends broke its own practice pacing.
-    const instructions =
-      DEFAULT_INSTRUCTIONS + LIVE_DIRECTIVE + LESSON_DIRECTIVE;
+    // follows, and they are immutable once the session starts.
+    const instructions = DEFAULT_INSTRUCTIONS + LIVE_DIRECTIVE;
     // v3: the FIRST message. Everything here is immutable afterwards except
     // delegation.responses settings (session.update) — and the delegation
     // TYPE is fixed for the session's life.
@@ -271,17 +266,15 @@ export class GptLiveBridge {
           responses: {
             model: config.gptlive.responsesModel,
             instructions: RESPONSES_INSTRUCTIONS,
-            tools: toolSchemas(),
-            tool_choice: "auto",
-            // One visual per teaching moment — a constraint the model cannot
-            // talk itself out of, unlike the prose asking for the same thing.
-            // Also keeps the tool loop simple: one call per response, so one
-            // result + one response.create.
-            parallel_tool_calls: false,
-            // The delegated turn is on the critical path for on-screen timing;
-            // deliberation buys nothing for "pick a card and fill its fields".
-            // Non-reasoning models reject the parameter outright, so only send
-            // it to ones that accept it.
+            // No tools: the upstream demo's on-screen card tools were removed
+            // in AV1. If tools come back (e.g. a server-side persona lookup),
+            // restore `tools`, `tool_choice` and `parallel_tool_calls: false`
+            // from the upstream commit — the result+continue loop below
+            // assumes one call per response.
+            //
+            // A delegated turn is on the spoken critical path; deliberation
+            // costs the student dead air. Non-reasoning models reject the
+            // parameter outright, so only send it to ones that accept it.
             reasoning: { effort: "low" },
           },
         },
@@ -317,7 +310,7 @@ export class GptLiveBridge {
 
       // Timed transcript fragments (200ms frames, empty ones omitted). No turn
       // events exist in v3; turns.ts groups these into turns for the UI, the
-      // lesson push, the review break and the barge-in watch.
+      // barge-in watch and (from AV4) the saved transcript.
       case GPTLiveServerEvent.InputTranscriptDelta:
       case GPTLiveServerEvent.OutputTranscriptDelta:
         this.turns.fragment(

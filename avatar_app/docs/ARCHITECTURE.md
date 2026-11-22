@@ -3,6 +3,16 @@
 Why the pieces are shaped the way they are. The code carries the fine detail
 in comments; this is the map.
 
+> **FamilyFinanceChat fork note.** This is the upstream demo's design document
+> (heygen-com/liveavatar-gpt-live-demos @ `daa8cc9`), kept because its
+> rationale for the audio path, turn projection, barge-in and session
+> lifecycle still applies unchanged. Two sections describe features removed in
+> AV1 — **"Tool calls → overlays"** and **"The learned-words store"**: the
+> on-screen widgets are gone and no tools are registered. The tool
+> *result + continue* loop they describe is still in `gptlive.ts` as a safety
+> net. Our task list and changes: `../README.md` and
+> `capstone_fall2026/AVATAR_TRACK.md` §16.
+
 ## The problem
 
 GPT-Live is **full-duplex**: one continuous audio stream each way, and the

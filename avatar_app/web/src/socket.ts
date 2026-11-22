@@ -1,14 +1,13 @@
 /**
  * The browser's leg of the session websocket. Mic audio goes up; transcripts
- * and visuals come down. Avatar audio/video do NOT travel here — they arrive
+ * and status come down. Avatar audio/video do NOT travel here — they arrive
  * over LiveKit, because the server threads audio into the media server itself.
  */
-import type { ClientMessage, ServerMessage, Turn, UiMessage } from "../../shared/messages";
+import type { ClientMessage, ServerMessage, Turn } from "../../shared/messages";
 
 export interface SessionSocketHandlers {
   onReady: () => void;
   onTurn: (turn: Turn) => void;
-  onUi: (msg: UiMessage) => void;
   /** The avatar was cut off: what it was mid-way through saying is gone. */
   onInterrupted: () => void;
   onError: (message: string) => void;
@@ -41,9 +40,6 @@ export function openSessionSocket(
         break;
       case "turn":
         handlers.onTurn(msg);
-        break;
-      case "ui":
-        handlers.onUi(msg);
         break;
       case "interrupted":
         handlers.onInterrupted();

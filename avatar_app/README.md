@@ -1,169 +1,93 @@
-# LiveAvatar × GPT-Live — language demo
+# avatar_app — the avatar bridge
 
-A minimal, readable reference integration: **OpenAI GPT-Live** (a full-duplex
-speech-to-speech model) driving a **HeyGen LiveAvatar** — a realtime voice
-agent with a face, whose tool calls land on screen as animated overlays.
-
-Out of the box it is a **Japanese tutor**: it teaches you words out loud,
-puts a term card (term · pronunciation · meaning) on screen as it says them,
-and every few words shrinks itself to the corner and reviews everything taught
-so far — a recap panel rendered from the server's own record of the session,
-not the model's memory. The persona is two markdown files (`server/prompts/`)
-and each visual is one tool plus one composition — swap those and it is any
-other demo.
-
-Barebones on purpose: the wiring is the thing you read, not a framework around
-it. Fork it, swap the persona, keep the face.
+The server that lets a student **talk out loud to a role-played client with a face**.
+It sits between three things:
 
 ```
-                        ┌────────────────────────┐
-                 ws     │      orchestrator      │   ws    ┌──────────────┐
-   mic audio ──────────►│       (server/)        │◄───────►│   GPT-Live   │
-   transcripts ◄────────│                        │         │  + Responses │
-   tool calls  ◄────────│  audio ──► media server│         │  (tools)     │
-                        └───────────────┬────────┘         └──────────────┘
-  ┌─────────┐                           │ ws (LITE session)
-  │ browser │      LiveKit      ┌───────▼────────┐
-  │ (web/)  │◄─────────────────►│   LiveAvatar   │
-  └─────────┘  avatar A/V       └────────────────┘
+Student browser ──mic audio──▶ BRIDGE ──▶ GPT-Live (OpenAI: listens, thinks, talks back)
+       ▲                          │
+       │                          └──voice audio──▶ LiveAvatar (HeyGen: moves the face)
+       └────────── video of the face (LiveKit) ◀──────────────┘
+
+BRIDGE ◀──▶ Open WebUI REST API   (from AV3/AV4: who is this student, save the transcript)
 ```
 
-The browser never holds an API key. It gets a LiveKit token to watch the
-avatar, and a websocket for mic audio (up) and transcripts + visuals (down).
-The avatar's voice takes the short path: GPT-Live → orchestrator → media
-server, with the browser out of the loop.
+It is a **sidecar container** (compatibility surface **A8**), served behind Caddy at
+`/practice/` (**A9**), and talks to Open WebUI only over its public REST API (**A7**).
+Open WebUI is never modified. See
+[`../capstone_fall2026/COMPATIBILITY_POLICY.md`](../capstone_fall2026/COMPATIBILITY_POLICY.md) §7.
 
-## Quickstart
+**Task list, status and acceptance criteria:**
+[`../capstone_fall2026/AVATAR_TRACK.md` §16](../capstone_fall2026/AVATAR_TRACK.md#16-implementation-the-gpt-live-avatar-bridge-av0av7).
 
-Requirements: Node ≥ 20.12, pnpm, a [LiveAvatar API key](https://app.liveavatar.com),
-and an OpenAI API key with GPT-Live access (generally available; this
-integration speaks the v3 contract, `gpt-live-1`).
+---
+
+## Where this code came from
+
+A fork of [heygen-com/liveavatar-gpt-live-demos](https://github.com/heygen-com/liveavatar-gpt-live-demos)
+(MIT) at commit **`daa8cc92ab34c75c0bbed201c94fb98360da2179`**.
+
+- **AV0** imported it verbatim (commit `4ad6924` on `feat/avatar-bridge`), so
+  `git diff 4ad6924 -- avatar_app/` shows every change we have made to upstream.
+- **AV1** removed the demo's Japanese-tutor logic: the lesson script, term-card and
+  recap tools, the review-break machinery, the on-screen overlay player and its
+  vendored GSAP file, and the upstream docs that only described those features.
+  The domain-independent parts — audio path, turn projection, barge-in, greeting gate,
+  silence check-in, teardown — are unchanged.
+
+Do not "fix" the invariants listed in [`AGENTS.md`](AGENTS.md). They are measured
+behaviour, not style.
+
+## Layout
+
+```
+server/src/
+  index.ts        HTTP + WebSocket routes (/api/session/start|stop, /ws/:id, /healthz)
+  session.ts      one live conversation: wiring, barge-in, silence check-in
+  gptlive.ts      the GPT-Live websocket (session.start, transcripts, delegation)
+  liveavatar.ts   starts/stops LiveAvatar LITE sessions
+  mediaServer.ts  sends GPT-Live's audio into the avatar
+  turns.ts        stitches ~200 ms transcript fragments into turns
+  prompts.ts      mechanics prompts (speak-first, role-play rules, silence)
+  registry.ts     live sessions + the 60 s idle reaper
+server/prompts/   PLACEHOLDER client persona — replaced by the AV2 persona loader
+shared/messages.ts  the browser ↔ bridge wire protocol
+web/              developer test harness — NOT the student-facing page
+docs/ARCHITECTURE.md  upstream design rationale (read the fork note at the top)
+```
+
+## Running it locally
+
+Needs Node ≥ 20.12 and corepack (ships with Node).
 
 ```bash
-pnpm install
-pnpm run setup   # prompts for the two API keys, verifies each, writes .env
-pnpm dev         # server on :8787, web on :5173
+cd avatar_app
+corepack pnpm install
+cp .env.example .env          # then fill in the two keys — .env is gitignored
+corepack pnpm -r typecheck
+corepack pnpm --parallel -r dev   # server :8787 + test page :5173
 ```
 
-`pnpm run setup` walks you through it: it asks for each key (with the URL to
-create one), verifies it against the live API before accepting it, and writes
-`.env` at the repo root. Safe to re-run — existing values are kept and
-re-verified, not re-asked. (The `run` matters: bare `pnpm setup` is pnpm's own
-built-in command.)
+Open <http://localhost:5173>, press **Start talking**, and allow the microphone.
+You play the advisor; the avatar plays the placeholder client.
 
-Prefer doing it by hand? `cp .env.example .env` and fill it in. Either way,
-`pnpm dev` and `pnpm start` check the required variables before starting and
-name exactly what's missing.
+Keys:
 
-No avatar to pick, no prompt to write: a default avatar id ships in
-`.env.example` (swap `LIVEAVATAR_AVATAR_ID` for one of your own, or unset it
-and the server uses the first public avatar and logs which), and the persona
-ships in `server/prompts/`.
+| Variable | Where from | Notes |
+|---|---|---|
+| `LIVEAVATAR_API_KEY` | app.liveavatar.com → Developers | Free plan: 2-minute sessions with a watermark — fine for development |
+| `OPENAI_API_KEY` | platform.openai.com | Needs GPT-Live access |
 
-Open http://localhost:5173 → **Start** → allow the mic → talk. The tutor
-greets you, teaches こんにちは, and the term card lands on screen while it
-keeps talking. Say the word back; ask it for another one.
+`corepack pnpm run setup` will prompt for and verify both keys instead of
+editing `.env` by hand.
 
-To change what the demo is: edit `server/prompts/instructions.md` (who the
-avatar is) and `server/prompts/greeting.md` (how it opens), restart the
-server. An empty `greeting.md` means the user speaks first.
+> ⚠ **No authentication yet.** Until AV3 (login check) and AV5 (caps, kill switch)
+> land, anyone who can reach the server can start a billed session. Run it on
+> `localhost` only.
 
-## Troubleshooting a fresh clone
+## Every session costs money
 
-**"Missing required env: …" when you run `pnpm dev`.** The preflight check
-(`scripts/check-env.mjs`) refuses to start until the required variables are
-set, and names them. Run `pnpm run setup` — it prompts for each key and
-verifies it against the live API — or fill in `.env` by hand. The server also
-re-checks per session (`/api/session/start` 500s naming what's absent), so a
-deployment with broken ambient env explains itself too. The server reads
-`.env` only at startup.
-
-**A key that doesn't work.** `pnpm run setup` verifies both keys before saving
-them, so a typo or revoked key fails there with a pointer to the right
-dashboard — re-run it any time keys change.
-
-**The avatar appears and blinks but never speaks.** LiveAvatar is up; GPT-Live
-isn't. Almost always a bad `OPENAI_API_KEY` or no GPT-Live access on the
-account. Set `GPT_LIVE_DEBUG=1` and restart to watch every upstream event
-(audio elided) — a session that authenticates but errors will say why.
-
-**Any other error on Start.** Upstream error bodies are passed through
-verbatim on purpose — a 401 from LiveAvatar or OpenAI means that key; read the
-message, it is the real one.
-
-**It speaks but never hears you.** The status line under the stage says
-`microphone unavailable` if permission was denied — re-allow it in the
-browser's site settings and Start again. There is no push-to-talk and no VAD:
-the mic streams continuously (meter next to the status line) and the model
-decides when you're done talking.
-
-**No greeting when the session opens.** An empty `server/prompts/greeting.md`
-is a feature, not a bug: it means "say nothing, let the user speak first".
-
-**Port 8787 is taken.** Set `PORT` in `.env` — and mirror it in
-`web/vite.config.ts`, whose dev proxy points at `:8787`. (Vite itself moving
-off 5173 is fine; the proxy target is the only coupling.)
-
-## What's in the box
-
-| Path | What it is |
-| --- | --- |
-| `shared/messages.ts` | The wire protocol — every message both sides speak, typed once |
-| `shared/tools.ts` | The tool registry — schemas the model sees, co-located with their arg types |
-| `server/prompts/*.md` | The persona — edit these to change what the demo is |
-| `server/src/prompts.ts` | Loads the persona; holds the delegation/tool mechanics prompts |
-| `server/src/gptlive.ts` | The GPT-Live v3 bridge: session start, audio, transcripts, tool calls |
-| `server/src/turns.ts` | Turn projection over v3 transcript deltas — the API has no turn events |
-| `server/src/mediaServer.ts` | The avatar's ear: LITE media-server websocket |
-| `server/src/session.ts` | Wires the legs together; owns barge-in |
-| `web/src/livekitRoom.ts` | Joins the room, attaches the avatar's video + audio |
-| `web/src/micCapture.ts` | AudioWorklet → 24kHz PCM16 base64 (no VAD — the model owns turn-taking) |
-| `web/src/overlays/` | The single switch over `widget`; one renderer per widget |
-| `web/public/overlays/term-card.html` | The overlay composition (a self-contained animated page) |
-
-Deeper docs: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (how and why),
-[`AGENTS.md`](AGENTS.md) (a map for coding agents, including the add-a-tool
-recipe).
-
-## How tool calls become visuals
-
-1. The live model holds **no tools**. When a visual is wanted it delegates the
-   turn to its backend Responses model — which does hold them
-   (`shared/tools.ts`).
-2. The Responses model answers in words **and** calls e.g. `show_term_card` in
-   the same reply. The words are injected back into the live session and
-   spoken; the tool call surfaces on the orchestrator's socket.
-3. The orchestrator validates the call (`server/src/tools.ts`) and forwards
-   one `{ type: "ui", widget, props }` message to the browser. Term cards are
-   also recorded per-session — `show_learned_words` renders the recap from
-   that server-side store, so the list is never the model's to get wrong.
-4. The browser's widget switch (`web/src/overlays/`) plays the matching
-   composition — a transparent animated page layered over the avatar's video.
-   Staging is per-widget: the term card overlays the full-frame avatar, the
-   recap panel shrinks it to the corner. Nothing is composited into the
-   stream itself.
-
-Adding a tool is three small edits — see [`AGENTS.md`](AGENTS.md).
-
-## Iterating on overlays
-
-Render a widget without burning session minutes — from the browser console:
-
-```js
-window.__ui({ widget: "term_card", props: { term: "こんにちは", reading: "kon-ni-chi-wa", meaning: "hello" } })
-window.__ui({ widget: "learned_words", props: { title: "Words so far", words: [{ term: "こんにちは", reading: "kon-ni-chi-wa", meaning: "hello" }, { term: "お茶", reading: "o-cha", meaning: "tea" }] } })
-```
-
-## Production notes
-
-This is a starter, not a deployment. Before exposing it publicly: add auth on
-`/api/session/start` and the websocket upgrade, hide upstream error bodies,
-and read the hardening list in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#production-hardening).
-
-## License
-
-MIT. One vendored exception: the bundled GSAP
-(`web/public/overlays/vendor/gsap.min.js`) stays under its own
-[GSAP Standard License](https://gsap.com/standard-license) — see
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+A session bills from `POST /api/session/start` on both services: roughly
+**$0.09/min LiveAvatar LITE + $0.05/min GPT-Live ≈ $0.14/min**. Always end calls
+with **End call**. The server also reaps a session after 60 s without mic audio,
+and stops all sessions on shutdown.

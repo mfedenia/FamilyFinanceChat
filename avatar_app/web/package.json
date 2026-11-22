@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Browser client: joins the avatar's LiveKit room, streams the mic to the orchestrator, renders transcripts and tool-driven overlays.",
+  "description": "Developer test harness for the avatar bridge: joins the avatar's LiveKit room, streams the mic to the bridge, renders the live transcript.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hyperframes/player": "^0.8.16",
     "livekit-client": "^2.7.0"
   },
   "devDependencies": {
