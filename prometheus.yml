@@ -18,3 +18,9 @@ scrape_configs:
   - job_name: "openwebui-otel"
     static_configs:
       - targets: ["otel-collector:8889"]
+
+  # Filter Functions push chat metrics here; honor_labels keeps the pushed job/instance labels.
+  - job_name: "pushgateway"
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
