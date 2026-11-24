@@ -24,7 +24,7 @@ import { WebSocketServer } from "ws";
 import type { ClientMessage } from "../../shared/messages";
 import { config, missingConfig } from "./config";
 import { CoupleSession, PROFILES } from "./couple";
-import { loadPersonas, type Personas } from "./openwebui";
+import { loadPersonas, whoAmI, type OpenWebUIUser, type Personas } from "./openwebui";
 import {
   LiveAvatarApiError,
   startSession as startUpstream,
@@ -59,7 +59,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     return;
   }
   if (req.method === "POST" && path === "/api/session/start") return handleStart(res);
-  if (req.method === "POST" && path === "/api/couple/start") return handleCoupleStart(res);
+  if (req.method === "POST" && path === "/api/couple/start") return handleCoupleStart(req, res);
   if (req.method === "POST" && path === "/api/session/stop") return handleStop(req, res);
   return serveStatic(res, path);
 }
@@ -106,11 +106,30 @@ async function handleStart(res: ServerResponse): Promise<void> {
  * parallel. If either fails, the other is released before reporting — a
  * half-started meeting is a bill with one avatar.
  */
-async function handleCoupleStart(res: ServerResponse): Promise<void> {
+async function handleCoupleStart(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const missing = missingConfig();
   if (missing.length > 0) {
     json(res, 500, { error: `missing env vars: ${missing.join(", ")} — copy .env.example to .env` });
     return;
+  }
+  const body = (await readJson(req)) as { openwebui_token?: unknown; family?: unknown };
+  const family =
+    typeof body.family === "string" && /^[a-z0-9_-]{1,64}$/i.test(body.family) ? `family-${body.family}` : config.openwebui.familyModel;
+  // The signed-in student (handed over by Open WebUI's "Talk to the avatar"
+  // button), so the meeting can be saved as THEIR chat. Checked before any
+  // avatar starts billing; kept in memory for this meeting only.
+  let student: { token: string; user: OpenWebUIUser | null } | null = null;
+  const token =
+    (typeof body.openwebui_token === "string" && body.openwebui_token.trim()) || config.openwebui.studentToken;
+  if (token && config.openwebui.baseUrl) {
+    try {
+      student = { token, user: await whoAmI(token) };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Open WebUI sign-in check failed";
+      console.error(`[http] couple start failed: ${message}`);
+      json(res, 401, { error: message });
+      return;
+    }
   }
   // Personas first (Open WebUI presets or local files): a wrong preset id or
   // key must fail before any avatar session starts billing.
@@ -138,12 +157,23 @@ async function handleCoupleStart(res: ServerResponse): Promise<void> {
     json(res, 502, { error: message });
     return;
   }
-  const meeting = new CoupleSession(tony.value, antonella.value, personas, (id) => {
-    void stopSession(id, "leg_died");
-  });
+  const meeting = new CoupleSession(
+    tony.value,
+    antonella.value,
+    personas,
+    (id) => {
+      void stopSession(id, "leg_died");
+    },
+    student,
+    family,
+  );
   addSession(meeting);
   meeting.start();
-  console.log(`[http] couple meeting started: ${meeting.sessionId}`);
+  console.log(
+    `[http] couple meeting started: ${meeting.sessionId}` +
+      ` (knowledge: tony ${describeKnowledge(personas, "tony")}, antonella ${describeKnowledge(personas, "antonella")};` +
+      ` save to Open WebUI: ${student ? (student.user?.email ?? "yes") : "no"})`,
+  );
   json(res, 201, {
     session_id: meeting.sessionId,
     ws_path: `/ws/${meeting.sessionId}`,
@@ -163,11 +193,25 @@ async function handleCoupleStart(res: ServerResponse): Promise<void> {
   });
 }
 
+function describeKnowledge(p: Personas, who: "tony" | "antonella"): string {
+  const k = p.knowledge[who];
+  if (!k.collections.length) return "none";
+  return `${k.files.length} files${k.truncated ? " (cut to fit; rest by retrieval)" : ""}, ${k.collections.length} collections`;
+}
+
 async function handleStop(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const body = (await readJson(req)) as { session_id?: string };
-  if (typeof body.session_id === "string") await stopSession(body.session_id, "client_stop");
-  // Already-gone is success: the caller wanted it gone and it is gone.
-  res.writeHead(204).end();
+  if (typeof body.session_id !== "string") {
+    res.writeHead(204).end();
+    return;
+  }
+  const session = getSession(body.session_id);
+  await stopSession(body.session_id, "client_stop");
+  // Already-gone is success: the caller wanted it gone and it is gone. A
+  // couple meeting reports whether it reached Open WebUI (saved at stop).
+  json(res, 200, {
+    openwebui_chat_id: session instanceof CoupleSession ? session.openWebUIChatId : null,
+  });
 }
 
 async function serveStatic(res: ServerResponse, pathname: string): Promise<void> {

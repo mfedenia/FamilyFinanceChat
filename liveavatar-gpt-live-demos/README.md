@@ -105,16 +105,54 @@ STUDENT_EMAIL=local-test@example.invalid
 
 # Personas from Open WebUI (all four, or none)
 OPENWEBUI_BASE_URL=https://your-open-webui
-OPENWEBUI_API_KEY=            # the presets' owner or an admin (0.11.x hides system prompts from read-only keys)
+OPENWEBUI_API_KEY=            # the presets' owner or an admin (Open WebUI hides system prompts from read-only keys)
 COUPLE_OPENWEBUI_MODEL_TONY=
 COUPLE_OPENWEBUI_MODEL_ANTONELLA=
 ```
 
-Not taken from Park's duo: per-turn knowledge search (GPT-Live answers as soon
-as it hears the question, before a search could return) and the Open WebUI chat
-export (not needed now).
+### Knowledge and saving to Open WebUI
 
-Tests for these additions: `cd server && npx tsx --test test/couple-additions.test.ts`.
+With the presets configured, the avatar uses the same Open WebUI knowledge a
+text chat with that preset uses (endpoints checked against Open WebUI v0.13.4):
+
+1. **Knowledge in the instructions.** At meeting start, the files attached to
+   each spouse's preset (`meta.knowledge`: knowledge bases and single files)
+   are read and placed in that spouse's GPT-Live instructions, up to
+   `OPENWEBUI_KNOWLEDGE_MAX_CHARS`. Most questions are answered with no lookup.
+2. **Retrieval on a delegated turn.** A spouse whose preset has knowledge runs
+   GPT-Live with `delegation: "client"`. When the live model needs a fact it
+   does not have, it says something like "hmm, let me think" and hands the
+   turn over. The server sends the adviser's words to Open WebUI's
+   `POST /api/v1/retrieval/query/collection` over the preset's collections, so
+   Open WebUI's own embedding model, vector DB, top-k, threshold and hybrid
+   settings apply. `GPT_LIVE_RESPONSES_MODEL` writes the spouse's reply from
+   the hits, and GPT-Live says it (`session.commentary.append`). A spouse with
+   no knowledge keeps OpenAI's Responses delegation, as before.
+3. **Saved as the student's chat.** When the meeting ends, it is saved with
+   `POST /api/v1/chats/new` as an ordinary Open WebUI chat, titled
+   `[Avatar] The Beckhams — <time>`, tagged `avatar`, and filed under the
+   family preset (`family-beckham`). It shows in the student's sidebar and in
+   the grading extraction. Open WebUI files a new chat under whoever creates
+   it, so this uses the **student's** token: the "Talk to the avatar" button
+   passes the signed-in student's token to this page in the URL fragment. A page
+   not opened from the button saves locally only, unless
+   `OPENWEBUI_STUDENT_TOKEN` is set for testing. Back-to-back spouse turns are
+   merged into one reply, because the grader pairs strictly question → answer.
+   The local transcript file is still written, with the chat id and a log of
+   every delegated turn.
+
+```
+OPENWEBUI_KNOWLEDGE_MAX_CHARS=32000   # knowledge text per spouse in the instructions
+OPENWEBUI_RETRIEVAL_TIMEOUT_MS=4000   # wait for Open WebUI's search on a delegated turn
+COUPLE_OPENWEBUI_FAMILY_MODEL=family-beckham  # the preset the saved chat is filed under
+OPENWEBUI_STUDENT_TOKEN=              # testing only: save meetings under this student
+GPT_LIVE_ACK_DELAY_MS=                # 0–800: wait before the spoken "hmm" (API default 0)
+```
+
+Open WebUI's inlet/outlet Filter functions do not run on spoken turns: no chat
+completion passes through Open WebUI.
+
+Tests for these additions: `cd server && npx tsx --test test/*.test.ts`.
 
 ### "Talk to the avatar" button in Open WebUI
 

@@ -1,7 +1,7 @@
 """
 title: Talk with avatar
 author: FamilyFinanceChat
-version: 0.1.0
+version: 0.2.0
 required_open_webui_version: 0.6.0
 description: Opens the spoken avatar meeting for the family you are chatting with.
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSIxMiIgcng9IjMiLz48cGF0aCBkPSJNNSAxMWE3IDcgMCAwIDAgMTQgMCIvPjxwYXRoIGQ9Ik0xMiAxOHY0Ii8+PC9zdmc+
@@ -14,7 +14,9 @@ icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAw
 # It opens the avatar app (a separate web app, not part of Open WebUI) at
 # ?family=<id>, where <id> is the model id minus the "family-" prefix. The
 # tab is opened by the chat page through the documented "execute" event; if
-# the browser blocks the pop-up, a small link appears instead.
+# the browser blocks the pop-up, a small link appears instead. Like the
+# banner, it hands the signed-in student's token to the avatar page in the
+# URL fragment, so the meeting is saved as the student's chat when it ends.
 
 import json
 from urllib.parse import quote
@@ -56,7 +58,8 @@ class Action:
         # Runs in the chat page. window.open stays within the click's user
         # activation in practice; the fallback link covers browsers that block it.
         code = f"""
-const url = {json.dumps(url)};
+const t = localStorage.getItem("token");
+const url = {json.dumps(url)} + (t ? "#owui_token=" + encodeURIComponent(t) : "");
 const label = {json.dumps(f"Open the avatar meeting with {name}")};
 const w = window.open(url, "_blank");
 if (w) {{ try {{ w.opener = null; }} catch (e) {{}} return "opened"; }}

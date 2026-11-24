@@ -122,6 +122,13 @@ export interface GptLiveEvents {
     args: Record<string, unknown>,
   ): Record<string, unknown>;
   onError(message: string): void;
+  /**
+   * A CLIENT delegation: the live model handed this turn to us and is waiting
+   * ("hmm…"). Answer with `bridge.append("commentary", text, id)`. The event
+   * carries no task text; the question comes from the transcript. Only
+   * called when the bridge runs with `delegation: "client"`.
+   */
+  onClientDelegation?(delegationId: string): void;
 }
 
 /**
@@ -139,6 +146,12 @@ export interface BridgeOptions {
   responsesInstructions?: string;
   /** false = delegate with no tools (no on-screen visuals). */
   tools?: boolean;
+  /**
+   * Who answers delegated turns, fixed for the session's life:
+   * "responses" (default) = OpenAI runs the Responses model above;
+   * "client" = this app does (events.onClientDelegation).
+   */
+  delegation?: "responses" | "client";
 }
 
 export class GptLiveBridge {
@@ -271,6 +284,34 @@ export class GptLiveBridge {
       this.opts.instructions ??
       DEFAULT_INSTRUCTIONS + LIVE_DIRECTIVE + LESSON_DIRECTIVE;
     const withTools = this.opts.tools !== false;
+    const ack = config.ackDelayMs;
+    const delegation =
+      this.opts.delegation === "client"
+        ? {
+            type: "client",
+            ...(ack !== null && Number.isFinite(ack)
+              ? { acknowledgement_delay_ms: Math.max(0, Math.min(800, Math.round(ack))) }
+              : {}),
+          }
+        : {
+            type: "responses",
+            responses: {
+              model: config.gptlive.responsesModel,
+              instructions: this.opts.responsesInstructions ?? RESPONSES_INSTRUCTIONS,
+              // One visual per teaching moment — a constraint the model cannot
+              // talk itself out of, unlike the prose asking for the same thing.
+              // Also keeps the tool loop simple: one call per response, so one
+              // result + one response.create.
+              ...(withTools
+                ? { tools: toolSchemas(), tool_choice: "auto", parallel_tool_calls: false }
+                : {}),
+              // The delegated turn is on the critical path for on-screen timing;
+              // deliberation buys nothing for "pick a card and fill its fields".
+              // Non-reasoning models reject the parameter outright, so only send
+              // it to ones that accept it.
+              reasoning: { effort: "low" },
+            },
+          };
     // v3: the FIRST message. Everything here is immutable afterwards except
     // delegation.responses settings (session.update) — and the delegation
     // TYPE is fixed for the session's life.
@@ -286,25 +327,7 @@ export class GptLiveBridge {
           format: { type: "audio/pcm", rate: 24000 },
           output: { voice: voiceField(this.opts.voice ?? config.gptlive.voice) },
         },
-        delegation: {
-          type: "responses",
-          responses: {
-            model: config.gptlive.responsesModel,
-            instructions: this.opts.responsesInstructions ?? RESPONSES_INSTRUCTIONS,
-            // One visual per teaching moment — a constraint the model cannot
-            // talk itself out of, unlike the prose asking for the same thing.
-            // Also keeps the tool loop simple: one call per response, so one
-            // result + one response.create.
-            ...(withTools
-              ? { tools: toolSchemas(), tool_choice: "auto", parallel_tool_calls: false }
-              : {}),
-            // The delegated turn is on the critical path for on-screen timing;
-            // deliberation buys nothing for "pick a card and fill its fields".
-            // Non-reasoning models reject the parameter outright, so only send
-            // it to ones that accept it.
-            reasoning: { effort: "low" },
-          },
-        },
+        delegation,
       },
     });
   }
@@ -359,13 +382,18 @@ export class GptLiveBridge {
         this.log(
           `gptlive delegation created (target=${d.target ?? "?"}, id=${d.id ?? "?"})`,
         );
-        // A client-target delegation should never happen in this
-        // configuration, but if one arrives the model is blocked waiting on
-        // us — unblock it rather than let the session freeze on "one sec".
+        // Client mode (the couple meeting with Open WebUI knowledge): this
+        // app answers it. In responses mode a client-target delegation should
+        // never happen, but if one arrives the model is blocked waiting on us —
+        // unblock it rather than let the session freeze on "one sec".
         // Commentary (speakable) with the delegation's own id: the stub has to
         // release the model into speech, not sit silently in context.
         if (d.target === "client" && typeof d.id === "string") {
-          this.append("commentary", CLIENT_DELEGATION_STUB, d.id);
+          if (this.opts.delegation === "client" && this.events.onClientDelegation) {
+            this.events.onClientDelegation(d.id);
+          } else {
+            this.append("commentary", CLIENT_DELEGATION_STUB, d.id);
+          }
         }
         break;
       }

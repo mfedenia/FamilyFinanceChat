@@ -1,7 +1,7 @@
 """
 title: Avatar banner
 author: FamilyFinanceChat
-version: 0.2.0
+version: 0.3.0
 required_open_webui_version: 0.6.0
 description: Shows a large "Talk to them face to face" banner under each reply from a family model.
 """
@@ -21,6 +21,13 @@ description: Shows a large "Talk to them face to face" banner under each reply f
 # the documented "execute" event, on each send and each reply) opens the tab
 # from the unsandboxed page. The listener only opens URLs on the avatar app's
 # own origin.
+#
+# The listener also hands the signed-in student's Open WebUI token to the
+# avatar page, in the URL fragment (#owui_token=..., never sent to a server
+# in a request line or logged). The avatar app uses it once, when the call
+# ends, to save the meeting as the student's own Open WebUI chat (Open WebUI
+# files a new chat under whoever creates it), so it shows in their sidebar and
+# in grading. Only ever sent to AVATAR_APP_URL's origin.
 
 import asyncio
 import html
@@ -61,6 +68,8 @@ class Filter:
         parts = urlsplit(self.valves.AVATAR_APP_URL)
         origin = f"{parts.scheme}://{parts.netloc}"
         code = f"""
+// A page that already has a relay keeps it (two would open two tabs); a
+// reload picks up a newer one.
 if (window.__ffcAvatarRelay) return "already";
 window.__ffcAvatarRelay = true;
 const allowed = {json.dumps(origin)};
@@ -70,6 +79,8 @@ window.addEventListener("message", (e) => {{
   let u;
   try {{ u = new URL(d.url); }} catch (err) {{ return; }}
   if (u.origin !== allowed) return;
+  const t = localStorage.getItem("token");
+  if (t) u.hash = "owui_token=" + encodeURIComponent(t);
   const w = window.open(u.href, "_blank");
   if (w) {{ try {{ w.opener = null; }} catch (err) {{}} }}
   if (e.source) e.source.postMessage({{ type: {json.dumps(ACK_MSG)}, opened: !!w }}, "*");

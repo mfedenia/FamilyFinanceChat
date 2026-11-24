@@ -28,6 +28,24 @@ const tiles = Object.fromEntries(
   ]),
 ) as Record<Speaker, { tile: HTMLDivElement; video: HTMLVideoElement; audio: HTMLAudioElement }>;
 
+// ── Open WebUI hand-over ────────────────────────────────────────────────────
+// Open WebUI's "Talk to the avatar" button opens this page as
+// /?family=<id>#owui_token=<the signed-in student's token>. The token is what
+// lets the server save the meeting as the student's own Open WebUI chat when
+// it ends. It travels in the fragment (never sent in requests or logged by
+// servers), is moved to sessionStorage (this tab only, survives a reload) and
+// wiped from the address bar so it is not copied along with the URL.
+const TOKEN_KEY = "ffc.owui_token";
+const family = new URLSearchParams(location.search).get("family") ?? "";
+{
+  const fromHash = new URLSearchParams(location.hash.slice(1)).get("owui_token");
+  if (fromHash) {
+    sessionStorage.setItem(TOKEN_KEY, fromHash);
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+}
+const openWebUIToken = (): string => sessionStorage.getItem(TOKEN_KEY) ?? "";
+
 type StatusKind = "idle" | "busy" | "live" | "error";
 function setStatus(msg: string, kind: StatusKind = "idle"): void {
   statusEl.textContent = msg;
@@ -169,7 +187,11 @@ async function start(): Promise<void> {
 
   let started: StartResponse;
   try {
-    const response = await fetch("/api/couple/start", { method: "POST" });
+    const response = await fetch("/api/couple/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ family, openwebui_token: openWebUIToken() }),
+    });
     started = (await response.json()) as StartResponse;
     if (!response.ok) throw new Error(started.error ?? "could not start the meeting");
   } catch (err) {
@@ -259,7 +281,13 @@ async function stop(reason?: string, kind: StatusKind = "idle"): Promise<void> {
 
   const id = sessionId;
   sessionId = null;
-  if (id) void endOnServer(id);
+  const ended = generation;
+  if (id)
+    void endOnServer(id).then((chatId) => {
+      // Only if no new meeting started meanwhile.
+      if (generation !== ended || !chatId) return;
+      setStatus("meeting ended — saved to your Open WebUI chats (tagged \"avatar\")", "idle");
+    });
 
   setStatus(reason ?? "meeting ended", kind);
   startBtn.disabled = false;
@@ -273,15 +301,20 @@ function setMuted(muted: boolean): void {
   micBtn.textContent = muted ? "Unmute mic" : "Mute mic";
 }
 
-async function endOnServer(id: string): Promise<void> {
+/** Ends the meeting; resolves to the Open WebUI chat it was saved as, if any. */
+async function endOnServer(id: string): Promise<string | null> {
   try {
-    await fetch("/api/session/stop", {
+    const response = await fetch("/api/session/stop", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: id }),
     });
+    if (response.status !== 200) return null;
+    const body = (await response.json()) as { openwebui_chat_id?: string | null };
+    return body.openwebui_chat_id ?? null;
   } catch {
     // The server's idle watchdog reaps it anyway.
+    return null;
   }
 }
 

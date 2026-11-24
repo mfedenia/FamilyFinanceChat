@@ -89,8 +89,11 @@ async function login() {
 
   if (env("OPENWEBUI_API_KEY")) {
     token = env("OPENWEBUI_API_KEY");
+    // v0.13 serves /api/v1/auths/ to browser sessions only (403 for API
+    // keys), so check admin rights on an admin-only route instead.
     const me = await api("GET", "/api/v1/auths/");
-    if (me.data?.role !== "admin") fail("OPENWEBUI_API_KEY must belong to an admin");
+    const admin = me.ok ? me.data?.role === "admin" : (await api("GET", "/api/v1/functions/list")).ok;
+    if (!admin) fail("OPENWEBUI_API_KEY must belong to an admin");
     console.log(`✓ using OPENWEBUI_API_KEY on ${BASE}`);
     return;
   }

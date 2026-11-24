@@ -34,7 +34,7 @@ import { config } from "./config";
 import { GptLiveBridge, type GptLiveEvents } from "./gptlive";
 import type { StartedSession } from "./liveavatar";
 import { MediaServerLeg } from "./mediaServer";
-import type { Personas } from "./openwebui";
+import { createChat, queryKnowledge, type Chunk, type OpenWebUIUser, type Personas, type SpouseKnowledge } from "./openwebui";
 import { GREETING_PREAMBLE } from "./prompts";
 import type { LiveSession } from "./registry";
 import { TranscriptRecorder } from "./transcript";
@@ -142,6 +142,33 @@ You are in this meeting together with your ${p.otherRelation} ${p.otherName}, wh
 - If a note says ${p.otherName} answered instead of you, your own reply was not heard: do not continue or repeat it.`;
 }
 
+/**
+ * The preset's knowledge files, loaded at meeting start (step 1). Goes after
+ * the persona so the persona's voice rules come first.
+ */
+function knowledgeBlock(k: SpouseKnowledge): string {
+  if (!k.text) return "";
+  return (
+    `\n\nYour own records (from the course case files). These are facts you know; use them when asked, ` +
+    `in your own words, and do not recite them:\n\n${k.text}`
+  );
+}
+
+/**
+ * When to hand a turn to the backend (step 2), in OpenAI's gpt-live-1.1
+ * template wording ("Delegation policy"; plain language, no special token).
+ * The backend searches the same Open WebUI knowledge a text chat uses.
+ */
+function delegationPolicy(p: Profile): string {
+  return `
+
+Delegation policy
+Backend tools: a search of your household's full case files (accounts, policies, documents, family details).
+Delegate to the backend when: the adviser asks for a specific figure, date, account, policy or family detail that is not already in what you know above, or you are unsure of it.
+Do not delegate when: the answer is already in what you know above; small talk; feelings and opinions; acknowledgements; questions meant for ${p.otherName}.
+Delegate to the backend before giving an answer that depends on backend work. Do not guess the result while waiting. While you wait, make one short, natural thinking sound, the way ${p.name} would ("hmm, let me think", "uh, hold on") — never say you are checking a computer or a file.`;
+}
+
 function responsesInstructions(p: Profile, persona: string): string {
   return (
     `You are the background reasoning for ${p.name} Beckham, a simulated financial-advising client ` +
@@ -151,6 +178,63 @@ function responsesInstructions(p: Profile, persona: string): string {
     `coach the student, never invent facts beyond the persona below.\n\n` +
     persona
   );
+}
+
+const COMPOSE_TIMEOUT_MS = 6_000;
+
+/**
+ * What the spouse would say, from the Open WebUI hits: one short request to
+ * the same Responses model a "responses" delegation would have used, with the
+ * same instructions, plus the retrieved passages. Returns plain text for
+ * GPT-Live to say in the spouse's voice.
+ */
+async function composeAnswer(
+  p: Profile,
+  persona: string,
+  history: string[],
+  question: string,
+  chunks: Chunk[],
+): Promise<string> {
+  const passages = chunks.length
+    ? chunks.map((c, i) => `[${i + 1}] (${c.source})\n${c.text.slice(0, 1_500)}`).join("\n\n")
+    : "(nothing relevant found)";
+  const response = await fetch(config.gptlive.responsesUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${config.gptlive.apiKey}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(COMPOSE_TIMEOUT_MS),
+    body: JSON.stringify({
+      model: config.gptlive.responsesModel,
+      instructions:
+        responsesInstructions(p, persona) +
+        `\n\nPassages from ${p.name}'s case files are given with the question. Use them for facts. If they do ` +
+        `not answer the question and the persona does not either, ${p.name} says plainly that they don't know ` +
+        `or would have to check at home. Never mention passages, files or searching.`,
+      input: [
+        {
+          role: "user",
+          content:
+            `Recent conversation:\n${history.join("\n") || "(just started)"}\n\n` +
+            `Passages from ${p.name}'s case files:\n${passages}\n\n` +
+            `The adviser just asked: "${question || "(could not hear the question)"}"\n` +
+            `Reply with only what ${p.name} says.`,
+        },
+      ],
+      max_output_tokens: 400,
+      reasoning: { effort: "low" },
+    }),
+  });
+  if (!response.ok) throw new Error(`answer model HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`);
+  const body = (await response.json()) as {
+    output?: { type?: string; content?: { type?: string; text?: string }[] }[];
+  };
+  const text = body.output
+    ?.filter((o) => o.type === "message")
+    .flatMap((o) => o.content ?? [])
+    .find((c) => c.type === "output_text")
+    ?.text?.trim();
+  if (!text) throw new Error("answer model returned no text");
+  // Appends are capped at 500 tokens; a spoken answer is far shorter.
+  return text.slice(0, 1_500);
 }
 
 /**
@@ -324,20 +408,33 @@ class Spouse implements GptLiveEvents {
   /** Last time this spouse's SPEECH (not silence) was forwarded to its avatar. */
   lastVoicedAt: number | null = null;
 
+  /** Retrieval is on when the preset has knowledge to search. */
+  readonly retrieval: boolean;
+
   constructor(
     readonly profile: Profile,
     readonly upstream: StartedSession,
     private readonly meeting: CoupleSession,
-    persona: string,
+    readonly persona: string,
+    readonly knowledge: SpouseKnowledge,
   ) {
     const log = (msg: string) => meeting.log(`${profile.name}: ${msg}`);
     this.media = new MediaServerLeg(upstream.wsUrl, log);
+    this.retrieval = knowledge.collections.length > 0;
     this.bridge = new GptLiveBridge(this, log, {
-      instructions: persona + meetingRules(profile),
+      instructions:
+        persona +
+        knowledgeBlock(knowledge) +
+        meetingRules(profile) +
+        (this.retrieval ? delegationPolicy(profile) : ""),
       greeting: profile.greeting,
       voice: profile.voice,
       responsesInstructions: responsesInstructions(profile, persona),
       tools: false,
+      // With knowledge to search, delegated turns come to this app, which
+      // asks Open WebUI; without it, OpenAI's Responses model answers them
+      // from the persona, as before.
+      delegation: this.retrieval ? "client" : "responses",
     });
   }
 
@@ -365,6 +462,9 @@ class Spouse implements GptLiveEvents {
   onUserTurnStarted(): void {
     this.meeting.onAdviserStarted(this);
   }
+  onClientDelegation(delegationId: string): void {
+    void this.meeting.onDelegation(this, delegationId);
+  }
   onToolCall(): Record<string, unknown> {
     return { shown: false, error: "no tools in this session" };
   }
@@ -378,6 +478,8 @@ export class CoupleSession implements LiveSession {
   readonly sessionId = randomUUID();
   lastActivityAt = Date.now();
   readonly spouses: Record<Speaker, Spouse>;
+  /** Set once the meeting has been saved as an Open WebUI chat (at stop). */
+  openWebUIChatId: string | null = null;
 
   private frontend: WebSocket | null = null;
   private stopping = false;
@@ -386,6 +488,10 @@ export class CoupleSession implements LiveSession {
   /** The adviser transcript is taken from ONE spouse's input transcript (both hear the same mic). */
   private readonly ear: Speaker = "tony";
   private readonly history: string[] = [];
+  /** The adviser's words so far in the current round (any routing). */
+  private adviserNow = "";
+  /** One Open WebUI search per question, shared by both spouses. */
+  private readonly searches = new Map<string, Promise<Chunk[]>>();
 
   // ── floor state ──
   private floor: Speaker | null = "tony"; // Tony greets first
@@ -422,10 +528,14 @@ export class CoupleSession implements LiveSession {
     antonella: StartedSession,
     private readonly personas: Personas,
     private readonly onDead: (sessionId: string) => void,
+    /** The signed-in student, for saving the meeting as their Open WebUI chat (null = local file only). */
+    private readonly student: { token: string; user: OpenWebUIUser | null } | null = null,
+    /** Open WebUI model id the saved chat is filed under (e.g. "family-beckham"). */
+    private readonly familyModel: string = config.openwebui.familyModel,
   ) {
     this.spouses = {
-      tony: new Spouse(PROFILES.tony, tony, this, personas.text.tony),
-      antonella: new Spouse(PROFILES.antonella, antonella, this, personas.text.antonella),
+      tony: new Spouse(PROFILES.tony, tony, this, personas.text.tony, personas.knowledge.tony),
+      antonella: new Spouse(PROFILES.antonella, antonella, this, personas.text.antonella, personas.knowledge.antonella),
     };
   }
 
@@ -452,22 +562,54 @@ export class CoupleSession implements LiveSession {
     await Promise.all(Object.values(this.spouses).map((s) => s.bridge.close()));
     for (const s of Object.values(this.spouses)) s.media.close();
     this.frontend = null;
-    this.saveTranscript(reason);
+    this.openWebUIChatId = await this.saveToOpenWebUI();
+    this.saveTranscript(reason, this.openWebUIChatId);
+  }
+
+  /**
+   * Save the meeting as an ordinary Open WebUI chat owned by the student, so
+   * it appears in their sidebar and in the grading extraction. Never throws
+   * into teardown; returns the chat id, or null when not saved.
+   */
+  private async saveToOpenWebUI(): Promise<string | null> {
+    if (!this.student || !config.openwebui.baseUrl) {
+      this.log("not saved to Open WebUI: no student sign-in (open the meeting from Open WebUI's \"Talk to the avatar\" button)");
+      return null;
+    }
+    const day = this.startedAt.toISOString().slice(0, 16).replace("T", " ");
+    const chat = this.transcript.toOpenWebUIChat({
+      title: `[Avatar] The Beckhams — ${day} UTC`,
+      // The family preset the student was chatting with when they pressed
+      // "Talk to the avatar", so the meeting sits beside their text chats.
+      models: { tony: this.familyModel, antonella: this.familyModel },
+      names: { tony: PROFILES.tony.name, antonella: PROFILES.antonella.name },
+    });
+    if (!chat) return null;
+    try {
+      const id = await createChat(this.student.token, chat, ["avatar"]);
+      this.log(`saved to Open WebUI as chat ${id}${this.student.user ? ` for ${this.student.user.email}` : ""}`);
+      return id;
+    } catch (err) {
+      this.log(`Open WebUI save FAILED (the local transcript still has it): ${err instanceof Error ? err.message : err}`);
+      return null;
+    }
   }
 
   /** Write the meeting's transcript (transcript.ts). Never throws into teardown. */
-  private saveTranscript(reason: string): void {
+  private saveTranscript(reason: string, openWebUIChatId: string | null = null): void {
     const t = config.transcripts;
+    const u = this.student?.user;
     try {
       const file = this.transcript.save(t.dir, {
         sessionId: this.sessionId,
         model: config.gptlive.model,
         decisionModel: config.couple.decisionModel,
         personaSource: this.personas.source,
-        student: { id: t.studentId, name: t.studentName, email: t.studentEmail },
+        student: u ? { id: u.id, name: u.name, email: u.email } : { id: t.studentId, name: t.studentName, email: t.studentEmail },
         startedAt: this.startedAt,
         endedAt: new Date(),
         endReason: reason,
+        openWebUIChatId,
       });
       this.log(file ? `transcript saved: ${file}` : "transcript empty — nothing saved");
     } catch (err) {
@@ -586,6 +728,7 @@ export class CoupleSession implements LiveSession {
     if (this.decideTimer) clearTimeout(this.decideTimer);
     this.decideTimer = null;
     this.latestAdviserText = "";
+    this.adviserNow = "";
     this.decidedText = "";
     this.chimeIn = false;
     this.spokeThisRound.clear();
@@ -600,10 +743,78 @@ export class CoupleSession implements LiveSession {
     this.watchBargeIn();
   }
 
+  // ── delegated turns (Open WebUI knowledge) ────────────────────────────────
+
+  /**
+   * A spouse's GPT-Live handed the turn to us and is saying "hmm…". Search
+   * Open WebUI's knowledge for the adviser's question, turn the hits into
+   * what the spouse would say, and hand it back as commentary (GPT-Live says
+   * it in its own voice). The delegation has no task text, so the question is
+   * the adviser's words this round.
+   */
+  async onDelegation(spouse: Spouse, delegationId: string): Promise<void> {
+    const round = this.round;
+    const question =
+      this.adviserNow ||
+      [...this.history].reverse().find((l) => l.startsWith("Adviser"))?.replace(/^Adviser[^:]*:\s*/, "") ||
+      "";
+    const p = spouse.profile;
+    const started = Date.now();
+    const record = (outcome: "answered" | "stale" | "failed", chunks: Chunk[]) => {
+      const ms = Date.now() - started;
+      const sources = [...new Set(chunks.map((c) => c.source))];
+      this.transcript.retrieval({ speaker: spouse.who, question, sources, ms, outcome });
+      this.log(`${p.name}: delegated turn ${outcome} in ${ms}ms (${chunks.length} chunks${sources.length ? `: ${sources.join(", ")}` : ""}) for "${question.slice(0, 60)}"`);
+    };
+
+    // The partner holds the floor: this spouse's reply would be dropped at the
+    // gate anyway. Release the delegation silently and skip the work.
+    if (this.floor !== null && this.floor !== spouse.who) {
+      spouse.bridge.append("thinking", `(${p.otherName} is answering this one.)`, delegationId);
+      record("stale", []);
+      return;
+    }
+
+    let chunks: Chunk[] = [];
+    try {
+      chunks = await this.search(spouse.knowledge.collections, question);
+      const answer = await composeAnswer(p, spouse.persona, this.history.slice(-HISTORY_LINES), question, chunks);
+      if (round !== this.round || this.stopping) {
+        // The adviser moved on; an answer to the old question would be odd.
+        spouse.bridge.append("thinking", "(The adviser moved on; that earlier question no longer needs an answer.)", delegationId);
+        record("stale", chunks);
+        return;
+      }
+      spouse.bridge.append("commentary", answer, delegationId);
+      record("answered", chunks);
+    } catch (err) {
+      this.log(`${p.name}: delegated turn failed: ${err instanceof Error ? err.message : err}`);
+      // Never leave the spouse hanging on "hmm…".
+      spouse.bridge.append(
+        "commentary",
+        `${p.name} can't remember that detail right now and says so briefly, offering to look it up at home.`,
+        delegationId,
+      );
+      record("failed", chunks);
+    }
+  }
+
+  private search(collections: string[], question: string): Promise<Chunk[]> {
+    const key = `${collections.join(",")}|${question}`;
+    let hit = this.searches.get(key);
+    if (!hit) {
+      hit = queryKnowledge(collections, question, config.openwebui.retrievalTimeoutMs);
+      this.searches.set(key, hit);
+      hit.catch(() => this.searches.delete(key));
+    }
+    return hit;
+  }
+
   // ── floor ─────────────────────────────────────────────────────────────────
 
   private onAdviserTurn(turn: Turn): void {
     const id = `adv_${turn.id}`;
+    if (turn.text.trim()) this.adviserNow = turn.text.trim();
     this.emit({ type: "turn", ...turn, id });
     this.transcript.record(id, "adviser", turn.text, turn.done);
 

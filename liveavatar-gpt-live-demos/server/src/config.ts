@@ -36,6 +36,8 @@ export const config = {
     model: env("GPT_LIVE_MODEL", "gpt-live-1.1"),
     voice: env("GPT_LIVE_VOICE", "marin"),
     responsesModel: env("GPT_LIVE_RESPONSES_MODEL", "gpt-5.4-nano"),
+    /** Overridable only so tests can point at a local stand-in. */
+    responsesUrl: env("RESPONSES_URL", "https://api.openai.com/v1/responses"),
     /**
      * Set GPT_LIVE_DEBUG=1 to log every upstream event (audio payloads
      * elided). Loud — for answering "what did OpenAI actually send/reject",
@@ -88,7 +90,35 @@ export const config = {
     apiKey: env("OPENWEBUI_API_KEY"),
     tonyModel: env("COUPLE_OPENWEBUI_MODEL_TONY"),
     antonellaModel: env("COUPLE_OPENWEBUI_MODEL_ANTONELLA"),
+    /**
+     * Budget for the presets' knowledge text in each spouse's startup
+     * instructions (GPT-Live allows 16,384 tokens in all; ~4 chars a token).
+     * Anything past it is still found by retrieval on a delegated turn.
+     */
+    knowledgeMaxChars: Number(env("OPENWEBUI_KNOWLEDGE_MAX_CHARS", "32000")),
+    /** How long a delegated turn waits for Open WebUI's retrieval. */
+    retrievalTimeoutMs: Number(env("OPENWEBUI_RETRIEVAL_TIMEOUT_MS", "4000")),
+    /**
+     * Local testing only: the student token to save meetings under when the
+     * page was not opened from Open WebUI's "Talk to the avatar" button (which
+     * hands the signed-in student's token to the page). A student's API key
+     * works. Unset = meetings are saved locally only.
+     */
+    studentToken: env("OPENWEBUI_STUDENT_TOKEN"),
+    /**
+     * The family model preset the meeting is saved under in Open WebUI — the
+     * one "Talk to the avatar" is pressed from (scripts/openwebui-setup.mjs
+     * creates family-beckham). The button's ?family=<id> overrides it.
+     */
+    familyModel: env("COUPLE_OPENWEBUI_FAMILY_MODEL", "family-beckham"),
   },
+
+  /**
+   * GPT-Live's spoken acknowledgement on a delegated turn ("hmm, let me
+   * think…"): how long it waits for our answer before saying one, 0–800 ms.
+   * Unset = the API default (0: acknowledge at once).
+   */
+  ackDelayMs: env("GPT_LIVE_ACK_DELAY_MS") === "" ? null : Number(env("GPT_LIVE_ACK_DELAY_MS")),
 };
 
 /**
