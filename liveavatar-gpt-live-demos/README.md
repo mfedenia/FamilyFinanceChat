@@ -68,6 +68,51 @@ To change what the demo is: edit `server/prompts/instructions.md` (who the
 avatar is) and `server/prompts/greeting.md` (how it opens), restart the
 server. An empty `greeting.md` means the user speaks first.
 
+## FIN 602 couple meeting (Tony and Antonella)
+
+Open http://localhost:5173 after `pnpm dev`: two avatars, Tony and Antonella
+Beckham, each a GPT-Live session driving its own LiveAvatar LITE session
+(`server/src/couple.ts`). Both hear the student's mic; the server decides who
+answers (a name said wins at once, otherwise the decision model
+`DECISION_MODEL`, default `gpt-5.4-mini`) and only lets that spouse's voice
+through. The other spouse hears what was said as silent context. Wear
+headphones. A meeting runs two LiveAvatar sessions, so it uses 2 credits per
+minute.
+
+Added on top of that (branch `feat/couple-gptlive-combined`), the useful parts
+of Taehyun Park's duo (`feat/liveavatar-duo`) plus transcript saving:
+
+| Feature | What it does |
+| --- | --- |
+| **Transcripts saved automatically** | When a meeting ends (End, closing the tab, 60 s without mic audio, Ctrl+C), `server/src/transcript.ts` writes one JSON file to `transcripts/` (gitignored): every heard turn with speaker, text, times, cut-off flag, which spouse answered each adviser turn, every floor decision with its reason, and per-person metrics. Text only, never audio. |
+| **Handoff** (Park) | A spouse who ends by asking the other ("Antonella, what do you think?") hands over the floor; at most two in a row, then the floor returns to the adviser. |
+| **Backchannel** (Park) | "Mm-hmm" or "okay" (under three words, no question mark) while a spouse is still talking keeps that spouse speaking instead of opening a new decision. |
+| **Cut-off notice** (Park) | A spouse the adviser talks over is told, silently, that the end of its reply was not heard. |
+| **Decision shown on the page** | Under the controls: who has the floor and why (a name was said, decision model and its time, chime-in, handoff, backchannel). The same reasons are in the transcript's `floor` list. |
+| **Personas from Open WebUI** (Park, optional) | With the four variables below set, each spouse's persona is the system prompt of an Open WebUI client model preset, read through the public REST API before any avatar starts (a wrong id or key costs nothing). Otherwise `server/prompts/couple/*.md` is used. |
+
+Optional settings, in this folder's `.env` or the shell:
+
+```
+# Transcripts (defaults shown)
+TRANSCRIPTS_DIR=./transcripts
+STUDENT_ID=local-test-student
+STUDENT_NAME=Local Test Student
+STUDENT_EMAIL=local-test@example.invalid
+
+# Personas from Open WebUI (all four, or none)
+OPENWEBUI_BASE_URL=https://your-open-webui
+OPENWEBUI_API_KEY=            # the presets' owner or an admin (0.11.x hides system prompts from read-only keys)
+COUPLE_OPENWEBUI_MODEL_TONY=
+COUPLE_OPENWEBUI_MODEL_ANTONELLA=
+```
+
+Not taken from Park's duo: per-turn knowledge search (GPT-Live answers as soon
+as it hears the question, before a search could return) and the Open WebUI chat
+export (not needed now).
+
+Tests for these additions: `cd server && npx tsx --test test/couple-additions.test.ts`.
+
 ## Troubleshooting a fresh clone
 
 **"Missing required env: …" when you run `pnpm dev`.** The preflight check

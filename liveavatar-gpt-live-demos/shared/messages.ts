@@ -75,10 +75,17 @@ export type ServerMessage =
   | { type: "ready" }
   | ({ type: "turn" } & Turn)
   | ({ type: "ui" } & UiMessage)
-  /** The avatar was cut off mid-sentence; what it was saying is never coming. */
-  | { type: "interrupted" }
-  /** Couple meeting: who has the floor (answers the adviser) now. */
-  | { type: "floor"; speaker: Speaker }
+  /**
+   * The avatar was cut off mid-sentence; what it was saying is never coming.
+   * Couple meeting: `speaker` says which spouse.
+   */
+  | { type: "interrupted"; speaker?: Speaker }
+  /**
+   * Couple meeting: who has the floor (answers the adviser) now, and why —
+   * "named", the decision model and its time, "chime-in", "handoff",
+   * "backchannel", "greeting", ... Shown on the page for checking the routing.
+   */
+  | { type: "floor"; speaker: Speaker; why?: string }
   | { type: "error"; message: string };
 
 /** Browser → server. */

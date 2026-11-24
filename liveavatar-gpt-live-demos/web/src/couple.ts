@@ -38,6 +38,8 @@ function setStatus(msg: string, kind: StatusKind = "idle"): void {
 
 const lines = new Map<string, HTMLSpanElement>();
 let lastSpouseLine: HTMLDivElement | null = null;
+/** Each spouse's latest line, so a cut-off marks the right person. */
+const lastLineOf: Partial<Record<Speaker, HTMLDivElement>> = {};
 
 function upsertTurn(turn: Turn): void {
   let text = lines.get(turn.id);
@@ -53,7 +55,10 @@ function upsertTurn(turn: Turn): void {
     line.append(label, text);
     transcriptEl.appendChild(line);
     lines.set(turn.id, text);
-    if (turn.role === "assistant") lastSpouseLine = line;
+    if (turn.role === "assistant") {
+      lastSpouseLine = line;
+      if (turn.speaker) lastLineOf[turn.speaker] = line;
+    }
   }
   text.textContent = turn.text;
   transcriptEl.scrollTop = transcriptEl.scrollHeight;
@@ -61,11 +66,36 @@ function upsertTurn(turn: Turn): void {
 
 // ── floor + speaking indicators ─────────────────────────────────────────────
 
-function showFloor(speaker: Speaker | null): void {
+const decisionEl = $<HTMLDivElement>("decision");
+
+/** The server's reason for a floor change, in plain words. */
+function describeWhy(why: string | undefined, speaker: Speaker): string {
+  if (!why) return "";
+  if (why === "named") return "a name was said";
+  if (why === "greeting") return "opens the meeting";
+  if (why === "chime-in") return "adds a view (chime-in)";
+  if (why === "handoff") return `${NAMES[speaker === "tony" ? "antonella" : "tony"]} asked them directly`;
+  if (why === "backchannel") return "keeps talking (you said a short acknowledgement)";
+  if (why === "continuing") return "was still talking";
+  if (why.startsWith("decision too slow")) return "answered first (decision too slow)";
+  const m = /^(\S+) in (\d+)ms/.exec(why);
+  if (m) return `decision model, ${m[2]} ms${why.includes("chime-in") ? ", the other may chime in" : ""}`;
+  return why;
+}
+
+function showFloor(speaker: Speaker | null, why?: string): void {
   for (const w of WHO) {
     if (w === speaker) tiles[w].tile.dataset.floor = "";
     else delete tiles[w].tile.dataset.floor;
   }
+  if (!speaker) {
+    decisionEl.textContent = "";
+    return;
+  }
+  const reason = describeWhy(why, speaker);
+  const who = document.createElement("b");
+  who.textContent = `→ ${NAMES[speaker]}`;
+  decisionEl.replaceChildren(who, reason ? ` · ${reason}` : "");
 }
 
 // A speaking glow per tile, measured off each avatar's LiveKit audio.
@@ -190,7 +220,7 @@ async function start(): Promise<void> {
     onTurn: upsertTurn,
     onUi: () => {},
     onFloor: showFloor,
-    onInterrupted: () => lastSpouseLine?.classList.add("interrupted"),
+    onInterrupted: (speaker) => (speaker ? lastLineOf[speaker] : lastSpouseLine)?.classList.add("interrupted"),
     onError: (message) => setStatus(message, "error"),
     onClose: () => {
       if (!stopping) void stop("the meeting ended");
@@ -262,6 +292,7 @@ window.addEventListener("pagehide", () => {
 
 startBtn.addEventListener("click", () => {
   transcriptEl.textContent = "";
+  for (const w of WHO) delete lastLineOf[w];
   lines.clear();
   void start();
 });

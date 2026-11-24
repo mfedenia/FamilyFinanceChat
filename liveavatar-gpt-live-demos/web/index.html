@@ -75,6 +75,8 @@
       button.danger { background: #3a1820; border-color: #6b2a35; }
       button[aria-pressed="true"] { background: #3a1820; border-color: var(--error); }
       #status { color: var(--muted); font-size: 14px; }
+      .decision { color: var(--muted); font-size: 13px; min-height: 18px; margin: 4px 0 8px; }
+      .decision b { color: inherit; font-weight: 600; }
       #status[data-kind="live"] { color: var(--live); }
       #status[data-kind="error"] { color: var(--error); }
       #status[data-kind="busy"] { color: var(--ink); }
@@ -123,6 +125,8 @@
         <button id="stop" class="danger" disabled>End meeting</button>
         <span id="status">Ready when you are.</span>
       </div>
+      <!-- Who answers and why (from the server's floor decisions), for checking the routing. -->
+      <div id="decision" class="decision" aria-live="polite"></div>
 
       <div id="transcript" class="transcript"></div>
 

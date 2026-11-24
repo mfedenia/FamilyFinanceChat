@@ -24,6 +24,7 @@ import { WebSocketServer } from "ws";
 import type { ClientMessage } from "../../shared/messages";
 import { config, missingConfig } from "./config";
 import { CoupleSession, PROFILES } from "./couple";
+import { loadPersonas, type Personas } from "./openwebui";
 import {
   LiveAvatarApiError,
   startSession as startUpstream,
@@ -111,6 +112,17 @@ async function handleCoupleStart(res: ServerResponse): Promise<void> {
     json(res, 500, { error: `missing env vars: ${missing.join(", ")} — copy .env.example to .env` });
     return;
   }
+  // Personas first (Open WebUI presets or local files): a wrong preset id or
+  // key must fail before any avatar session starts billing.
+  let personas: Personas;
+  try {
+    personas = await loadPersonas();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "could not load the personas";
+    console.error(`[http] couple start failed: ${message}`);
+    json(res, 502, { error: message });
+    return;
+  }
   const results = await Promise.allSettled([
     startUpstream(config.couple.tony.avatarId),
     startUpstream(config.couple.antonella.avatarId),
@@ -126,7 +138,7 @@ async function handleCoupleStart(res: ServerResponse): Promise<void> {
     json(res, 502, { error: message });
     return;
   }
-  const meeting = new CoupleSession(tony.value, antonella.value, (id) => {
+  const meeting = new CoupleSession(tony.value, antonella.value, personas, (id) => {
     void stopSession(id, "leg_died");
   });
   addSession(meeting);

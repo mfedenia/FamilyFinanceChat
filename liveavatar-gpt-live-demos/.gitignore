@@ -5,3 +5,6 @@ dist/
 !.env.example
 *.log
 .DS_Store
+
+# Couple-meeting transcripts contain what students said (server/src/transcript.ts)
+transcripts/

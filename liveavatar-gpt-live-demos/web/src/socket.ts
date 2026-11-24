@@ -10,11 +10,12 @@ export interface SessionSocketHandlers {
   onTurn: (turn: Turn) => void;
   onUi: (msg: UiMessage) => void;
   /** The avatar was cut off: what it was mid-way through saying is gone. */
-  onInterrupted: () => void;
+  /** Couple meeting: `speaker` is the spouse who was cut off. */
+  onInterrupted: (speaker?: Speaker) => void;
   onError: (message: string) => void;
   onClose: () => void;
   /** Couple meeting: which spouse holds the floor now. */
-  onFloor?: (speaker: Speaker) => void;
+  onFloor?: (speaker: Speaker, why?: string) => void;
 }
 
 export interface SessionSocket {
@@ -48,13 +49,13 @@ export function openSessionSocket(
         handlers.onUi(msg);
         break;
       case "interrupted":
-        handlers.onInterrupted();
+        handlers.onInterrupted(msg.speaker);
         break;
       case "error":
         handlers.onError(msg.message);
         break;
       case "floor":
-        handlers.onFloor?.(msg.speaker);
+        handlers.onFloor?.(msg.speaker, msg.why);
         break;
     }
   };

@@ -27,7 +27,8 @@ export interface LiveSession {
   /** LiveAvatar session ids to stop upstream on teardown. */
   readonly upstreamIds: string[];
   lastActivityAt: number;
-  stop(): Promise<void>;
+  /** `reason` is recorded with the couple meeting's transcript. */
+  stop(reason?: string): Promise<void>;
   tryAttachFrontend(ws: WebSocket): boolean;
   detachFrontend(ws: WebSocket): void;
   sendMicAudio(audioB64: string): void;
@@ -54,7 +55,7 @@ export async function stopSession(sessionId: string, reason: string): Promise<bo
   console.log(`[registry] stopping ${sessionId.slice(0, 8)} (${reason}, ${sessions.size} live)`);
   // Legs first, so GPT-Live gets its session.close and the avatar finishes its
   // word rather than being cut off underneath.
-  await session.stop().catch(() => {});
+  await session.stop(reason).catch(() => {});
   await Promise.all(
     session.upstreamIds.map((id) =>
       stopUpstream(id).catch((err: unknown) => {

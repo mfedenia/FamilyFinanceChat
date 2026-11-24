@@ -57,6 +57,32 @@ export const config = {
       voice: env("ANTONELLA_VOICE", "marin"),
     },
   },
+
+  /**
+   * Couple meeting: where each meeting's transcript is saved when it ends
+   * (transcript.ts). Text only — no audio is ever written.
+   */
+  transcripts: {
+    dir: env("TRANSCRIPTS_DIR", fileURLToPath(new URL("../../transcripts", import.meta.url))),
+    // Locally there is no login, so the student is named by env. A deployment
+    // would take these from the platform's authentication instead.
+    studentId: env("STUDENT_ID", "local-test-student"),
+    studentName: env("STUDENT_NAME", "Local Test Student"),
+    studentEmail: env("STUDENT_EMAIL", "local-test@example.invalid"),
+  },
+
+  /**
+   * Optional: read Tony's and Antonella's persona from FamilyFinanceChat's
+   * Open WebUI client model presets (openwebui.ts), so a professor edits the
+   * persona in Open WebUI. All four set → presets; otherwise the local files
+   * in server/prompts/couple/ are used.
+   */
+  openwebui: {
+    baseUrl: env("OPENWEBUI_BASE_URL").replace(/\/+$/, ""),
+    apiKey: env("OPENWEBUI_API_KEY"),
+    tonyModel: env("COUPLE_OPENWEBUI_MODEL_TONY"),
+    antonellaModel: env("COUPLE_OPENWEBUI_MODEL_ANTONELLA"),
+  },
 };
 
 /**

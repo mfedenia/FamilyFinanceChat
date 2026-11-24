@@ -28,16 +28,16 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import type WebSocket from "ws";
 import type { ServerMessage, Speaker, Turn } from "../../shared/messages";
 import { config } from "./config";
 import { GptLiveBridge, type GptLiveEvents } from "./gptlive";
 import type { StartedSession } from "./liveavatar";
 import { MediaServerLeg } from "./mediaServer";
+import type { Personas } from "./openwebui";
 import { GREETING_PREAMBLE } from "./prompts";
 import type { LiveSession } from "./registry";
+import { TranscriptRecorder } from "./transcript";
 
 const MEDIA_READY_TIMEOUT_MS = 15_000;
 
@@ -63,6 +63,14 @@ const YIELD_STALE_MS = 6_000;
 const INTERRUPT_COOLDOWN_MS = 1_000;
 
 const HISTORY_LINES = 12;
+
+// From Park's duo (feat/liveavatar-duo, stage.ts):
+/** Fewer adviser words than this over a speaking spouse is a backchannel. */
+const BARGE_IN_WORDS = 3;
+/** A spouse counts as still talking this long after its last voiced audio. */
+const BACKCHANNEL_WINDOW_MS = 1_500;
+/** Spouse-to-spouse handoffs in a row before the floor returns to the adviser. */
+const MAX_HANDOFFS = 2;
 
 /**
  * GPT-Live streams output audio continuously — silence included — so "audio
@@ -122,13 +130,6 @@ export const PROFILES: Record<Speaker, Profile> = {
   },
 };
 
-function personaFile(who: Speaker): string {
-  return readFileSync(
-    fileURLToPath(new URL(`../prompts/couple/${who}.md`, import.meta.url)),
-    "utf8",
-  ).trim();
-}
-
 function meetingRules(p: Profile): string {
   return `
 
@@ -141,15 +142,37 @@ You are in this meeting together with your ${p.otherRelation} ${p.otherName}, wh
 - If a note says ${p.otherName} answered instead of you, your own reply was not heard: do not continue or repeat it.`;
 }
 
-function responsesInstructions(p: Profile): string {
+function responsesInstructions(p: Profile, persona: string): string {
   return (
     `You are the background reasoning for ${p.name} Beckham, a simulated financial-advising client ` +
     `in a live spoken role-play (the person speaking is a student adviser). When the live voice ` +
     `hands you a turn, reply ONLY with what ${p.name} would say aloud: one to three short, natural ` +
     `spoken sentences, in character, no lists or formatting. Never give financial advice, never ` +
     `coach the student, never invent facts beyond the persona below.\n\n` +
-    personaFile(p.who)
+    persona
   );
+}
+
+/**
+ * Did a spouse just hand the floor to the other (Park's handoff)? True when
+ * the last sentence names the other spouse and asks them something or invites
+ * them in: "Antonella, what do you think?", "...right, Tony?".
+ */
+export function handsOffTo(text: string, otherName: string): boolean {
+  const sentences = text.trim().split(/(?<=[.!?])\s+/).filter(Boolean);
+  const last = (sentences.at(-1) ?? "").toLowerCase();
+  if (!new RegExp(`\\b${otherName.toLowerCase()}\\b`).test(last)) return false;
+  return /\?\s*$/.test(last) || /\b(what do you think|tell (them|him|her)|you (tell|explain)|go ahead|your turn|back me up)\b/.test(last);
+}
+
+/**
+ * A short acknowledgement over a speaking spouse ("mm-hmm", "okay", "right"):
+ * the adviser is listening, not asking. Park's rule: under three words and no
+ * question mark.
+ */
+export function isBackchannel(text: string): boolean {
+  const t = text.trim();
+  return t.length > 0 && !t.includes("?") && t.split(/\s+/).length < BARGE_IN_WORDS;
 }
 
 /** Names the adviser used, latest wins: "Tony, ... Antonella?" → antonella. */
@@ -238,14 +261,15 @@ class Spouse implements GptLiveEvents {
     readonly profile: Profile,
     readonly upstream: StartedSession,
     private readonly meeting: CoupleSession,
+    persona: string,
   ) {
     const log = (msg: string) => meeting.log(`${profile.name}: ${msg}`);
     this.media = new MediaServerLeg(upstream.wsUrl, log);
     this.bridge = new GptLiveBridge(this, log, {
-      instructions: personaFile(profile.who) + meetingRules(profile),
+      instructions: persona + meetingRules(profile),
       greeting: profile.greeting,
       voice: profile.voice,
-      responsesInstructions: responsesInstructions(profile),
+      responsesInstructions: responsesInstructions(profile, persona),
       tools: false,
     });
   }
@@ -318,14 +342,23 @@ export class CoupleSession implements LiveSession {
   private interruptWatch: NodeJS.Timeout | null = null;
   private lastInterruptAt: number | null = null;
 
+  // ── handoffs (Park) ──
+  /** Spouse-to-spouse handoffs since the adviser last spoke. */
+  private handoffs = 0;
+
+  // ── transcript ──
+  readonly transcript = new TranscriptRecorder();
+  private readonly startedAt = new Date();
+
   constructor(
     tony: StartedSession,
     antonella: StartedSession,
+    private readonly personas: Personas,
     private readonly onDead: (sessionId: string) => void,
   ) {
     this.spouses = {
-      tony: new Spouse(PROFILES.tony, tony, this),
-      antonella: new Spouse(PROFILES.antonella, antonella, this),
+      tony: new Spouse(PROFILES.tony, tony, this, personas.text.tony),
+      antonella: new Spouse(PROFILES.antonella, antonella, this, personas.text.antonella),
     };
   }
 
@@ -346,12 +379,33 @@ export class CoupleSession implements LiveSession {
     }
   }
 
-  async stop(): Promise<void> {
+  async stop(reason = "stopped"): Promise<void> {
     this.stopping = true;
     for (const t of [this.holdTimer, this.decideTimer, this.interruptWatch]) if (t) clearTimeout(t);
     await Promise.all(Object.values(this.spouses).map((s) => s.bridge.close()));
     for (const s of Object.values(this.spouses)) s.media.close();
     this.frontend = null;
+    this.saveTranscript(reason);
+  }
+
+  /** Write the meeting's transcript (transcript.ts). Never throws into teardown. */
+  private saveTranscript(reason: string): void {
+    const t = config.transcripts;
+    try {
+      const file = this.transcript.save(t.dir, {
+        sessionId: this.sessionId,
+        model: config.gptlive.model,
+        decisionModel: config.couple.decisionModel,
+        personaSource: this.personas.source,
+        student: { id: t.studentId, name: t.studentName, email: t.studentEmail },
+        startedAt: this.startedAt,
+        endedAt: new Date(),
+        endReason: reason,
+      });
+      this.log(file ? `transcript saved: ${file}` : "transcript empty — nothing saved");
+    } catch (err) {
+      this.log(`transcript save failed: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   tryAttachFrontend(ws: WebSocket): boolean {
@@ -377,9 +431,10 @@ export class CoupleSession implements LiveSession {
   onSpouseReady(): void {
     if (this.readyEmitted || !this.spouses.tony.ready || !this.spouses.antonella.ready) return;
     this.readyEmitted = true;
-    this.log("both spouses ready");
+    this.log(`both spouses ready (personas: ${this.personas.source})`);
     this.emit({ type: "ready" });
-    this.emit({ type: "floor", speaker: "tony" });
+    this.emit({ type: "floor", speaker: "tony", why: "greeting" });
+    this.transcript.floorChange("tony", "greeting");
   }
 
   onSpouseAudio(spouse: Spouse, audioB64: string): void {
@@ -423,7 +478,9 @@ export class CoupleSession implements LiveSession {
     const who = spouse.who;
     // Only what was actually heard goes to the transcript and the partner.
     if (this.floor !== who && !this.spokeThisRound.has(who)) return;
-    this.emit({ type: "turn", ...turn, id: `${who}_${turn.id}`, speaker: who });
+    const id = `${who}_${turn.id}`;
+    this.emit({ type: "turn", ...turn, id, speaker: who });
+    this.transcript.record(id, who, turn.text, turn.done);
     if (!turn.done || !turn.text.trim()) return;
 
     const p = spouse.profile;
@@ -439,6 +496,18 @@ export class CoupleSession implements LiveSession {
         "instructions",
         `Your ${PROFILES[p.other].otherRelation} ${p.name} just answered the adviser. Add one short, natural sentence from your own point of view, then stop and let the adviser continue.`,
       );
+      return;
+    }
+
+    // Park's handoff: the spouse who just spoke asked the other directly.
+    if (this.floor === who && this.handoffs < MAX_HANDOFFS && handsOffTo(said, p.otherName)) {
+      this.handoffs += 1;
+      this.log(`handoff ${p.name} → ${p.otherName} (${this.handoffs}/${MAX_HANDOFFS})`);
+      this.setFloor(p.other, "handoff");
+      this.spouses[p.other].bridge.append(
+        "instructions",
+        `Your ${PROFILES[p.other].otherRelation} ${p.name} just spoke to you directly: "${said}". Answer ${p.name} now, briefly and in your own words, then let the adviser continue.`,
+      );
     }
   }
 
@@ -446,6 +515,7 @@ export class CoupleSession implements LiveSession {
   onAdviserStarted(spouse: Spouse): void {
     if (spouse.who !== this.ear) return;
     this.round += 1;
+    this.handoffs = 0; // the adviser has the floor again
     if (this.decideTimer) clearTimeout(this.decideTimer);
     this.decideTimer = null;
     this.latestAdviserText = "";
@@ -466,7 +536,20 @@ export class CoupleSession implements LiveSession {
   // ── floor ─────────────────────────────────────────────────────────────────
 
   private onAdviserTurn(turn: Turn): void {
-    this.emit({ type: "turn", ...turn, id: `adv_${turn.id}` });
+    const id = `adv_${turn.id}`;
+    this.emit({ type: "turn", ...turn, id });
+    this.transcript.record(id, "adviser", turn.text, turn.done);
+
+    // Park's backchannel rule: "mm-hmm" over a spouse who is still talking is
+    // listening, not a question. The speaker keeps the floor; nobody routes it.
+    const talking = this.lastSpeaker ? this.spouses[this.lastSpeaker] : null;
+    const stillTalking =
+      talking?.lastVoicedAt != null && Date.now() - talking.lastVoicedAt < BACKCHANNEL_WINDOW_MS;
+    if (turn.done && stillTalking && this.lastSpeaker && isBackchannel(turn.text) && !namedSpeaker(turn.text)) {
+      this.pushHistory(`Adviser (while ${PROFILES[this.lastSpeaker].name} was talking): ${turn.text.trim()}`);
+      if (this.floor !== this.lastSpeaker) this.setFloor(this.lastSpeaker, "backchannel");
+      return;
+    }
     if (turn.done && turn.text.trim()) this.pushHistory(`Adviser: ${turn.text.trim()}`);
 
     const named = namedSpeaker(turn.text);
@@ -540,9 +623,11 @@ export class CoupleSession implements LiveSession {
     const changed = this.floor !== who;
     this.floor = who;
     this.floorSource = why === "named" ? "named" : why;
+    // Shown in the page and kept in the transcript, changed or confirmed.
+    this.emit({ type: "floor", speaker: who, why });
+    this.transcript.floorChange(who, why);
     if (changed) {
       this.log(`floor → ${PROFILES[who].name} (${why})`);
-      this.emit({ type: "floor", speaker: who });
       // The other avatar may still be playing queued speech: cut it.
       const o = this.spouses[other];
       if (o.lastVoicedAt !== null && Date.now() - o.lastVoicedAt < YIELD_STALE_MS) o.media.interrupt();
@@ -596,7 +681,14 @@ export class CoupleSession implements LiveSession {
       this.lastInterruptAt = Date.now();
       this.log(`adviser barge-in — clearing ${s.profile.name}'s audio`);
       s.media.interrupt();
-      this.emit({ type: "interrupted" });
+      this.emit({ type: "interrupted", speaker: who });
+      this.transcript.markInterrupted(who);
+      // Park's cut-off notice: GPT-Live believes it said everything it
+      // generated; tell it the adviser did not hear the end.
+      s.bridge.append(
+        "thinking",
+        "(The adviser cut you off before you finished that reply; they did not hear the rest. Do not repeat it unless they ask.)",
+      );
     }, YIELD_GRACE_MS);
   }
 
