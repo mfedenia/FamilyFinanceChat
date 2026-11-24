@@ -1,5 +1,5 @@
 /**
- * Per-session GPT-Live upstream websocket — the v3 contract (`gpt-live-1`).
+ * Per-session GPT-Live upstream websocket — the v3 contract (`gpt-live-1.1`).
  *
  * GPT-Live is full-duplex: one continuous audio stream in each direction, and
  * the model manages turn-taking itself. Rather than manufacturing turn

@@ -2,7 +2,7 @@
  * Env-driven configuration. One `.env` at the repo root feeds everything —
  * the browser never sees any of it.
  *
- * GPT-Live is generally available; the model defaults to `gpt-live-1`.
+ * GPT-Live is generally available; the model defaults to `gpt-live-1.1`.
  */
 
 import { fileURLToPath } from "node:url";
@@ -33,7 +33,7 @@ export const config = {
 
   gptlive: {
     apiKey: env("OPENAI_API_KEY"),
-    model: env("GPT_LIVE_MODEL", "gpt-live-1"),
+    model: env("GPT_LIVE_MODEL", "gpt-live-1.1"),
     voice: env("GPT_LIVE_VOICE", "marin"),
     responsesModel: env("GPT_LIVE_RESPONSES_MODEL", "gpt-5.4-nano"),
     /**

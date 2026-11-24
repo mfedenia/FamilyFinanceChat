@@ -26,7 +26,7 @@ const OPENAI_API_BASE = "https://api.openai.com";
 // Not prompted for — filled in silently when absent so the preflight
 // (scripts/check-env.mjs) passes, and listed in the closing reminders.
 // Mirrored from .env.example.
-const DEFAULT_GPT_LIVE_MODEL = "gpt-live-1";
+const DEFAULT_GPT_LIVE_MODEL = "gpt-live-1.1";
 
 // The default avatar for a fresh setup. Also filled in only when absent —
 // an id already in .env is never overwritten.

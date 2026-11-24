@@ -108,7 +108,7 @@ replace: [docs/REPURPOSING.md](docs/REPURPOSING.md) is the excavation list.
 ## Env
 
 Required: `LIVEAVATAR_API_KEY`, `OPENAI_API_KEY`. GPT-Live is generally
-available; `GPT_LIVE_MODEL` defaults to `gpt-live-1` (`server/src/config.ts`).
+available; `GPT_LIVE_MODEL` defaults to `gpt-live-1.1` (`server/src/config.ts`).
 Missing vars warn at boot and fail `/api/session/start` with a message naming
 them.
 

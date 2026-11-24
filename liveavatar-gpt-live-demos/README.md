@@ -37,7 +37,7 @@ server, with the browser out of the loop.
 
 Requirements: Node ≥ 20.12, pnpm, a [LiveAvatar API key](https://app.liveavatar.com),
 and an OpenAI API key with GPT-Live access (generally available; this
-integration speaks the v3 contract, `gpt-live-1`).
+integration speaks the v3 contract, `gpt-live-1.1`).
 
 ```bash
 pnpm install
