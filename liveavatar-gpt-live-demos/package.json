@@ -13,7 +13,8 @@
     "dev": "node scripts/check-env.mjs && pnpm --parallel -r dev",
     "build": "pnpm -r build",
     "start": "node scripts/check-env.mjs && pnpm --filter server start",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "openwebui:setup": "node scripts/openwebui-setup.mjs"
   },
   "engines": {
     "node": ">=20.12"

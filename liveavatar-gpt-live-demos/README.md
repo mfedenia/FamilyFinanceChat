@@ -116,6 +116,49 @@ export (not needed now).
 
 Tests for these additions: `cd server && npx tsx --test test/couple-additions.test.ts`.
 
+### "Talk to the avatar" button in Open WebUI
+
+Students start from Open WebUI: they chat with **The Beckhams** model, and
+every reply carries a large **Talk to the avatar** banner that opens this app
+in a new tab (press *Start meeting*, then speak). A small microphone button in
+the reply's toolbar does the same.
+
+```bash
+pnpm openwebui:setup
+```
+
+installs it over Open WebUI's public REST API (re-runnable):
+
+- `openwebui/avatar_banner.py`, a **Filter** function: after each reply it
+  attaches the banner as an embed, stored beside the message and not in its
+  text, so transcripts and grading are unchanged. Open WebUI sandboxes embeds,
+  and a tab opened from inside one inherits the sandbox (this app then cannot
+  load), so the click is relayed to the chat page, which opens the tab. The
+  relay only opens `AVATAR_APP_URL`'s origin.
+- `openwebui/talk_with_avatar.py`, an **Action** function: the toolbar button.
+- the model preset `family-beckham` ("The Beckhams"): a text-chat role-play of
+  both spouses built from `server/prompts/couple/*.md`, readable by all users,
+  with both functions attached.
+
+Open WebUI extension surface: Functions (Filter + Action) and the public REST
+API; nothing in Open WebUI is changed. Checked against Open WebUI v0.11.4.
+After reloading the chat page, banners on earlier replies need one new message
+in that chat before they open (the banner says so).
+
+Settings, in this folder's `.env`:
+
+```
+OPENWEBUI_BASE_URL=http://localhost:3000
+OPENWEBUI_API_KEY=            # an admin's key (API keys must be enabled), or instead:
+OPENWEBUI_EMAIL=              # an admin login; on a brand-new Open WebUI
+OPENWEBUI_PASSWORD=           #   this account is created as the admin
+OPENWEBUI_BASE_MODEL=gpt-5.4-mini   # what the text chat runs on
+AVATAR_APP_URL=http://localhost:5173 # this app, as students' browsers reach it
+```
+
+`OPENWEBUI_BASE_URL` and `OPENWEBUI_API_KEY` alone do not switch the avatar's
+personas to Open WebUI; that also needs the two `COUPLE_OPENWEBUI_MODEL_*`.
+
 ## Troubleshooting a fresh clone
 
 **"Missing required env: …" when you run `pnpm dev`.** The preflight check
