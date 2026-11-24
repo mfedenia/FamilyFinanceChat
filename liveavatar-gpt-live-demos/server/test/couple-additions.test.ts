@@ -18,7 +18,44 @@ process.env.OPENAI_API_KEY ??= "test-only";
 process.env.LIVEAVATAR_API_KEY ??= "test-only";
 
 const { TranscriptRecorder } = await import("../src/transcript");
-const { handsOffTo, isBackchannel } = await import("../src/couple");
+const { handsOffTo, isBackchannel, decisionRequest, parseDecision } = await import("../src/couple");
+
+test("decisions: request follows the Decisions API guide (gpt-6-luna, choice + predicate)", () => {
+  const body = decisionRequest(["Tony: I work at UW-Milwaukee."], "And how much is in your 401(k)?", "tony");
+  assert.equal(body.model, "gpt-6-luna");
+  assert.equal(body.input[0]!.role, "developer");
+  assert.equal(body.input[1]!.role, "user");
+  assert.match(body.input[1]!.content[0]!.text, /Adviser's latest words: "And how much is in your 401\(k\)\?"/);
+  assert.match(body.input[1]!.content[0]!.text, /Last spouse to speak: Tony/);
+  const [speaker, chime] = body.questions;
+  assert.equal(speaker!.type, "choice");
+  assert.equal(speaker!.name, "speaker");
+  assert.deepEqual(speaker!.choices!.map((c) => c.value), ["tony", "antonella"]);
+  assert.ok(speaker!.choices!.every((c) => c.description.length > 50));
+  assert.equal(chime!.type, "predicate");
+  assert.equal(chime!.name, "chime_in");
+});
+
+test("decisions: answers, probabilities, chime-in threshold, refusals", () => {
+  const ok = parseDecision({
+    answers: [
+      { type: "choice", name: "speaker", choice: "antonella",
+        probabilities: [{ value: "tony", probability: 0.07 }, { value: "antonella", probability: 0.93 }] },
+      { type: "predicate", name: "chime_in", probability: 0.72 },
+    ],
+  });
+  assert.deepEqual(ok, { speaker: "antonella", chimeIn: true, probabilities: { tony: 0.07, antonella: 0.93 } });
+  const quiet = parseDecision({
+    answers: [
+      { type: "choice", name: "speaker", choice: "tony" },
+      { type: "predicate", name: "chime_in", probability: 0.4 },
+    ],
+  });
+  assert.deepEqual(quiet, { speaker: "tony", chimeIn: false, probabilities: {} });
+  assert.equal(parseDecision({ answers: [{ type: "refusal", name: "speaker" }] }), null);
+  assert.equal(parseDecision({ answers: [{ type: "choice", name: "speaker", choice: "rita" }] }), null);
+  assert.equal(parseDecision({}), null);
+});
 
 const tick = () => new Promise((r) => setTimeout(r, 5));
 

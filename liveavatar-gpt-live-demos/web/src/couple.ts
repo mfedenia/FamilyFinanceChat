@@ -79,7 +79,10 @@ function describeWhy(why: string | undefined, speaker: Speaker): string {
   if (why === "continuing") return "was still talking";
   if (why.startsWith("decision too slow")) return "answered first (decision too slow)";
   const m = /^(\S+) in (\d+)ms/.exec(why);
-  if (m) return `decision model, ${m[2]} ms${why.includes("chime-in") ? ", the other may chime in" : ""}`;
+  if (m) {
+    const odds = /\[([^\]]+)\]/.exec(why)?.[1]; // "tony 12% / antonella 88%"
+    return `${m[1]}, ${m[2]} ms${odds ? ` · ${odds}` : ""}${why.includes("chime-in") ? " · the other may chime in" : ""}`;
+  }
   return why;
 }
 

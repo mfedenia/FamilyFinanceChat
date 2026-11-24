@@ -11,7 +11,7 @@
  * audio gate, by a FLOOR:
  *
  *   - every new adviser turn opens a "round" with the floor undecided;
- *   - a fast decision model (DECISION_MODEL) reads the adviser's words — while
+ *   - a fast decision model (DECISION_MODEL, gpt-6-luna via the Decisions API) reads the adviser's words — while
  *     they are still being spoken, debounced — and picks who answers. Naming a
  *     spouse ("Antonella, ...") skips the model entirely;
  *   - only the floor holder's audio reaches its avatar. Audio produced while
@@ -190,64 +190,131 @@ function namedSpeaker(text: string): Speaker | null {
   return best?.who ?? null;
 }
 
-const DECISION_SYSTEM = `You run floor control in a spoken role-play: a student adviser is meeting a married couple, Tony Beckham (54, the husband) and Antonella Beckham (52, the wife). Decide which spouse should answer the adviser's latest words.
+// ── Floor decisions: OpenAI Decisions API ───────────────────────────────────
+// https://developers.openai.com/api/docs/guides/decisions — POST /v1/decisions
+// with gpt-6-luna (the only supported model): typed answers about 10x faster
+// than the Responses API, input $0.10 per 1M tokens, output not charged. One
+// request asks two questions: a `choice` (who answers, with a probability per
+// spouse) and a `predicate` (should the other spouse chime in).
 
-Tony's topics: his UW-Milwaukee job and salary, his freelance website business, his Wisconsin Retirement System pension, his unused 403(b) and 457, his brokerage account of green energy funds, his hobbies (gambling, cars, hunting, skiing), his high risk tolerance, his parents' heart disease, the Vail timeshare, the homeowners insurance.
-Antonella's topics: her Rockwell job, salary and bonus, her 401(k) and catch-up contributions, her variable annuity, her low risk tolerance, her father Giacomo, stepmother Pamela and the foundation, any inheritance from her family, her feelings about Rita.
+/** Stable context, sent first so repeated requests share a cacheable prefix. */
+const DECISION_CONTEXT = `A spoken role-play: a student adviser is meeting a married couple, Tony Beckham (54, the husband) and Antonella Beckham (52, the wife). The adviser speaks; one spouse answers.
 Shared topics (either can answer; prefer the one who has spoken less recently, or who would feel most strongly): retirement goals, Bradley and college, Alana, Max, wills and estate planning, life and long-term care insurance, budget, debts, the house.
+If the adviser addresses a spouse by name, or says "you" right after that spouse spoke, it is for that spouse. Short acknowledgements and follow-ups ("okay", "and how much is that?") go to whoever spoke last.`;
 
-If the adviser addresses a spouse by name, or says "you" right after that spouse spoke, give it to that spouse. Short acknowledgements and follow-ups ("okay", "and how much is that?") go to whoever spoke last.
-Set chime_in to true only when the other spouse would naturally add a brief reaction (they clearly disagree, e.g. about risk, or the topic is emotional and shared). Usually false.
-Reply with JSON only: {"speaker":"tony"|"antonella","chime_in":true|false}`;
+const SPEAKER_CHOICES = [
+  {
+    value: "tony",
+    description:
+      "Tony: his UW-Milwaukee job and salary, his freelance website business, his Wisconsin Retirement System pension, his unused 403(b) and 457, his brokerage account of green energy funds, his hobbies (gambling, cars, hunting, skiing), his high risk tolerance, his parents' heart disease, the Vail timeshare, the homeowners insurance.",
+  },
+  {
+    value: "antonella",
+    description:
+      "Antonella: her Rockwell job, salary and bonus, her 401(k) and catch-up contributions, her variable annuity, her low risk tolerance, her father Giacomo, stepmother Pamela and the foundation, any inheritance from her family, her feelings about Rita.",
+  },
+];
+
+/** The other spouse chimes in only when the predicate is at least this likely ("usually false"). */
+const CHIME_IN_THRESHOLD = 0.6;
+
+export interface SpeakerDecision {
+  speaker: Speaker;
+  chimeIn: boolean;
+  /** Probability per spouse from the choice answer, when returned. */
+  probabilities: Partial<Record<Speaker, number>>;
+}
+
+/** The request body, exported so tests can check it without a network. */
+export function decisionRequest(history: string[], latest: string, lastSpeaker: Speaker | null) {
+  return {
+    model: config.couple.decisionModel,
+    input: [
+      { role: "developer", content: [{ type: "input_text", text: DECISION_CONTEXT }] },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text:
+              `Recent conversation:\n${history.join("\n") || "(just started)"}\n\n` +
+              `Last spouse to speak: ${lastSpeaker ? PROFILES[lastSpeaker].name : "nobody yet"}\n` +
+              `Adviser's latest words: "${latest}"`,
+          },
+        ],
+      },
+    ],
+    questions: [
+      {
+        type: "choice",
+        name: "speaker",
+        instructions: "Which spouse should answer the adviser's latest words?",
+        choices: SPEAKER_CHOICES,
+      },
+      {
+        type: "predicate",
+        name: "chime_in",
+        instructions:
+          "After that spouse answers, would the other spouse naturally add one brief reaction, because they clearly disagree (for example about risk) or the topic is emotional and shared? Usually not.",
+      },
+    ],
+  };
+}
+
+type DecisionAnswer = {
+  type?: string;
+  name?: string;
+  choice?: unknown;
+  probability?: number;
+  probabilities?: { value?: unknown; probability?: number }[];
+};
+
+/** Read the two answers; null when the speaker answer is missing or refused. */
+export function parseDecision(body: { answers?: DecisionAnswer[] }): SpeakerDecision | null {
+  const answers = body.answers ?? [];
+  const who = answers.find((a) => a.name === "speaker");
+  if (!who || who.type !== "choice" || (who.choice !== "tony" && who.choice !== "antonella")) return null;
+  const probabilities: Partial<Record<Speaker, number>> = {};
+  for (const p of who.probabilities ?? []) {
+    if ((p.value === "tony" || p.value === "antonella") && typeof p.probability === "number") {
+      probabilities[p.value] = p.probability;
+    }
+  }
+  const chime = answers.find((a) => a.name === "chime_in");
+  const chimeIn = chime?.type === "predicate" && typeof chime.probability === "number" && chime.probability >= CHIME_IN_THRESHOLD;
+  return { speaker: who.choice, chimeIn, probabilities };
+}
 
 async function decideSpeaker(
   history: string[],
   latest: string,
   lastSpeaker: Speaker | null,
-): Promise<{ speaker: Speaker; chimeIn: boolean } | null> {
-  const model = config.couple.decisionModel;
-  const effort =
-    process.env.DECISION_REASONING ??
-    (model.startsWith("gpt-5.4") ? "none" : model.startsWith("gpt-6") ? "low" : "");
-  const response = await fetch("https://api.openai.com/v1/responses", {
+): Promise<SpeakerDecision | null> {
+  const response = await fetch(config.couple.decisionsUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${config.gptlive.apiKey}`,
       "Content-Type": "application/json",
     },
     signal: AbortSignal.timeout(DECISION_TIMEOUT_MS),
-    body: JSON.stringify({
-      model,
-      input: [
-        { role: "system", content: DECISION_SYSTEM },
-        {
-          role: "user",
-          content:
-            `Recent conversation:\n${history.join("\n") || "(just started)"}\n\n` +
-            `Last spouse to speak: ${lastSpeaker ? PROFILES[lastSpeaker].name : "nobody yet"}\n` +
-            `Adviser's latest words: "${latest}"`,
-        },
-      ],
-      text: { format: { type: "json_object" } },
-      max_output_tokens: 300,
-      ...(effort ? { reasoning: { effort } } : {}),
-    }),
+    body: JSON.stringify(decisionRequest(history, latest, lastSpeaker)),
   });
   if (!response.ok) {
-    throw new Error(`decision model HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`);
+    throw new Error(`Decisions API HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`);
   }
-  const body = (await response.json()) as {
-    output?: { type?: string; content?: { type?: string; text?: string }[] }[];
-  };
-  const text = body.output
-    ?.filter((o) => o.type === "message")
-    .flatMap((o) => o.content ?? [])
-    .find((c) => c.type === "output_text")?.text;
-  if (!text) return null;
-  const parsed = JSON.parse(text) as { speaker?: string; chime_in?: boolean };
-  if (parsed.speaker !== "tony" && parsed.speaker !== "antonella") return null;
-  return { speaker: parsed.speaker, chimeIn: parsed.chime_in === true };
+  return parseDecision((await response.json()) as { answers?: DecisionAnswer[] });
 }
+
+/** "tony 12% / antonella 88%" for logs, the page and the transcript. */
+function formatProbabilities(p: Partial<Record<Speaker, number>>): string {
+  return (["tony", "antonella"] as const)
+    .filter((s) => typeof p[s] === "number")
+    .map((s) => `${s} ${Math.round(p[s]! * 100)}%`)
+    .join(" / ");
+}
+
+// Mohammed's original version asked gpt-5.4-mini through the Responses API for
+// JSON; it is in git history at 2f3aed1.
 
 /** One spouse: a GPT-Live bridge and the avatar it drives. */
 class Spouse implements GptLiveEvents {
@@ -584,7 +651,7 @@ export class CoupleSession implements LiveSession {
     const seq = ++this.decisionSeq;
     const started = Date.now();
     this.lastDecisionAt = started;
-    let result: { speaker: Speaker; chimeIn: boolean } | null = null;
+    let result: SpeakerDecision | null = null;
     try {
       result = await decideSpeaker(this.history.slice(-HISTORY_LINES), text, this.lastSpeaker);
     } catch (err) {
@@ -600,7 +667,11 @@ export class CoupleSession implements LiveSession {
     // An older (shorter-text) decision is still useful while the floor is
     // open; once someone holds it, only the newest decision may change it.
     if (seq !== this.decisionSeq && this.floor !== null) return;
-    this.log(`decision: ${result.speaker}${result.chimeIn ? " +chime-in" : ""} in ${ms}ms for "${text.slice(0, 60)}"`);
+    const odds = formatProbabilities(result.probabilities);
+    this.log(
+      `decision: ${result.speaker}${result.chimeIn ? " +chime-in" : ""} in ${ms}ms` +
+        `${odds ? ` (${odds})` : ""} for "${text.slice(0, 60)}"`,
+    );
     if (this.floorSource === "named") return;
     this.chimeIn = result.chimeIn;
     // Don't yank the floor from someone already answering this round.
@@ -608,9 +679,11 @@ export class CoupleSession implements LiveSession {
       this.log(`decision ignored: ${PROFILES[this.floor].name} is already answering`);
       return;
     }
+    // e.g. "gpt-6-luna in 180ms [tony 12% / antonella 88%] (+chime-in)"
     this.setFloor(
       result.speaker,
-      `${config.couple.decisionModel} in ${Date.now() - started}ms${result.chimeIn ? " (+chime-in)" : ""}`,
+      `${config.couple.decisionModel} in ${Date.now() - started}ms` +
+        `${odds ? ` [${odds}]` : ""}${result.chimeIn ? " (+chime-in)" : ""}`,
     );
   }
 

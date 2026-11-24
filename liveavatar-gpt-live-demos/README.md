@@ -73,9 +73,12 @@ server. An empty `greeting.md` means the user speaks first.
 Open http://localhost:5173 after `pnpm dev`: two avatars, Tony and Antonella
 Beckham, each a GPT-Live session driving its own LiveAvatar LITE session
 (`server/src/couple.ts`). Both hear the student's mic; the server decides who
-answers (a name said wins at once, otherwise the decision model
-`DECISION_MODEL`, default `gpt-5.4-mini`) and only lets that spouse's voice
-through. The other spouse hears what was said as silent context. Wear
+answers (a name said wins at once, otherwise OpenAI's
+[Decisions API](https://developers.openai.com/api/docs/guides/decisions),
+`POST /v1/decisions` with `gpt-6-luna`: a `choice` question for who answers,
+with a probability per spouse, and a `predicate` for whether the other should
+chime in) and only lets that spouse's voice through. The OpenAI key needs the
+`api.decisions.write` permission. The other spouse hears what was said as silent context. Wear
 headphones. A meeting runs two LiveAvatar sessions, so it uses 2 credits per
 minute.
 
@@ -88,7 +91,7 @@ of Taehyun Park's duo (`feat/liveavatar-duo`) plus transcript saving:
 | **Handoff** (Park) | A spouse who ends by asking the other ("Antonella, what do you think?") hands over the floor; at most two in a row, then the floor returns to the adviser. |
 | **Backchannel** (Park) | "Mm-hmm" or "okay" (under three words, no question mark) while a spouse is still talking keeps that spouse speaking instead of opening a new decision. |
 | **Cut-off notice** (Park) | A spouse the adviser talks over is told, silently, that the end of its reply was not heard. |
-| **Decision shown on the page** | Under the controls: who has the floor and why (a name was said, decision model and its time, chime-in, handoff, backchannel). The same reasons are in the transcript's `floor` list. |
+| **Decision shown on the page** | Under the controls: who has the floor and why (a name was said; the decision model, its time and each spouse's probability; chime-in, handoff, backchannel). The same reasons are in the transcript's `floor` list. |
 | **Personas from Open WebUI** (Park, optional) | With the four variables below set, each spouse's persona is the system prompt of an Open WebUI client model preset, read through the public REST API before any avatar starts (a wrong id or key costs nothing). Otherwise `server/prompts/couple/*.md` is used. |
 
 Optional settings, in this folder's `.env` or the shell:

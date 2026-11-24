@@ -47,7 +47,13 @@ export const config = {
   /** The couple meeting (couple.ts): two spouses, one floor-deciding model. */
   couple: {
     /** Picks which spouse answers each adviser turn. Speed matters more than depth. */
-    decisionModel: env("DECISION_MODEL", "gpt-5.4-mini"),
+    /**
+     * OpenAI Decisions API (POST /v1/decisions); gpt-6-luna is the only model
+     * it supports. The key needs the api.decisions.write permission.
+     */
+    decisionModel: env("DECISION_MODEL", "gpt-6-luna"),
+    /** Overridable only so tests can point at a local stand-in. */
+    decisionsUrl: env("DECISIONS_URL", "https://api.openai.com/v1/decisions"),
     tony: {
       avatarId: env("TONY_AVATAR_ID", "a4991f42-d211-4581-9631-639f7fe7c635"), // William (Friendly)
       voice: env("TONY_VOICE", "cedar"),
