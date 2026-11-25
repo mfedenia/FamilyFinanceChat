@@ -9,12 +9,15 @@
  */
 import { fileURLToPath } from "node:url";
 
-// Same file the server loads. Missing is fine — deployed environments use
-// real env vars, which the check below still sees.
-try {
-  process.loadEnvFile(fileURLToPath(new URL("../.env", import.meta.url)));
-} catch {
-  /* no .env — ambient env only */
+// Same files the server loads (server/src/config.ts): this app's .env, then
+// the repo's main .env. Missing is fine — deployed environments use real env
+// vars, which the check below still sees.
+for (const file of ["../.env", "../../.env"]) {
+  try {
+    process.loadEnvFile(fileURLToPath(new URL(file, import.meta.url)));
+  } catch {
+    /* missing file — fine */
+  }
 }
 
 const required = ["LIVEAVATAR_API_KEY", "OPENAI_API_KEY"];

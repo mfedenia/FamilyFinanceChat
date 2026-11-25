@@ -31,10 +31,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-try {
-  process.loadEnvFile(join(ROOT, ".env"));
-} catch {
-  /* ambient env only */
+// Same files the server loads: this app's .env, then the repo's main .env.
+for (const file of [join(ROOT, ".env"), join(ROOT, "..", ".env")]) {
+  try {
+    process.loadEnvFile(file);
+  } catch {
+    /* missing file — fine */
+  }
 }
 
 const env = (k, d = "") => (process.env[k] ?? "").trim() || d;

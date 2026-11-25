@@ -7,12 +7,17 @@
 
 import { fileURLToPath } from "node:url";
 
-// Loaded before anything reads process.env. Missing file is fine — deployed
-// environments use real env vars.
-try {
-  process.loadEnvFile(fileURLToPath(new URL("../../.env", import.meta.url)));
-} catch {
-  /* no .env — ambient env only */
+// Loaded before anything reads process.env. Two files, both optional:
+// this app's own .env, then the FamilyFinanceChat repo's main .env (the one
+// Open WebUI's compose stack uses), so OPENAI_API_KEY, LIVEAVATAR_API_KEY etc.
+// can live in one place. A variable already set — in the shell, or by the
+// first file — is never overridden. Deployed environments use real env vars.
+for (const file of ["../../.env", "../../../.env"]) {
+  try {
+    process.loadEnvFile(fileURLToPath(new URL(file, import.meta.url)));
+  } catch {
+    /* missing file — fine */
+  }
 }
 
 const env = (name: string, fallback = ""): string =>
