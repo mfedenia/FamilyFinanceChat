@@ -53,7 +53,7 @@ const COUPLE = {
   name: "The Beckhams",
   description:
     "Tony (54) and Antonella (52), Milwaukee: the FIN 602 course case. " +
-    'Use the "Talk to the avatar" banner on any reply to talk to them face to face.',
+    'Click "▶ Start the meeting" below, then "Talk to the avatar" on their reply to talk to them face to face.',
   members: [
     { name: "Tony", fullName: "Tony Beckham", age: 54, role: "husband", file: "tony.md" },
     { name: "Antonella", fullName: "Antonella Beckham", age: 52, role: "wife", file: "antonella.md" },
@@ -176,8 +176,17 @@ async function installModel() {
       filterIds: [BANNER_FILTER_ID],
       avatar_members: COUPLE.members.map((m) => m.name).join(" & "),
       tags: [{ name: "family" }],
+      // Shown on the empty new-chat screen. One click sends it (Open WebUI's
+      // default), Tony and Antonella reply, and the reply carries the
+      // "Talk to the avatar" banner — the button cannot appear before a reply,
+      // because Open WebUI runs no function code until a message is sent.
+      // The content is a real opening line: it is the student's first
+      // question in the transcript the grader reads.
       suggestion_prompts: [
-        { content: "Hi, thanks for coming in. Could you each tell me a little about yourselves?" },
+        {
+          title: ["▶ Start the meeting", "Greets the Beckhams; the video-call button appears on their reply"],
+          content: "Hi, thanks for coming in. Could you each tell me a little about yourselves?",
+        },
       ],
     },
     params: { system: textPrompt() },

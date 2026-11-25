@@ -159,7 +159,10 @@ Tests for these additions: `cd server && npx tsx --test test/*.test.ts`.
 Students start from Open WebUI: they chat with **The Beckhams** model, and
 every reply carries a large **Talk to the avatar** banner that opens this app
 in a new tab (press *Start meeting*, then speak). A small microphone button in
-the reply's toolbar does the same.
+the reply's toolbar does the same. The empty new-chat screen shows a
+**▶ Start the meeting** card: one click sends a greeting, and the video button
+arrives on the reply. (It cannot appear before any reply: Open WebUI runs no
+function code until a message is sent.)
 
 ```bash
 pnpm openwebui:setup
