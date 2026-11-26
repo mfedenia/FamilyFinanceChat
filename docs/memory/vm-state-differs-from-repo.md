@@ -8,7 +8,7 @@ metadata:
 Observed on qasap-vm01 on 2026-10-17 (`docker ps`, `docker inspect`, `ls`, read-only), while
 scoping task A2:
 
-- **Production versions.** Production runs Open WebUI **0.8.12** (custom-built image
+- **Production versions.** *(Out of date: on 2026-11-26 production was running `ghcr.io/open-webui/open-webui:v0.13.4`. The rest of this note has not been re-checked.)* On 2026-10-17 production ran Open WebUI **0.8.12** (custom-built image
   `familyfinancechat-open-webui`) and Qdrant **1.17.1**. The containers were created about six
   months earlier. `main`'s `docker-compose.yml` pins `open-webui:v0.11.4` and `qdrant:v1.19.1`
   (commit `f247c21`, A8), so `docker compose up -d` from an up-to-date checkout would upgrade
