@@ -19,6 +19,13 @@ The 2027 items have **no access grants (admin-only)** until the files are upload
 ones are readable by all users. Same Qdrant, collection `open-webui_knowledge`; each KB is a
 `tenant_id`, so 2027 is kept apart from 2026 automatically.
 
+**System prompt (2026-11-26).** Both 2027 models carry the 2026 prompt plus a block between
+`=== CLIENT FACTS (BEGIN) ===` and `=== CLIENT FACTS (END) ===`, inserted before `OVERALL GOAL`: the
+2026 Client Data sheet, pages 1–14, re-extracted cleanly from the PDF (the job descriptions are
+left to the KB). It is a **placeholder**. Once the 2027 knowledge base is built, Mark wants to
+optimize what goes in it (swap in 2027 data, decide what belongs in the prompt and what in the KB). The
+first data-use rule was changed to name the facts block as a source alongside the knowledge collection.
+
 **Instance-wide RAG settings changed the same day** (they also apply to the 2026 models):
 top_k 2→5, chunk_size 400→800, chunk_overlap 100→150, hybrid search off→on, top_k_reranker
 3→5 (reranker `BAAI/bge-reranker-v2-m3`, relevance threshold 0.30 unchanged).
