@@ -40,5 +40,18 @@ for f in $COMPOSE $DOCKERFILES; do
   grep -inE '^\s*(image:|FROM)\s+\S+:latest["'\'']?\s*(#.*)?$' "$f" && err "$f uses a :latest image tag"
 done
 
+# 6. Production stack: only the reverse proxy is published beyond localhost (A16). Anything
+#    else must bind 127.0.0.1, or it bypasses TLS and the proxy's authentication.
+if [ -f docker-compose.yml ]; then
+  exposed=$(awk '
+    /^services:/                 { in_svc = 1; next }
+    /^[^ #]/                     { in_svc = 0 }
+    in_svc && /^  [A-Za-z0-9_.-]+:[ \t]*$/ { svc = $1; sub(":", "", svc) }
+    in_svc && /^[ \t]*-[ \t]*["'\'']?([0-9.]+:)?[0-9]+(-[0-9]+)?:[0-9]+(-[0-9]+)?(\/(tcp|udp))?["'\'']?[ \t]*(#.*)?$/ {
+      if ($0 !~ /127\.0\.0\.1:/ && svc != "proxy") printf "  %s (line %d): %s\n", svc, NR, $0
+    }' docker-compose.yml)
+  [ -n "$exposed" ] && { echo "$exposed"; err "docker-compose.yml publishes a non-proxy port on all interfaces; bind it to 127.0.0.1"; }
+fi
+
 [ "$fail" -eq 0 ] && echo "All compatibility guards passed."
 exit "$fail"

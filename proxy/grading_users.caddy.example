@@ -1,0 +1,16 @@
+# Grading dashboard accounts for the reverse proxy (HTTP basic auth).
+#
+# Copy to proxy/grading_users.caddy (gitignored) on the VM and add one line per instructor:
+#
+#   <username> <bcrypt hash>
+#
+# Generate a hash; it prompts for the password, so nothing lands in shell history:
+#
+#   docker compose run --rm proxy caddy hash-password
+#
+# Apply changes without downtime:
+#
+#   docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile
+#
+# Example (the hash below is a placeholder, not a usable account):
+# professor $2a$14$REPLACE_WITH_OUTPUT_OF_caddy_hash-password

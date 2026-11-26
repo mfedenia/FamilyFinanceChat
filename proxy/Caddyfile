@@ -1,0 +1,48 @@
+# Reverse proxy for the whole stack (A16).
+#
+# Open WebUI extension surface: reverse-proxy composition (COMPATIBILITY_POLICY.md, A9).
+# Nothing inside Open WebUI is touched; it sees an ordinary proxied HTTP client.
+#
+#   https://$PUBLIC_HOSTNAME/          -> Open WebUI   (its own login)
+#   https://$PUBLIC_HOSTNAME/grading/  -> grading dashboard (HTTP basic auth, below)
+#   https://$PUBLIC_HOSTNAME/grafana/  -> Grafana      (its own login)
+#
+# TLS is automatic: Caddy obtains and renews a Let's Encrypt certificate for PUBLIC_HOSTNAME,
+# which must resolve to the VM with ports 80 and 443 open. PUBLIC_HOSTNAME=localhost gives a
+# self-signed certificate for local testing. Setup and operations: SETUP.md section 9.
+
+{$PUBLIC_HOSTNAME} {
+	log
+
+	# --- Grading dashboard --------------------------------------------------------------
+	# The image is built with VITE_BASE=/grading/; the prefix is stripped here because the
+	# backend serves everything from /.
+	redir /grading /grading/ 308
+	handle_path /grading/* {
+		# Fallback authentication until university SSO is arranged (see SETUP.md section 9).
+		# Accounts come from grading_users.caddy (gitignored, one "<user> <bcrypt hash>" per
+		# line). If that file is missing or empty, every request gets 401: the dashboard
+		# fails closed and the rest of the site keeps running.
+		basic_auth bcrypt "FIN 602 grading dashboard" {
+			import grading_users*.caddy
+		}
+		reverse_proxy grading:9500 {
+			# The backend does not use the credentials; do not hand them on.
+			header_up -Authorization
+		}
+	}
+
+	# --- Grafana ------------------------------------------------------------------------
+	# Grafana serves itself under /grafana (GF_SERVER_SERVE_FROM_SUB_PATH), so the prefix is
+	# kept. No proxy auth: Grafana has its own login, and a basic-auth header would be
+	# interpreted by Grafana as an API login attempt.
+	@grafana path /grafana /grafana/*
+	handle @grafana {
+		reverse_proxy grafana:3000
+	}
+
+	# --- Open WebUI (everything else, including the /ws/socket.io WebSocket) ------------
+	handle {
+		reverse_proxy open-webui:8080
+	}
+}

@@ -1,0 +1,19 @@
+# Compose over docker-compose.test.yml and docker-compose.ci.yml with project
+# ffc-a13-rehearsal. This only selects an image and removes fixed container names;
+# restored production data must be supplied by the separate, verified A2 drill.
+services:
+  open-webui-test:
+    container_name: !reset null
+    image: ${REHEARSAL_OPENWEBUI_IMAGE:?set an approved pinned Open WebUI image}
+    ports: !override
+      - "127.0.0.1:${REHEARSAL_PORT:-43183}:8080"
+  qdrant-test:
+    container_name: !reset null
+  redis-test:
+    container_name: !reset null
+  mock-openai-test:
+    container_name: !reset null
+  pushgateway-test:
+    container_name: !reset null
+    ports: !override
+      - "127.0.0.1:${REHEARSAL_PUSHGATEWAY_PORT:-43193}:9091"

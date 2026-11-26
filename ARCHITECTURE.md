@@ -8,25 +8,32 @@ Repository: https://github.com/mfedenia/FamilyFinanceChat
 ## Component Overview
 
 ```
-                        ┌─────────────────────────────────────────────────────┐
-                        │               GCP VM · Docker Compose                │
-                        │                                                       │
-  Student ──HTTPS──►   │  OpenWebUI :3000 ◄──── Qdrant (internal)            │
-                        │       │    │    └──── Valkey/Redis (internal)        │
-  Instructor            │       │    │                                          │
-      │                 │       │    └──push metrics──► Pushgateway :9091      │
-      ▼                 │       │                              │                │
-  React Dashboard       │       └──chat completions──►  OpenAI API (external)  │
-  (local workstation)   │       └──file uploads──────►  GCS Bucket (external)  │
-      │                 │                                      │                │
-      └──REST──►        │  Grading Backend (local workstation) │                │
-                        │                                      ▼                │
-                        │  Prometheus :9090 ◄── scrapes ── Pushgateway          │
-                        │       │              ◄── scrapes ── cAdvisor :8080    │
-                        │       │              ◄── scrapes ── metrics-exporter  │
-                        │       ▼                                               │
-                        │  Grafana :3001                                        │
-                        └─────────────────────────────────────────────────────┘
+                        ┌─────────────────────────────────────────────────────────┐
+                        │                 GCP VM · Docker Compose                 │
+                        │                                                         │
+  Student ───┐          │ proxy (Caddy) :80/:443 — TLS, the only public entry     │
+  Instructor ┼─HTTPS──► │   ├─ /          ──► OpenWebUI (own login)               │
+  Maintainer ┘          │   ├─ /grading/  ──► Grading (basic auth at the proxy)   │
+                        │   └─ /grafana/  ──► Grafana (own login)                 │
+                        │                                                         │
+                        │ OpenWebUI ◄──── Qdrant (internal)                       │
+                        │   │  │  │    └──── Valkey/Redis (internal)              │
+                        │   │  │  └──OTel metrics──► otel-collector               │
+                        │   │  └──chat completions──► OpenAI API (external)       │
+                        │   └──file uploads──► GCS Bucket (external)              │
+                        │                                                         │
+                        │ Grading (dashboard + API, no host port)                 │
+                        │   │  └──REST /api/v1/* (API key)──► OpenWebUI           │
+                        │   └──scoring──► OpenAI API (external)                   │
+                        │                                                         │
+                        │ Prometheus ◄── scrapes ── otel-collector                │
+                        │      │      ◄── scrapes ── cAdvisor                     │
+                        │      │      ◄── scrapes ── metrics-exporter             │
+                        │      ▼                                                  │
+                        │ Grafana                                                 │
+                        │                                                         │
+                        │ Every port except the proxy's is bound to 127.0.0.1.    │
+                        └─────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -37,14 +44,16 @@ All services run on a shared bridge network `ai-net`.
 
 | Service | Image | Host Port | CPU / RAM Limit | Role |
 |---|---|---|---|---|
-| `open-webui` | `ghcr.io/open-webui/open-webui:v0.8.12` | 3000 | 2 CPU / 10 GB | Chat UI, LLM routing, user auth, chat history |
+| `proxy` | `caddy:2.10.2-alpine` | 80, 443 (public) | — | Reverse proxy: TLS, path routing, grading login (A16) |
+| `open-webui` | `ghcr.io/open-webui/open-webui:v0.11.4` | 3000 (`127.0.0.1`) | 2 CPU / 10 GB | Chat UI, LLM routing, user auth, chat history |
 | `qdrant` | `qdrant/qdrant:latest` | none (internal) | — | Vector database for RAG |
 | `redis` | `valkey/valkey:8.0.1-alpine` | none (internal) | 512 MB | WebSocket session state |
-| `cadvisor` | `gcr.io/cadvisor/cadvisor:latest` | 8080 | 0.5 CPU / 256 MB | Container CPU/memory/network metrics |
-| `prometheus` | `prom/prometheus:v2.51.2` | 9090 | — | Metrics collection, 30-day retention |
-| `pushgateway` | `prom/pushgateway:v1.8.0` | 9091 | — | Receives chat metrics pushed by Filter Function |
-| `metrics-exporter` | custom FastAPI build | 8001 | — | Probes OpenWebUI `/health` every 15s |
-| `grafana` | `grafana/grafana:9.0.0` | 3001 | — | Dashboards (default login: admin/admin) |
+| `cadvisor` | `ghcr.io/google/cadvisor:0.55.1` | 8080 (`127.0.0.1`) | 0.5 CPU / 256 MB | Container CPU/memory/network metrics |
+| `prometheus` | `prom/prometheus:v3.15.1` | 9090 (`127.0.0.1`) | — | Metrics collection, 30-day retention |
+| `pushgateway` | `prom/pushgateway:1.8.0` | 9091 | — | Receives chat metrics pushed by Filter Function |
+| `metrics-exporter` | custom FastAPI build | 8001 (`127.0.0.1`) | — | Probes OpenWebUI `/health` every 15s |
+| `grafana` | `grafana/grafana:13.2.5` | 3001 (`127.0.0.1`) | — | Dashboards at `/grafana/` and alerting, provisioned from `monitoring/grafana/provisioning/` (login: `admin` / `GRAFANA_ADMIN_PASSWORD`) |
+| `grading` | built from `grading_feature/Dockerfile` | none (via proxy at `/grading/`) | — | Grading dashboard: React frontend + FastAPI API in one container |
 
 **Key volume mounts:**
 - `/mnt/gcs/fin602 → /app/backend/data/uploads` — file uploads route to a GCS bucket mounted on the VM
@@ -52,6 +61,7 @@ All services run on a shared bridge network `ai-net`.
 - `/opt/qdrant/storage → /qdrant/storage` — vector index on disk
 - `/opt/prometheus/data → /prometheus` — 30-day time-series store
 - `/opt/grafana/data → /var/lib/grafana` — dashboard and datasource config
+- `grading-dashboard-data → /data` (named volume) — the grading service's extracted chat JSON
 
 ---
 
@@ -60,13 +70,13 @@ All services run on a shared bridge network `ai-net`.
 - **Provider:** OpenAI API (`https://api.openai.com/v1`)
 - **Model:** `gpt-4o-mini` (default; configurable via `OPENAI_MODEL` env var)
 - **Configured via:** `OPENAI_API_KEY`, `OPENAI_API_BASE_URL`, `OPENAI_MODEL` in `.env`
-- Ollama support exists in the RAG pipeline code (`rag_bio_project/src/llm.py`) but is not running — it was commented out in `docker-compose.yml`
+- Historical Ollama support in the retired RAG experiment is recoverable through the A22 decision; it is not an active retrieval path.
 
 ---
 
 ## RAG Pipeline
 
-Two separate RAG systems exist in this project.
+One retrieval path is supported: native Open WebUI Knowledge Bases backed by Qdrant (A22).
 
 ### 1. Native OpenWebUI RAG (active in production)
 
@@ -93,35 +103,12 @@ PDF/TXT/DOCX files
 | `RAG_FILE_MAX_SIZE` | `50` MB |
 | `RAG_ALLOWED_FILE_EXTENSIONS` | `pdf,md,txt,docx` |
 
-### 2. Custom Python RAG (`rag_bio_project/src/`)
+### Retired standalone research pipeline (A22)
 
-A standalone research/utility pipeline for FIN602 client biography documents. Not connected to OpenWebUI — runs as Python scripts or notebooks.
-
-```
-PDF/TXT files (rag_bio_project/data_pdfs/)
-  └─ loader.py — multi-source loader (PDF, TXT, URLs)
-       └─ splitter.py — type-aware splitting
-            PDF:  chunk_size=1000, overlap=150
-            TXT:  chunk_size=800,  overlap=100
-       └─ embeddings.py — builds embedding model
-            Default: BAAI/bge-m3 (HuggingFace, runs locally)
-            Optional: text-embedding-3-small (OpenAI), DashScope
-       └─ vectorstore.py — persists to ChromaDB
-            Collections named: {username}_{character}
-       └─ retriever.py — MMR retrieval
-            k=5, fetch_k=15, lambda=0.5
-            Strictness: strict=0.70 / medium=0.60 / loose=0.50
-       └─ prompting.py — 5 prompt templates, auto-selected by query keywords
-            rag_concise          — default
-            rag_with_citations   — "cite / citation / source"
-            rag_compare          — "compare / vs / difference"
-            rag_timeline         — "timeline / when / history"
-            rag_extraction       — "extract / structured / json"
-       └─ llm.py — LLM wrapper (OpenAI / DashScope / Ollama)
-       └─ pipeline.py — run_pipeline(question, cfg) end-to-end entry point
-```
-
-A pre-built Chroma index is committed at `rag_bio_project/index/`.
+The disconnected ChromaDB pipeline and generated index have been removed.
+Research notebooks remain in `archive/rag_bio_research/`; source PDFs remain in
+`rag_bio_project/data_pdfs/`. Neither is a deployed retrieval service.
+See [the decision and recovery reference](docs/decisions/a22-retrieval.md).
 
 ---
 
@@ -166,21 +153,31 @@ Grafana (port 3001)
 
 ## Grading & Scoring Pipeline
 
-The professor grading tools run **locally on a developer workstation** — they are not in the Docker Compose stack.
+The professor grading dashboard runs in the Compose stack as the `grading` service: one container that builds the
+React frontend to static files and serves it from the FastAPI backend, so the page and its API share one origin.
+It publishes no host port: instructors reach it at `https://<PUBLIC_HOSTNAME>/grading/`, where the reverse proxy
+requires a login (HTTP basic auth, A16; `SETUP.md` §9). The image is built with `VITE_BASE=/grading/` and the proxy
+strips that prefix before forwarding. For development it can still run locally (`run_app.sh`,
+see `SETUP.md` §8).
 
 ```
 OpenWebUI (production VM)
   └─ REST API: GET /api/v1/users/all + GET /api/v1/chats/all/db
        └─ extract_chats.py — normalizes into structured JSON
             {user_id, name, email, role, chats: [{title, message_pairs: [{timestamp, question, answer}]}]}
-       └─ Stored at OUTPUT_PATH (local file)
+       └─ Stored at OUTPUT_PATH (hosted: /data/extracted_chats.json in the grading-dashboard-data volume)
 
 Grading Backend (FastAPI, grading_feature/backend/)
-  └─ GET /refresh — triggers extraction, overwrites JSON file atomically
-  └─ GET /users — all students with chat counts
-  └─ GET /user/{id} — full chat history
-  └─ POST /api/score — score a list of questions via OpenAI
-  └─ GET /api/student-feedback — per-student or aggregate feedback
+  Every API route is under /api/; any other path serves the built frontend (client-side routes)
+  └─ GET /api/health — liveness probe (used by the compose healthcheck)
+  └─ POST /api/refresh — triggers asynchronous extraction and question pre-scoring in background
+  └─ GET /api/refresh/status — returns progress percentage, stage, and metadata
+  └─ GET /api/refresh?sync=true — legacy synchronous extraction fallback
+  └─ GET /api/users — all students with chat counts
+  └─ GET /api/user/{id} — full chat history
+  └─ POST /api/score — score a list of questions via OpenAI (cached)
+  └─ GET /api/student-feedback — per-student or aggregate feedback (cached)
+  └─ GET /api/cache/stats — SQLite score cache metrics
 
 Scoring (scoring_service.py):
   7 dimensions scored 0–2 each (total 0–14):

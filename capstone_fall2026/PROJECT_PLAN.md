@@ -418,6 +418,13 @@ you can do for the next team is not to write it in the last week.
 Full background, provider landscape, latency analysis, and evaluation design are in
 [`AVATAR_TRACK.md`](AVATAR_TRACK.md). This section is the task breakdown.
 
+> **Update, November 2026.** The provider is chosen (HeyGen LiveAvatar driven by OpenAI
+> GPT-Live), and the build now runs as tasks **AV0–AV7** in
+> [`AVATAR_TRACK.md` §16](AVATAR_TRACK.md#16-implementation-the-gpt-live-avatar-bridge-av0av7).
+> They cover B10, B12 and B13 for the prototype and replace the framework route of B6–B8.
+> The B tasks below remain the research and evaluation plan. B2 (consent) still gates any
+> real student session.
+
 **The architecture is decided by the compatibility rule and is not open for redesign:** the
 avatar is a **companion application in its own container**, using Open WebUI's public REST API
 for the model, the knowledge base, and the transcript. Embedding a video pane in Open WebUI's
@@ -945,7 +952,7 @@ rollback plan, or A25 (`HANDOFF.md`). Those are the ones that hurt someone else 
 | Grading backend | `grading_feature/backend/` — `extract_chats.py`, `scoring_service.py`, `main.py` |
 | Grading frontend | `grading_feature/frontend/` (React/Vite) |
 | Scoring logic (canonical) | `grading_feature/backend/scoring_service.py` — the JS duplicate was deleted 2026-08-19 |
-| Second retrieval stack | `rag_bio_project/` — fate to be decided (A22) |
+| Retrieval decision (A22) | Retire standalone ChromaDB; native Open WebUI + Qdrant is canonical. See [decision](../docs/decisions/a22-retrieval.md). |
 | Knowledge-base CLI | `tools/kb_sync/` — already API-based and upgrade-safe |
 | Old vendor fork | `legacy/custom-code-vendor-fork/` — **to be deleted** (A6) |
 

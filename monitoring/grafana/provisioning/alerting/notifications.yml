@@ -1,0 +1,21 @@
+# Where Grafana alerts go (A20). ALERT_EMAIL and the SMTP settings come from
+# .env through docker-compose.yml; Grafana expands ${...} when it loads this file.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: on-call-email
+    receivers:
+      - uid: on-call-email
+        type: email
+        settings:
+          addresses: ${ALERT_EMAIL}
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: on-call-email
+    group_by: [grafana_folder, alertname]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h

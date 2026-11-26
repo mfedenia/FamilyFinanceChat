@@ -1,9 +1,0 @@
-.env
-.env.*
-grading.env
-grading.env.*
-__pycache__/
-*.pyc
-.venv/
-venv/
-.git/

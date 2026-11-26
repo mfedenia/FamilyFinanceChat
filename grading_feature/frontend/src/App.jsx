@@ -7,7 +7,7 @@ import Navbar from './components/Navbar'
 
 export default function App() {
     return (
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
             <div className="dark min-h-screen bg-[#0d1117] text-[#e6edf3]">
 
                 <Navbar />

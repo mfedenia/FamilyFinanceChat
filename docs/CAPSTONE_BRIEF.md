@@ -1,3 +1,8 @@
+> A22 update (2026-11-12): the standalone ChromaDB code and index described below
+> have been retired. Source PDFs remain in place; notebooks are archived.
+> Native Open WebUI + Qdrant is the single supported retrieval path. See
+> [the decision](decisions/a22-retrieval.md). Remaining text is the historical brief.
+
 # FamilyFinanceChat — Capstone Demo Brief
 
 > Source of truth: production code as of April 2026. READMEs and docs treated as supplementary.
