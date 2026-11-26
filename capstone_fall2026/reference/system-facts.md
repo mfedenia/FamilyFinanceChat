@@ -17,8 +17,8 @@ them will have moved.
 | Container count (production) | 9 (8 + `grading` since A15, Oct 2026) | `docker-compose.yml` |
 | LLM | `gpt-4o-mini` via OpenAI API | `.env`, `ARCHITECTURE.md` |
 | Embeddings | `text-embedding-3-small` | `ARCHITECTURE.md` |
-| Vector store (production) | Qdrant, `k=5`, relevance threshold `0.30` | `ARCHITECTURE.md` |
-| Reranker | configured but **no model set** | `RAG_TOP_K_RERANKER=3`, model empty |
+| Vector store (production) | Qdrant; saved settings (2026-11-26): `k=5`, chunk `800`/`150`, hybrid search on, threshold `0.30` | live DB `config` table, `docs/memory/2027-knowledge-base-setup.md` |
+| Reranker | `BAAI/bge-reranker-v2-m3`, top-k reranker `5`, in use since hybrid search was turned on 2026-11-26 | live DB `config` table (env still says `3`, model empty) |
 | Open WebUI resource limit | 2 CPU / 10 GB RAM | `docker-compose.yml` |
 | Prometheus retention | 30 days | `docker-compose.yml` |
 | Grafana version | `13.2.5`; admin password from `GRAFANA_ADMIN_PASSWORD`, served at `/grafana/` (A16). Production's existing database still had `admin/admin` until reset (`SETUP.md` §9) | `docker-compose.yml` |
