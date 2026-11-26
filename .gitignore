@@ -140,3 +140,6 @@ capstone_fall2026/slides/.venv-pptx/
 
 # Word lock files
 ~$*
+
+# Claude-produced helper files (scripts, logs, data, reports), see artifacts/README.md
+artifacts/
