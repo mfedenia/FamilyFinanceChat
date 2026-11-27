@@ -33,8 +33,11 @@ the Cohere/Jina `/rerank` format (`results[].index`, `relevance_score`); Voyage'
 Rerun of the test: 36 pass, 4 partial, 1 fail, 0 timeouts; median 8 s, searches 7–23 s, whole run
 4 minutes (was over an hour). If Cohere is down, reranking returns nothing and search degrades
 rather than hangs. Remaining misses are the model *skipping* search on back-story not in the prompt
-(Darnell Whitaker, the $2,400 loss, the 529's history): a prompt nudge to search before answering
-life-history questions would likely fix them.
+(Darnell Whitaker, the $2,400 loss, the 529's history). Prompt v3 (same day) added a rule under
+WHERE YOUR FACTS COME FROM: search the knowledge collection before answering any life-history
+question or reading out a plan rule. Run 4: 37 pass, 3 partial, 1 fail, right file found 32/34,
+median 7 s. The model still occasionally skips search (B15, Darnell Whitaker); plan-rule answers
+vary run to run by one or two questions.
 
 **Accuracy is good when an answer arrives (run 2, local reranker).** In native mode 35 of 37 answered questions passed.
 The misses were one back-story search that returned nothing (Tony's cashed-out 401(k)) and one
