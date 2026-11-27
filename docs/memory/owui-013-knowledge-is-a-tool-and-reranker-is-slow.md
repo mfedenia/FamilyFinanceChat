@@ -1,6 +1,6 @@
 ---
 name: owui-013-knowledge-is-a-tool-and-reranker-is-slow
-description: In Open WebUI 0.13 a model's attached knowledge is a tool the model may or may not call (not automatic RAG), and with hybrid search the CPU reranker makes every search take ~30-160 s on qasap-vm01.
+description: In Open WebUI 0.13 a model's attached knowledge is a tool the model may or may not call (not automatic RAG); the local CPU reranker made searches take ~30-160 s on qasap-vm01, so reranking now runs on hosted Cohere (~8 s answers).
 metadata:
   type: project
 ---
@@ -25,7 +25,18 @@ mode, which searches both knowledge bases on every turn, was worse: 22 of 41 exc
 The log shows about 40 s of reranking per collection per query. The RAG settings are
 instance-wide, so the `2026` models are affected too.
 
-**Accuracy is good when an answer arrives.** In native mode 35 of 37 answered questions passed.
+**Fix applied 2026-11-27: reranking moved to Cohere.** Admin Settings → Documents: Reranking Engine
+`external`, model `rerank-v3.5`, URL `https://api.cohere.com/v2/rerank`, timeout 20 s; hybrid search
+still on. The key is Mark's production Cohere key, stored only in Open WebUI's config (set by
+`artifacts/scripts/rr1.sh`, which reads it from his clipboard). Open WebUI's external reranker speaks
+the Cohere/Jina `/rerank` format (`results[].index`, `relevance_score`); Voyage's format does not fit.
+Rerun of the test: 36 pass, 4 partial, 1 fail, 0 timeouts; median 8 s, searches 7–23 s, whole run
+4 minutes (was over an hour). If Cohere is down, reranking returns nothing and search degrades
+rather than hangs. Remaining misses are the model *skipping* search on back-story not in the prompt
+(Darnell Whitaker, the $2,400 loss, the 529's history): a prompt nudge to search before answering
+life-history questions would likely fix them.
+
+**Accuracy is good when an answer arrives (run 2, local reranker).** In native mode 35 of 37 answered questions passed.
 The misses were one back-story search that returned nothing (Tony's cashed-out 401(k)) and one
 partial answer (the $2,400 gambling loss).
 
