@@ -105,7 +105,7 @@ PDF/TXT/DOCX files
 
 **The `.env` values above are only first-boot defaults.** Open WebUI saves RAG settings in its
 database (`config` table), and those saved values win. As of 2026-11-26 production runs top-k
-`5`, chunk size `800` / overlap `150`, hybrid search **on**, reranker `BAAI/bge-reranker-v2-m3`
+`5`, chunk size `800` / overlap `150`, hybrid search **on**, reranker hosted Cohere `rerank-v3.5` (external engine, since 2026-11-27; was local `BAAI/bge-reranker-v2-m3`)
 with top-k reranker `5`, threshold `0.30`, and allowed extensions `pdf,txt,md`. Change them in
 Admin → Settings → Documents, not in `.env`. See
 [`docs/memory/2027-knowledge-base-setup.md`](docs/memory/2027-knowledge-base-setup.md).
