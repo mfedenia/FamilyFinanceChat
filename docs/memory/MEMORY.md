@@ -10,3 +10,4 @@ description is relevant. Format and conventions: [`README.md`](README.md).
 - [Agents do not merge PRs](agents-do-not-merge-prs.md) — Claude Code's auto mode refuses to merge an unreviewed PR; a person clicks Merge, and the agent pulls `main` afterwards.
 - [VM SSH needs project-level read](vm-ssh-access-needs-project-level-read.md) — instance-level osAdminLogin alone fails gcloud compute ssh on compute.projects.get; who has access and how it expires.
 - [2027 knowledge base setup](2027-knowledge-base-setup.md) — IDs of the private 2027 KBs and models, the instance-wide RAG settings changed for them on 2026-11-26, and why the DB config overrides env.
+- [2027 Beckham case is current](beckham-case-2027-is-current.md) — ignore 2026 material; where the 2027 sources (Drive Knowledgebase) and the master system prompt (Drive Prompts) live.
