@@ -24,7 +24,9 @@ https://drive.google.com/drive/folders/1DUdVdCNsidS6z-hrb7ZVgKd6Q-FNV_25
 https://drive.google.com/drive/folders/1oz5F13ia954BUJTOPJtOaEj2fLQ2UyNL, Doc "FIN602 Beckham
 role-play system prompt (2027)". It holds the rules plus a CLIENT FACTS block built from the 2027
 sheet. The Doc is the master copy: edit it there, then push it to the `2027` and
-`2027-audio-21-mini` models.
+`2027-audio-21-mini` models. v3 (2026-11-27) added the search-first rule. The Docs API is off in the
+service account's project, but the SA can replace the Doc's text with a Drive `files.update` media
+upload (`text/plain`, `supportsAllDrives`).
 
 **What's loaded in Open WebUI** (2026-11-26): KB "2027 personal data" holds the bios and the
 Client Data (exported to markdown with the images stripped). KB "2027 Employee Benefits" holds

@@ -24,7 +24,7 @@ ones are readable by all users. Same Qdrant, collection `open-webui_knowledge`; 
 
 **Instance-wide RAG settings changed the same day** (they also apply to the 2026 models):
 top_k 2→5, chunk_size 400→800, chunk_overlap 100→150, hybrid search off→on, top_k_reranker
-3→5 (reranker `BAAI/bge-reranker-v2-m3`, relevance threshold 0.30 unchanged).
+3→5 (reranker `BAAI/bge-reranker-v2-m3`, relevance threshold 0.30 unchanged). On 2026-11-27 the reranker moved to hosted Cohere `rerank-v3.5`; see [[owui-013-knowledge-is-a-tool-and-reranker-is-slow]].
 
 **Why:** Mark asked for "outstanding accuracy". The documents are mostly labelled numbers and
 plan rules, which 400-character chunks split apart, and hybrid search catches exact terms
